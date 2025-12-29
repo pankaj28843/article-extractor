@@ -2,7 +2,7 @@
 
 Pure-Python article extraction library that extracts main content from HTML documents and converts to Markdown.
 
-Uses [JustHTML](https://github.com/nicois/justhtml) for HTML parsing and implements Readability.js-style scoring for content detection.
+Uses [JustHTML](https://github.com/EmilStenstrom/justhtml) for HTML parsing and implements Readability.js-style scoring for content detection.
 
 ## Features
 
@@ -146,6 +146,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Credits
 
-- [JustHTML](https://github.com/nicois/justhtml) - Pure Python HTML5 parser
+- [JustHTML](https://github.com/EmilStenstrom/justhtml) - Pure Python HTML5 parser
 - [Mozilla Readability.js](https://github.com/mozilla/readability) - Scoring algorithm inspiration
-- [Mercury Parser](https://github.com/postlight/mercury-parser) - Additional scoring patterns
+- [Postlight Parser](https://github.com/postlight/parser) - Additional scoring patterns
