@@ -1,13 +1,13 @@
 """Constants for article extraction scoring.
 
-Derived from Readability.js and Mercury Parser algorithms.
+Derived from Readability.js and Postlight Parser algorithms.
 These constants are used by the scorer to identify content vs boilerplate.
 """
 
 import re
 
 # === TAG SCORING ===
-# From Readability.js and Mercury Parser tag scoring
+# From Readability.js and Postlight Parser tag scoring
 TAG_SCORES: dict[str, int] = {
     # Positive (content containers)
     "div": 5,
@@ -42,7 +42,7 @@ TAG_SCORES: dict[str, int] = {
 SCORABLE_TAGS: set[str] = {"section", "h2", "h3", "h4", "h5", "h6", "p", "td", "pre"}
 
 # === UNLIKELY CANDIDATES ===
-# From Readability.js REGEXPS.unlikelyCandidates and Mercury UNLIKELY_CANDIDATES_BLACKLIST
+# From Readability.js REGEXPS.unlikelyCandidates and Postlight UNLIKELY_CANDIDATES_BLACKLIST
 UNLIKELY_CANDIDATES: list[str] = [
     "ad-break",
     "adbox",
@@ -115,7 +115,7 @@ OK_MAYBE_CANDIDATES: list[str] = [
 OK_MAYBE_RE: re.Pattern[str] = re.compile("|".join(OK_MAYBE_CANDIDATES), re.IGNORECASE)
 
 # === POSITIVE SCORE HINTS ===
-# From Readability.js REGEXPS.positive and Mercury POSITIVE_SCORE_HINTS
+# From Readability.js REGEXPS.positive and Postlight POSITIVE_SCORE_HINTS
 POSITIVE_SCORE_HINTS: list[str] = [
     "article",
     "articlecontent",
@@ -137,7 +137,7 @@ POSITIVE_SCORE_HINTS: list[str] = [
 POSITIVE_SCORE_RE: re.Pattern[str] = re.compile("|".join(POSITIVE_SCORE_HINTS), re.IGNORECASE)
 
 # === NEGATIVE SCORE HINTS ===
-# From Readability.js REGEXPS.negative and Mercury NEGATIVE_SCORE_HINTS
+# From Readability.js REGEXPS.negative and Postlight NEGATIVE_SCORE_HINTS
 NEGATIVE_SCORE_HINTS: list[str] = [
     "-ad-",
     "hidden",
