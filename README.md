@@ -15,14 +15,17 @@ Uses [JustHTML](https://github.com/nicois/justhtml) for HTML parsing and impleme
 ## Installation
 
 ```bash
-# From PyPI (when published)
+# From PyPI
 pip install article-extractor
 
-# From GitHub
-pip install git+https://github.com/pankaj28843/article-extractor.git
+# With optional fetchers
+pip install article-extractor[httpx]       # Lightweight HTTP fetcher
+pip install article-extractor[playwright]  # JavaScript rendering support
+pip install article-extractor[all]         # All optional dependencies
 
 # With uv
-uv add git+https://github.com/pankaj28843/article-extractor.git
+uv add article-extractor
+uv add article-extractor --extra all       # With all optional dependencies
 ```
 
 ## Quick Start
