@@ -1,0 +1,94 @@
+[project]
+name = "article-extractor"
+version = "0.1.0"
+description = "Pure-Python article extraction library using Readability-style scoring"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Pankaj Kumar Singh", email = "pankaj28843@gmail.com" }]
+keywords = ["html", "article", "extraction", "readability", "markdown"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+dependencies = ["justhtml>=0.20.0"]
+
+[project.optional-dependencies]
+playwright = ["playwright>=1.49.0"]
+httpx = ["httpx>=0.28.0"]
+all = ["playwright>=1.49.0", "httpx>=0.28.0"]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
+    "pytest-cov>=7.0",
+    "ruff>=0.14",
+    "httpx>=0.28.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/pankaj28843/article-extractor"
+Repository = "https://github.com/pankaj28843/article-extractor"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/article_extractor"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 119
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "PTH",    # flake8-use-pathlib
+    "ASYNC",  # flake8-async
+]
+ignore = [
+    "E501",   # line length (handled by formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ARG001", "ARG002"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests (fast, no I/O)",
+    "integration: Integration tests (may use network)",
+]
+
+[tool.coverage.run]
+source = ["src/article_extractor"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
