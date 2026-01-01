@@ -29,8 +29,12 @@ def main() -> int:
     # Input source
     input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument("url", nargs="?", help="URL to extract article from")
-    input_group.add_argument("-f", "--file", type=Path, help="HTML file to extract from")
-    input_group.add_argument("--stdin", action="store_true", help="Read HTML from stdin")
+    input_group.add_argument(
+        "-f", "--file", type=Path, help="HTML file to extract from"
+    )
+    input_group.add_argument(
+        "--stdin", action="store_true", help="Read HTML from stdin"
+    )
 
     # Output format
     parser.add_argument(
@@ -42,9 +46,15 @@ def main() -> int:
     )
 
     # Extraction options
-    parser.add_argument("--min-words", type=int, default=150, help="Minimum word count (default: 150)")
-    parser.add_argument("--no-images", action="store_true", help="Exclude images from output")
-    parser.add_argument("--no-code", action="store_true", help="Exclude code blocks from output")
+    parser.add_argument(
+        "--min-words", type=int, default=150, help="Minimum word count (default: 150)"
+    )
+    parser.add_argument(
+        "--no-images", action="store_true", help="Exclude images from output"
+    )
+    parser.add_argument(
+        "--no-code", action="store_true", help="Exclude code blocks from output"
+    )
 
     # Server mode
     parser.add_argument(
@@ -52,8 +62,12 @@ def main() -> int:
         action="store_true",
         help="Start HTTP server instead of extracting",
     )
-    parser.add_argument("--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=3000, help="Server port (default: 3000)")
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)"
+    )
+    parser.add_argument(
+        "--port", type=int, default=3000, help="Server port (default: 3000)"
+    )
 
     args = parser.parse_args()
 
@@ -68,7 +82,9 @@ def main() -> int:
             return 0
         except ImportError:
             print("Error: Server dependencies not installed", file=sys.stderr)
-            print("Install with: pip install article-extractor[server]", file=sys.stderr)
+            print(
+                "Install with: pip install article-extractor[server]", file=sys.stderr
+            )
             return 1
 
     # Extract mode

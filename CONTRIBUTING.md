@@ -93,11 +93,10 @@ All pull requests and commits to `main` trigger automated checks:
 ### CI Workflow (`.github/workflows/ci.yml`)
 
 **Test Job:**
-- Runs on Python 3.10, 3.11, 3.12, 3.13, 3.14
-- Runs on Ubuntu, macOS, Windows
-- Executes full test suite with coverage
-- Enforces 94%+ coverage threshold
-- Uploads coverage to Codecov
+- Runs on Python 3.12, 3.13, 3.14 (Ubuntu latest)
+- Executes full test suite with coverage reporting
+- Enforces a ≥90% coverage threshold directly via pytest
+- Uploads coverage to Codecov (Python 3.12 only)
 
 **Lint Job:**
 - Checks code formatting with Ruff

@@ -81,7 +81,7 @@ def code_heavy_html() -> str:
             <h1>Installation Guide</h1>
             <p>Follow these steps to install the package.</p>
             <h2>Requirements</h2>
-            <p>Python 3.10 or higher is required.</p>
+            <p>Python 3.12 or higher is required.</p>
             <pre><code>pip install example-package</code></pre>
             <h2>Configuration</h2>
             <p>Configure the settings as shown below:</p>

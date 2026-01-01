@@ -21,7 +21,10 @@ class TestExtractArticle:
         # Title should be extracted
         assert "Test Article" in result.title
         # Content should include article text
-        assert "first paragraph" in result.content.lower() or "paragraph" in result.markdown.lower()
+        assert (
+            "first paragraph" in result.content.lower()
+            or "paragraph" in result.markdown.lower()
+        )
 
     def test_returns_failure_for_minimal_content(self, minimal_html: str):
         """Should return failure when content is below thresholds."""
@@ -203,7 +206,10 @@ class TestTitleExtraction:
         result = extract_article(html, url="https://example.com")
         if result.success:
             # May use h1 or title depending on heuristics
-            assert result.title in ["Specific Article Title", "Generic Site Title - Company"]
+            assert result.title in [
+                "Specific Article Title",
+                "Generic Site Title - Company",
+            ]
 
 
 @pytest.mark.unit
@@ -457,7 +463,9 @@ class TestExtractArticleFromUrl:
                 return simple_article_html, 200
 
         opts = ExtractionOptions(min_word_count=1)  # Very low threshold
-        result = await extract_article_from_url("https://example.com", fetcher=FakeFetcher(), options=opts)
+        result = await extract_article_from_url(
+            "https://example.com", fetcher=FakeFetcher(), options=opts
+        )
 
         assert result.success is True
 
@@ -717,5 +725,7 @@ class TestExtractArticleFromUrlAutoFetcher:
                 return simple_article_html, 200
 
         with patch.object(fetcher_module, "PlaywrightFetcher", FakeFetcher):
-            result = await extract_article_from_url("https://example.com", prefer_playwright=True)
+            result = await extract_article_from_url(
+                "https://example.com", prefer_playwright=True
+            )
             assert result.success is True

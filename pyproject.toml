@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Pure-Python article extraction library and HTTP service - Drop-in replacement for readability-js-server"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Pankaj Kumar Singh", email = "pankaj28843@gmail.com" }]
 keywords = ["html", "article", "extraction", "readability", "markdown"]
 classifiers = [
@@ -12,8 +12,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -52,8 +50,7 @@ build-backend = "hatchling.build"
 packages = ["src/article_extractor"]
 
 [tool.ruff]
-target-version = "py310"
-line-length = 119
+line-length = 88
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -110,6 +107,7 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config"]
 markers = [
     "unit: Unit tests (fast, no I/O)",
     "integration: Integration tests (may use network)",

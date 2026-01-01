@@ -91,10 +91,14 @@ class TestPlaywrightFetcherFetch:
         page = AsyncMock()
         context.new_page.return_value = page
         page.goto.return_value = SimpleNamespace(status=200)
-        page.content = AsyncMock(side_effect=["<html>content</html>", "<html>content</html>"])
+        page.content = AsyncMock(
+            side_effect=["<html>content</html>", "<html>content</html>"]
+        )
 
         with patch("asyncio.sleep", AsyncMock()):
-            _content, status = await fetcher.fetch("https://example.com", wait_for_selector="#app")
+            _content, status = await fetcher.fetch(
+                "https://example.com", wait_for_selector="#app"
+            )
 
         page.wait_for_selector.assert_awaited_once_with("#app", timeout=5000)
         assert status == 200
@@ -113,7 +117,9 @@ class TestPlaywrightFetcherFetch:
         page.goto.return_value = SimpleNamespace(status=200)
         page.content = AsyncMock(return_value="<html>immediate</html>")
 
-        content, status = await fetcher.fetch("https://example.com", wait_for_stability=False)
+        content, status = await fetcher.fetch(
+            "https://example.com", wait_for_stability=False
+        )
 
         assert status == 200
         assert content == "<html>immediate</html>"
@@ -135,7 +141,9 @@ class TestPlaywrightFetcherFetch:
         page.content = AsyncMock(return_value="<html>fallback</html>")
 
         caplog.set_level("WARNING")
-        content, status = await fetcher.fetch("https://example.com", wait_for_selector="#slow")
+        content, status = await fetcher.fetch(
+            "https://example.com", wait_for_selector="#slow"
+        )
 
         assert status == 408
         assert content == "<html>fallback</html>"
@@ -156,7 +164,9 @@ class TestPlaywrightFetcherFetch:
         page.content = AsyncMock(side_effect=["<html></html>", "<html></html>"])
 
         with patch("asyncio.sleep", AsyncMock()):
-            _content, status = await fetcher.fetch("https://example.com", wait_for_stability=True)
+            _content, status = await fetcher.fetch(
+                "https://example.com", wait_for_stability=True
+            )
 
         assert status == 200
 
@@ -413,7 +423,9 @@ class TestPlaywrightFetcherContextManager:
         assert mock_context.close.await_count == 1
         assert mock_browser.close.await_count == 1
 
-    async def test_aexit_handles_storage_save_failure(self, tmp_path, monkeypatch, caplog):
+    async def test_aexit_handles_storage_save_failure(
+        self, tmp_path, monkeypatch, caplog
+    ):
         """__aexit__ should handle storage save failure gracefully."""
         from article_extractor import PlaywrightFetcher
 
@@ -433,7 +445,9 @@ class TestPlaywrightFetcherContextManager:
         caplog.set_level("WARNING")
         await fetcher.__aexit__(None, None, None)
 
-        assert any("Failed to save storage state" in message for message in caplog.messages)
+        assert any(
+            "Failed to save storage state" in message for message in caplog.messages
+        )
 
 
 @pytest.mark.unit

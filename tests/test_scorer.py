@@ -183,12 +183,18 @@ class TestScoreParagraph:
         assert len(short_nodes) == 1
         assert len(long_nodes) == 1
 
-        assert score_paragraph(long_nodes[0], cache) > score_paragraph(short_nodes[0], cache)
+        assert score_paragraph(long_nodes[0], cache) > score_paragraph(
+            short_nodes[0], cache
+        )
 
     def test_commas_add_score(self, cache: ExtractionCache):
         """Commas in text should add to score."""
-        no_commas_html = "<p>This is a sentence without any punctuation marks just text here</p>"
-        with_commas_html = "<p>This, however, has commas, which add points to the score</p>"
+        no_commas_html = (
+            "<p>This is a sentence without any punctuation marks just text here</p>"
+        )
+        with_commas_html = (
+            "<p>This, however, has commas, which add points to the score</p>"
+        )
 
         no_commas_doc = JustHTML(no_commas_html)
         with_commas_doc = JustHTML(with_commas_html)
@@ -196,7 +202,9 @@ class TestScoreParagraph:
         no_commas_nodes = no_commas_doc.query("p")
         with_commas_nodes = with_commas_doc.query("p")
 
-        assert score_paragraph(with_commas_nodes[0], cache) > score_paragraph(no_commas_nodes[0], cache)
+        assert score_paragraph(with_commas_nodes[0], cache) > score_paragraph(
+            no_commas_nodes[0], cache
+        )
 
     def test_minimum_score_for_short_paragraph(self, cache: ExtractionCache):
         """Short paragraphs below MIN_PARAGRAPH_LENGTH return 0."""

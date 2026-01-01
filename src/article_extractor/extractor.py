@@ -8,6 +8,8 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlparse
 
@@ -136,7 +138,9 @@ class ArticleExtractor:
 
         # Extract content
         try:
-            content_html = top_candidate.to_html(indent=2, safe=self.options.safe_markdown)
+            content_html = top_candidate.to_html(
+                indent=2, safe=self.options.safe_markdown
+            )
             markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
             text = top_candidate.to_text(separator=" ", strip=True)
         except Exception as e:
@@ -157,7 +161,9 @@ class ArticleExtractor:
 
         # Check minimum word count
         if word_count < self.options.min_word_count:
-            warnings.append(f"Content below minimum word count ({word_count} < {self.options.min_word_count})")
+            warnings.append(
+                f"Content below minimum word count ({word_count} < {self.options.min_word_count})"
+            )
 
         # Extract excerpt
         excerpt = extract_excerpt(text)
@@ -193,13 +199,19 @@ class ArticleExtractor:
 
         return doc
 
-    def _find_candidates(self, doc: JustHTML, cache: ExtractionCache) -> list[SimpleDomNode]:
+    def _find_candidates(
+        self, doc: JustHTML, cache: ExtractionCache
+    ) -> list[SimpleDomNode]:
         """Find potential content container candidates."""
         # Look for semantic article containers first (fast path)
-        candidates = [node for node in doc.query("article") if not is_unlikely_candidate(node)]
+        candidates = [
+            node for node in doc.query("article") if not is_unlikely_candidate(node)
+        ]
 
         # Add main elements
-        candidates.extend(node for node in doc.query("main") if not is_unlikely_candidate(node))
+        candidates.extend(
+            node for node in doc.query("main") if not is_unlikely_candidate(node)
+        )
 
         # If we found semantic containers, use them directly
         if candidates:
@@ -209,18 +221,22 @@ class ArticleExtractor:
         candidates.extend(
             node
             for node in doc.query("div")
-            if not is_unlikely_candidate(node) and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
+            if not is_unlikely_candidate(node)
+            and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
         )
 
         candidates.extend(
             node
             for node in doc.query("section")
-            if not is_unlikely_candidate(node) and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
+            if not is_unlikely_candidate(node)
+            and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
         )
 
         return candidates
 
-    def _find_top_candidate(self, doc: JustHTML, cache: ExtractionCache) -> SimpleDomNode | None:
+    def _find_top_candidate(
+        self, doc: JustHTML, cache: ExtractionCache
+    ) -> SimpleDomNode | None:
         """Find the best content container using Readability algorithm."""
         candidates = self._find_candidates(doc, cache)
 
@@ -273,7 +289,9 @@ class ArticleExtractor:
             path = urlparse(url).path
             if path and path != "/":
                 # Convert path to title-like string
-                title = path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
+                title = (
+                    path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
+                )
                 return title.title()
 
         return "Untitled"
@@ -309,6 +327,7 @@ async def extract_article_from_url(
     options: ExtractionOptions | None = None,
     *,
     prefer_playwright: bool = True,
+    executor: Executor | None = None,
 ) -> ArticleResult:
     """Fetch URL and extract article content.
 
@@ -319,6 +338,7 @@ async def extract_article_from_url(
         fetcher: Optional fetcher instance
         options: Extraction options
         prefer_playwright: If auto-creating fetcher, prefer Playwright
+        executor: Optional executor for CPU-bound parsing work
 
     Returns:
         ArticleResult with extracted content
@@ -352,15 +372,16 @@ async def extract_article_from_url(
             )
 
         async with fetcher_class() as auto_fetcher:
-            return await _extract_with_fetcher(extractor, url, auto_fetcher)
+            return await _extract_with_fetcher(extractor, url, auto_fetcher, executor)
 
-    return await _extract_with_fetcher(extractor, url, fetcher)
+    return await _extract_with_fetcher(extractor, url, fetcher, executor)
 
 
 async def _extract_with_fetcher(
     extractor: ArticleExtractor,
     url: str,
     fetcher: Fetcher,
+    executor: Executor | None,
 ) -> ArticleResult:
     """Internal helper to extract with a fetcher."""
     try:
@@ -378,7 +399,7 @@ async def _extract_with_fetcher(
                 error=f"HTTP {status_code}",
             )
 
-        return extractor.extract(html, url)
+        return await _run_extraction(extractor, html, url, executor)
 
     except Exception as e:
         return ArticleResult(
@@ -391,3 +412,18 @@ async def _extract_with_fetcher(
             success=False,
             error=str(e),
         )
+
+
+async def _run_extraction(
+    extractor: ArticleExtractor,
+    html: str,
+    url: str,
+    executor: Executor | None,
+) -> ArticleResult:
+    """Execute extraction optionally in a dedicated executor."""
+
+    if executor is None:
+        return extractor.extract(html, url)
+
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor, extractor.extract, html, url)

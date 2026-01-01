@@ -58,7 +58,9 @@ def test_main_url_json_output(mock_result, capsys):
 def test_main_url_markdown_output(mock_result, capsys):
     """Test extracting from URL with markdown output."""
     with patch("article_extractor.cli.asyncio.run", return_value=mock_result):
-        with patch("sys.argv", ["article-extractor", "https://example.com", "-o", "markdown"]):
+        with patch(
+            "sys.argv", ["article-extractor", "https://example.com", "-o", "markdown"]
+        ):
             assert main() == 0
 
     captured = capsys.readouterr()
@@ -69,7 +71,9 @@ def test_main_url_markdown_output(mock_result, capsys):
 def test_main_url_text_output(mock_result, capsys):
     """Test extracting from URL with text output."""
     with patch("article_extractor.cli.asyncio.run", return_value=mock_result):
-        with patch("sys.argv", ["article-extractor", "https://example.com", "-o", "text"]):
+        with patch(
+            "sys.argv", ["article-extractor", "https://example.com", "-o", "text"]
+        ):
             assert main() == 0
 
     captured = capsys.readouterr()
@@ -121,7 +125,15 @@ def test_main_extraction_options(mock_result):
     with (
         patch("article_extractor.cli.asyncio.run", return_value=mock_result),
         patch(
-            "sys.argv", ["article-extractor", "https://example.com", "--min-words", "200", "--no-images", "--no-code"]
+            "sys.argv",
+            [
+                "article-extractor",
+                "https://example.com",
+                "--min-words",
+                "200",
+                "--no-images",
+                "--no-code",
+            ],
         ),
     ):
         result = main()
@@ -140,7 +152,9 @@ def test_main_keyboard_interrupt(capsys):
 
 def test_main_exception(capsys):
     """Test handling general exceptions."""
-    with patch("article_extractor.cli.asyncio.run", side_effect=RuntimeError("Test error")):
+    with patch(
+        "article_extractor.cli.asyncio.run", side_effect=RuntimeError("Test error")
+    ):
         with patch("sys.argv", ["article-extractor", "https://example.com"]):
             assert main() == 1
 
@@ -168,7 +182,10 @@ def test_server_mode_custom_host_port():
     mock_uvicorn_module.run = mock_run
 
     with patch.dict("sys.modules", {"uvicorn": mock_uvicorn_module}):
-        with patch("sys.argv", ["article-extractor", "--server", "--host", "127.0.0.1", "--port", "8000"]):
+        with patch(
+            "sys.argv",
+            ["article-extractor", "--server", "--host", "127.0.0.1", "--port", "8000"],
+        ):
             assert main() == 0
 
     assert mock_run.called

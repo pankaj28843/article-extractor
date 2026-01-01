@@ -120,7 +120,9 @@ class PlaywrightFetcher:
     async def __aenter__(self) -> PlaywrightFetcher:
         """Create browser instance for this fetcher."""
         if not _check_playwright():
-            raise ImportError("playwright not installed. Install with: pip install article-extractor[playwright]")
+            raise ImportError(
+                "playwright not installed. Install with: pip install article-extractor[playwright]"
+            )
 
         from playwright.async_api import async_playwright
 
@@ -130,7 +132,9 @@ class PlaywrightFetcher:
         self._playwright = await async_playwright().start()
 
         # Check for HTTP proxy
-        http_proxy_key = next((k for k in os.environ if k.lower() == "http_proxy"), None)
+        http_proxy_key = next(
+            (k for k in os.environ if k.lower() == "http_proxy"), None
+        )
         http_proxy = os.environ.get(http_proxy_key) if http_proxy_key else None
 
         # Launch browser
@@ -166,7 +170,9 @@ class PlaywrightFetcher:
         self._context = await self._browser.new_context(**context_options)
         self._semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_PAGES)
 
-        logger.info(f"Playwright browser created (max {self.MAX_CONCURRENT_PAGES} concurrent pages)")
+        logger.info(
+            f"Playwright browser created (max {self.MAX_CONCURRENT_PAGES} concurrent pages)"
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -223,7 +229,9 @@ class PlaywrightFetcher:
             page = await self._context.new_page()
 
             try:
-                response = await page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+                response = await page.goto(
+                    url, wait_until="domcontentloaded", timeout=self.timeout
+                )
 
                 try:
                     if wait_for_selector:
@@ -245,12 +253,18 @@ class PlaywrightFetcher:
                         content = await page.content()
 
                     status_code = response.status if response else 200
-                    logger.info(f"Fetched {url} (status: {status_code}, {len(content)} chars)")
+                    logger.info(
+                        f"Fetched {url} (status: {status_code}, {len(content)} chars)"
+                    )
                     return content, status_code
 
-                except asyncio.TimeoutError:
-                    selector_msg = f" '{wait_for_selector}'" if wait_for_selector else ""
-                    logger.warning(f"Timed out waiting for selector{selector_msg} on {url}")
+                except TimeoutError:
+                    selector_msg = (
+                        f" '{wait_for_selector}'" if wait_for_selector else ""
+                    )
+                    logger.warning(
+                        f"Timed out waiting for selector{selector_msg} on {url}"
+                    )
                     return await page.content(), 408
 
             finally:
@@ -267,8 +281,12 @@ class PlaywrightFetcher:
             pages = self._context.pages
             for page in pages:
                 with contextlib.suppress(Exception):
-                    await page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
-            logger.warning("Cleared all storage state - browser now looks LESS like a real user!")
+                    await page.evaluate(
+                        "() => { localStorage.clear(); sessionStorage.clear(); }"
+                    )
+            logger.warning(
+                "Cleared all storage state - browser now looks LESS like a real user!"
+            )
 
         if self.STORAGE_STATE_FILE.exists():
             self.STORAGE_STATE_FILE.unlink()
@@ -340,7 +358,9 @@ class HttpxFetcher:
     async def __aenter__(self) -> HttpxFetcher:
         """Create httpx client."""
         if not _check_httpx():
-            raise ImportError("httpx not installed. Install with: pip install article-extractor[httpx]")
+            raise ImportError(
+                "httpx not installed. Install with: pip install article-extractor[httpx]"
+            )
 
         import httpx
 

@@ -10,6 +10,8 @@
 
 Article Extractor provides a **Python library**, **HTTP API server**, and **CLI tool** for extracting main content from HTML documents (articles, blog posts, documentation) and converting it to clean Markdown or HTML.
 
+> **Requires Python 3.12+**
+
 ## Why Article Extractor?
 
 - **Pure Python** – No Node.js, no Selenium, no external APIs
@@ -240,6 +242,9 @@ Algorithm based on [Mozilla Readability.js](https://github.com/mozilla/readabili
 HOST=0.0.0.0        # Server bind address
 PORT=3000           # Server port
 LOG_LEVEL=info      # Logging level (debug, info, warning, error)
+WEB_CONCURRENCY=2   # Number of uvicorn workers (auto-tuned in Docker image)
+ARTICLE_EXTRACTOR_CACHE_SIZE=1000   # Max in-memory LRU entries (overridable per deployment)
+ARTICLE_EXTRACTOR_THREADPOOL_SIZE=0 # Optional override for CPU-bound worker threads (0 = auto)
 ```
 
 **Production deployment:**
@@ -250,7 +255,10 @@ uvicorn article_extractor.server:app \
     --host 0.0.0.0 \
     --port 3000 \
     --workers 4 \
-    --log-level info
+    --log-level info \
+    --proxy-headers \
+    --forwarded-allow-ips "*" \
+    --lifespan=auto
 
 # With Docker (daemon mode)
 docker run -d \
@@ -258,6 +266,7 @@ docker run -d \
     --name article-extractor \
     --restart unless-stopped \
     -e LOG_LEVEL=info \
+    -e WEB_CONCURRENCY=4 \
     ghcr.io/pankaj28843/article-extractor:latest
 ```
 

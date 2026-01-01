@@ -1,33 +1,41 @@
+# syntax=docker/dockerfile:1.6
+
 # Multi-architecture Dockerfile for article-extractor HTTP server
 # Supports both linux/amd64 and linux/arm64 platforms
 # Production-ready with uvicorn, health checks, and multi-worker support
 
-# Build stage
-FROM python:3.12-slim AS builder
+ARG PYTHON_VERSION=3.14-slim
+ARG UV_VERSION=0.4.24
 
-# Set environment variables
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
+# Build stage: install dependencies with uv using cached layers
+FROM python:${PYTHON_VERSION} AS builder
+
+COPY --from=uv /uv /usr/local/bin/uv
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
-# Install uv for fast dependency management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Copy lockfiles first to maximize cache hits
+COPY pyproject.toml uv.lock README.md LICENSE ./
 
-# Copy dependency files first for better caching
-COPY pyproject.toml uv.lock README.md ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --no-dev --no-editable --extra server --extra httpx
 
-# Copy source code (needed for package build)
+# Copy remaining source after deps are installed
 COPY src/ ./src/
-COPY LICENSE ./
 
-# Install dependencies with server support and build package
-RUN uv sync --frozen --no-dev --no-editable --extra server --extra httpx
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-editable --extra server --extra httpx
 
 # Runtime stage - minimal image
-FROM python:3.12-slim AS runtime
+FROM python:${PYTHON_VERSION} AS runtime
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="article-extractor" \
@@ -40,11 +48,10 @@ LABEL org.opencontainers.image.title="article-extractor" \
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    # Server configuration
     HOST=0.0.0.0 \
     PORT=3000 \
     LOG_LEVEL=info \
-    # Run as non-root user
+    WEB_CONCURRENCY=2 \
     APP_USER=appuser \
     APP_GROUP=appgroup
 
@@ -60,7 +67,7 @@ RUN groupadd --gid 1000 ${APP_GROUP} && \
 
 WORKDIR /app
 
-# Copy virtual environment from builder
+# Copy virtual environment from builder stage
 COPY --from=builder /app/.venv /app/.venv
 
 # Set PATH to use virtual environment
@@ -73,9 +80,8 @@ USER ${APP_USER}
 EXPOSE 3000
 
 # Health check - use the /health endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -fsS --max-time 2 http://localhost:3000/health || exit 1
 
 # Default: Run uvicorn server
-# Override with: docker run article-extractor article-extractor <url>
-CMD ["uvicorn", "article_extractor.server:app", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["sh", "-c", "exec uvicorn article_extractor.server:app --host ${HOST:-0.0.0.0} --port ${PORT:-3000} --log-level ${LOG_LEVEL:-info} --proxy-headers --forwarded-allow-ips='*' --lifespan=auto --workers ${WEB_CONCURRENCY:-2}"]

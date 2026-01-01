@@ -82,3 +82,7 @@ Thumbs.db
 notes.md
 .playwright-storage-state/
 *.playwright-storage-state/
+
+
+# github copilot ai agent plans to stay on local machine only
+.github/ai-agent-plans/

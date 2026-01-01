@@ -12,7 +12,8 @@ from article_extractor.types import ArticleResult
 @pytest.fixture
 def client():
     """Test client for FastAPI app."""
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture
@@ -59,12 +60,20 @@ def test_health_endpoint(client):
     """Test health check endpoint."""
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["cache"]["max_size"] >= 1
+    assert data["cache"]["size"] >= 0
+    assert data["worker_pool"]["max_workers"] >= 1
 
 
 def test_extract_article_success(client, mock_result):
     """Test successful article extraction."""
-    with patch("article_extractor.server.extract_article_from_url", new_callable=AsyncMock, return_value=mock_result):
+    with patch(
+        "article_extractor.server.extract_article_from_url",
+        new_callable=AsyncMock,
+        return_value=mock_result,
+    ):
         response = client.post("/", json={"url": "https://example.com/article"})
 
     assert response.status_code == 200
@@ -82,7 +91,9 @@ def test_extract_article_success(client, mock_result):
 def test_extract_article_failure(client, failed_result):
     """Test failed article extraction."""
     with patch(
-        "article_extractor.server.extract_article_from_url", new_callable=AsyncMock, return_value=failed_result
+        "article_extractor.server.extract_article_from_url",
+        new_callable=AsyncMock,
+        return_value=failed_result,
     ):
         response = client.post("/", json={"url": "https://example.com/article"})
 
@@ -136,7 +147,11 @@ def test_extraction_with_null_author(client):
         author=None,
     )
 
-    with patch("article_extractor.server.extract_article_from_url", new_callable=AsyncMock, return_value=result):
+    with patch(
+        "article_extractor.server.extract_article_from_url",
+        new_callable=AsyncMock,
+        return_value=result,
+    ):
         response = client.post("/", json={"url": "https://example.com/article"})
 
     assert response.status_code == 200
@@ -147,7 +162,9 @@ def test_extraction_with_null_author(client):
 def test_extraction_options_applied(client, mock_result):
     """Test that extraction options are passed correctly."""
     with patch(
-        "article_extractor.server.extract_article_from_url", new_callable=AsyncMock, return_value=mock_result
+        "article_extractor.server.extract_article_from_url",
+        new_callable=AsyncMock,
+        return_value=mock_result,
     ) as mock_extract:
         client.post("/", json={"url": "https://example.com/article"})
 
@@ -158,3 +175,28 @@ def test_extraction_options_applied(client, mock_result):
     assert options.include_images is True
     assert options.include_code_blocks is True
     assert options.safe_markdown is True
+    assert call_args.kwargs["executor"] is not None
+
+
+def test_extract_article_uses_cache(client, mock_result):
+    """Repeated requests for the same URL should hit the in-memory cache."""
+    with patch(
+        "article_extractor.server.extract_article_from_url",
+        new_callable=AsyncMock,
+        return_value=mock_result,
+    ) as mock_extract:
+        first = client.post("/", json={"url": "https://example.com/article"})
+        second = client.post("/", json={"url": "https://example.com/article"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert mock_extract.call_count == 1
+
+
+def test_cache_size_env_override(monkeypatch):
+    """Cache size should respect ARTICLE_EXTRACTOR_CACHE_SIZE env overrides."""
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "5")
+    with TestClient(app) as local_client:
+        data = local_client.get("/health").json()
+    assert data["cache"]["max_size"] == 5
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)

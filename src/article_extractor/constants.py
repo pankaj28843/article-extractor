@@ -95,7 +95,9 @@ UNLIKELY_CANDIDATES: list[str] = [
     "widget",
     "yom-remote",
 ]
-UNLIKELY_CANDIDATES_RE: re.Pattern[str] = re.compile("|".join(UNLIKELY_CANDIDATES), re.IGNORECASE)
+UNLIKELY_CANDIDATES_RE: re.Pattern[str] = re.compile(
+    "|".join(UNLIKELY_CANDIDATES), re.IGNORECASE
+)
 
 # Whitelist that overrides unlikely candidates
 OK_MAYBE_CANDIDATES: list[str] = [
@@ -134,7 +136,9 @@ POSITIVE_SCORE_HINTS: list[str] = [
     r"[-_]copy",
     r"\Bcopy",  # usatoday pattern
 ]
-POSITIVE_SCORE_RE: re.Pattern[str] = re.compile("|".join(POSITIVE_SCORE_HINTS), re.IGNORECASE)
+POSITIVE_SCORE_RE: re.Pattern[str] = re.compile(
+    "|".join(POSITIVE_SCORE_HINTS), re.IGNORECASE
+)
 
 # === NEGATIVE SCORE HINTS ===
 # From Readability.js REGEXPS.negative and Postlight NEGATIVE_SCORE_HINTS
@@ -178,14 +182,18 @@ NEGATIVE_SCORE_HINTS: list[str] = [
     "teaser",
     "widget",
 ]
-NEGATIVE_SCORE_RE: re.Pattern[str] = re.compile("|".join(NEGATIVE_SCORE_HINTS), re.IGNORECASE)
+NEGATIVE_SCORE_RE: re.Pattern[str] = re.compile(
+    "|".join(NEGATIVE_SCORE_HINTS), re.IGNORECASE
+)
 
 # Photo hints (keep images in content)
 PHOTO_HINTS: list[str] = ["figure", "photo", "image", "caption"]
 PHOTO_HINTS_RE: re.Pattern[str] = re.compile("|".join(PHOTO_HINTS), re.IGNORECASE)
 
 # Readability publisher guidelines asset class
-READABILITY_ASSET_RE: re.Pattern[str] = re.compile(r"entry-content-asset", re.IGNORECASE)
+READABILITY_ASSET_RE: re.Pattern[str] = re.compile(
+    r"entry-content-asset", re.IGNORECASE
+)
 
 # === THRESHOLDS ===
 MIN_CHAR_THRESHOLD: int = 500  # Minimum chars for valid article
@@ -207,7 +215,9 @@ UNLIKELY_ROLES: list[str] = [
 ]
 
 # === BYLINE DETECTION ===
-BYLINE_RE: re.Pattern[str] = re.compile(r"byline|author|dateline|writtenby|p-author", re.IGNORECASE)
+BYLINE_RE: re.Pattern[str] = re.compile(
+    r"byline|author|dateline|writtenby|p-author", re.IGNORECASE
+)
 
 # === COMMA PATTERN FOR CONTENT SCORING ===
 COMMA_RE: re.Pattern[str] = re.compile(r",\s*")
