@@ -3,7 +3,7 @@
 # Production-ready with uvicorn, health checks, and multi-worker support
 
 # Build stage
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -27,7 +27,7 @@ COPY LICENSE ./
 RUN uv sync --frozen --no-dev --no-editable --extra server --extra httpx
 
 # Runtime stage - minimal image
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="article-extractor" \
