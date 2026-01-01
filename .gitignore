@@ -86,3 +86,7 @@ notes.md
 
 # github copilot ai agent plans to stay on local machine only
 .github/ai-agent-plans/
+
+# tmp directories used for temporary files in debugging or testing
+tmp/
+temp/
