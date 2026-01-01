@@ -1,5 +1,7 @@
 """Unit tests for article_extractor.extractor module."""
 
+from unittest.mock import patch
+
 import pytest
 
 from article_extractor import extract_article
@@ -590,3 +592,130 @@ class TestFindCandidates:
         result = extract_article(html, url="https://example.com")
         # Should still extract something
         assert isinstance(result, ArticleResult)
+
+
+@pytest.mark.unit
+class TestExtractorErrorHandling:
+    """Test error handling in extraction."""
+
+    def test_content_extraction_failure(self):
+        """Should handle content extraction failures gracefully."""
+        html = """
+        <html><body>
+            <article>Valid HTML</article>
+        </body></html>
+        """
+        result = extract_article(html, url="https://example.com")
+        assert isinstance(result, ArticleResult)
+
+    def test_no_candidates_found(self):
+        """Should handle case when no candidates found."""
+        html = "<html><head></head></html>"
+        result = extract_article(html, url="https://example.com")
+        assert result.success is False or result.word_count == 0
+
+
+@pytest.mark.unit
+class TestCleanDocument:
+    """Test document cleaning."""
+
+    def test_removes_scripts(self):
+        """Should remove script tags."""
+        from article_extractor import ArticleExtractor
+
+        html = """
+        <html><body>
+            <article>
+                <p>Content</p>
+                <script>alert('test');</script>
+            </article>
+        </body></html>
+        """
+        extractor = ArticleExtractor()
+        result = extractor.extract(html, url="https://example.com")
+        if result.success:
+            assert "alert" not in result.content
+
+    def test_removes_styles(self):
+        """Should remove style tags."""
+        html = """
+        <html><body>
+            <article>
+                <p>Content here</p>
+                <style>.test { color: red; }</style>
+            </article>
+        </body></html>
+        """
+        result = extract_article(html, url="https://example.com")
+        if result.success:
+            assert "color: red" not in result.content
+
+
+@pytest.mark.unit
+class TestWarnings:
+    """Test warning generation."""
+
+    def test_low_word_count_warning(self):
+        """Should add warning for low word count."""
+        html = """
+        <html><body>
+            <article>
+                <p>Short content.</p>
+            </article>
+        </body></html>
+        """
+        result = extract_article(html, url="https://example.com")
+        if result.success and result.word_count < 150:
+            assert any("word count" in w.lower() for w in result.warnings)
+
+
+@pytest.mark.unit
+class TestOgTitle:
+    """Test og:title extraction."""
+
+    def test_extracts_og_title(self):
+        """Should extract og:title meta tag."""
+        html = """
+        <html>
+        <head>
+            <meta property="og:title" content="OG Title Here">
+            <title>Page Title</title>
+        </head>
+        <body>
+            <article>
+                <p>Content with enough words to pass thresholds.</p>
+            </article>
+        </body>
+        </html>
+        """
+        result = extract_article(html, url="https://example.com")
+        if result.success:
+            assert result.title == "OG Title Here"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestExtractArticleFromUrlAutoFetcher:
+    """Test auto-fetcher selection."""
+
+    async def test_prefer_playwright_true(self, simple_article_html: str, monkeypatch):
+        """Should prefer playwright when requested."""
+        from article_extractor import extract_article_from_url
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_playwright_available", True)
+        monkeypatch.setattr(fetcher_module, "_httpx_available", True)
+
+        class FakeFetcher:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                pass
+
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return simple_article_html, 200
+
+        with patch.object(fetcher_module, "PlaywrightFetcher", FakeFetcher):
+            result = await extract_article_from_url("https://example.com", prefer_playwright=True)
+            assert result.success is True

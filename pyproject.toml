@@ -1,7 +1,7 @@
 [project]
 name = "article-extractor"
-version = "0.1.2"
-description = "Pure-Python article extraction library using Readability-style scoring"
+version = "0.2.0"
+description = "Pure-Python article extraction library and HTTP service - Drop-in replacement for readability-js-server"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -25,18 +25,24 @@ dependencies = ["justhtml>=0.20.0"]
 [project.optional-dependencies]
 playwright = ["playwright>=1.49.0"]
 httpx = ["httpx>=0.28.0"]
-all = ["playwright>=1.49.0", "httpx>=0.28.0"]
+server = ["fastapi>=0.115.0", "uvicorn[standard]>=0.32.0", "httpx>=0.28.0"]
+all = ["playwright>=1.49.0", "httpx>=0.28.0", "fastapi>=0.115.0", "uvicorn[standard]>=0.32.0"]
 dev = [
     "pytest>=9.0",
     "pytest-asyncio>=1.0",
     "pytest-cov>=7.0",
     "ruff>=0.14",
     "httpx>=0.28.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/pankaj28843/article-extractor"
 Repository = "https://github.com/pankaj28843/article-extractor"
+
+[project.scripts]
+article-extractor = "article_extractor.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -89,6 +95,12 @@ ignore = [
     "ARG002",  # Allow unused arguments
     "T20",     # Allow print statements in tests
     "PLR2004", # Allow magic values in tests
+    "SIM117",  # Nested with statements are clear in test mocking
+]
+"src/article_extractor/cli.py" = [
+    "T20",     # Allow print statements in CLI
+    "S104",    # Allow binding to all interfaces (CLI arg default)
+    "SIM117",  # Nested with statements are clear in test mocking
 ]
 
 [tool.ruff.format]

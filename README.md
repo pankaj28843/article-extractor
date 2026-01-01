@@ -1,217 +1,317 @@
 # Article Extractor
 
-**Extract the content you care about from any web page—no JavaScript runtime, no external services, just Python.**
+[![PyPI version](https://img.shields.io/pypi/v/article-extractor.svg)](https://pypi.org/project/article-extractor/)
+[![Python versions](https://img.shields.io/pypi/pyversions/article-extractor.svg)](https://pypi.org/project/article-extractor/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/pankaj28843/article-extractor/actions/workflows/ci.yml/badge.svg)](https://github.com/pankaj28843/article-extractor/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/pankaj28843/article-extractor/branch/main/graph/badge.svg)](https://codecov.io/gh/pankaj28843/article-extractor)
 
-Article Extractor pulls the main content from HTML documents (articles, blog posts, documentation) and converts it to clean Markdown. If you've ever wanted the "Reader Mode" experience in your Python code, this is it.
+**Pure-Python article extraction—extract clean content from any web page, no Node.js required.**
+
+Article Extractor provides a **Python library**, **HTTP API server**, and **CLI tool** for extracting main content from HTML documents (articles, blog posts, documentation) and converting it to clean Markdown or HTML.
 
 ## Why Article Extractor?
 
-- **Pure Python** – No Node.js, no Selenium, no external APIs. Install it, import it, use it.
-- **Battle-tested algorithms** – Uses scoring techniques from Mozilla's Readability.js to identify what's actually content vs. navigation, ads, and sidebars.
-- **Markdown output** – Get clean GitHub-Flavored Markdown, ready for LLMs, documentation, or archiving.
-- **Fast** – Caches text calculations and uses early termination. Extracts most articles in milliseconds.
-- **Safe by default** – XSS-safe output via [JustHTML](https://github.com/EmilStenstrom/justhtml) sanitization.
-
-## Who Is This For?
-
-- **LLM/AI developers** building RAG pipelines or agents that need clean text from web pages
-- **Content archivists** who want to save articles as Markdown
-- **Researchers** scraping article text for analysis
-- **Anyone** tired of wrangling BeautifulSoup to extract "just the article"
+- **Pure Python** – No Node.js, no Selenium, no external APIs
+- **Battle-tested** – Uses Mozilla Readability.js scoring algorithms
+- **Markdown output** – Clean GFM for LLMs, docs, or archiving
+- **Fast** – Cached calculations, early termination, 50-150ms typical extraction
+- **Safe** – XSS-safe output via [JustHTML](https://github.com/EmilStenstrom/justhtml)
+- **Flexible** – Library, HTTP server, or CLI
+- **Well-tested** – 94%+ test coverage with comprehensive test suite
 
 ## Installation
 
 ```bash
-# From PyPI
-pip install article-extractor
+pip install article-extractor[server]  # HTTP server
+pip install article-extractor[all]     # All features
 
-# With optional fetchers
-pip install article-extractor[httpx]       # Lightweight HTTP fetcher
-pip install article-extractor[playwright]  # JavaScript rendering support
-pip install article-extractor[all]         # All optional dependencies
-
-# With uv
-uv add article-extractor
-uv add article-extractor --extra all       # With all optional dependencies
+# Or with uv (faster)
+uv add article-extractor --extra server
 ```
 
 ## Quick Start
 
-Here's a complete example—paste this into a Python file and run it:
+### As an HTTP Server
 
-```python
-from article_extractor import extract_article
+```bash
+# Run in foreground
+docker run -p 3000:3000 ghcr.io/pankaj28843/article-extractor:latest
 
-html = """
-<html>
-<body>
-    <nav><a href="/">Home</a></nav>
-    <article>
-        <h1>My Article</h1>
-        <p>This is the main content of the article...</p>
-    </article>
-    <footer>Copyright 2025</footer>
-</body>
-</html>
-"""
+# Run in daemon mode (detached)
+docker run -d -p 3000:3000 --name article-extractor ghcr.io/pankaj28843/article-extractor:latest
 
-result = extract_article(html, url="https://example.com/article")
-
-print(result.title)      # "My Article"
-print(result.markdown)   # "# My Article\n\nThis is the main content..."
-print(result.word_count) # 8
-print(result.success)    # True
+# Or run locally with uvicorn
+uvicorn article_extractor.server:app --host 0.0.0.0 --port 3000
 ```
 
-That's it. The library automatically ignores the `<nav>` and `<footer>`, extracts the `<article>`, and gives you clean Markdown.
+**Extract from URL:**
 
-### Fetching from URLs
+```bash
+curl -XPOST http://localhost:3000/ \
+    -H "Content-Type: application/json" \
+    -d'{"url": "https://en.wikipedia.org/wiki/Wikipedia"}'
+```
 
-Need to fetch a page first? Use the async `extract_article_from_url`:
+**Response:**
+
+```json
+{
+  "url": "https://en.wikipedia.org/wiki/Wikipedia",
+  "title": "Wikipedia - Wikipedia",
+  "byline": null,
+  "dir": "ltr",
+  "content": "<div><p>Wikipedia is a free content online encyclopedia...</p></div>",
+  "length": 89234,
+  "excerpt": "Wikipedia is a free content online encyclopedia written and maintained by a community of volunteers, known as Wikipedians, through open collaboration and using a wiki-based editing system called MediaWiki.",
+  "siteName": null,
+  "markdown": "# Wikipedia\n\nWikipedia is a free content online encyclopedia...",
+  "word_count": 33414,
+  "success": true
+}
+```
+
+### As a CLI Tool
+
+```bash
+# Extract from URL
+article-extractor https://en.wikipedia.org/wiki/Wikipedia
+
+# Extract from file
+article-extractor --file article.html --output markdown
+
+# Extract from stdin
+echo '<html>...</html>' | article-extractor --output text
+
+# Or via Docker
+docker run --rm -it ghcr.io/pankaj28843/article-extractor:latest \
+    article-extractor https://en.wikipedia.org/wiki/Wikipedia
+```
+
+### As a Python Library
 
 ```python
+from article_extractor import extract_article, extract_article_from_url
 import asyncio
-from article_extractor import extract_article_from_url
 
-async def main():
-    result = await extract_article_from_url("https://example.com/some-article")
-    print(result.markdown)
+# From HTML string
+html = '<html><body><article><h1>Title</h1><p>Content...</p></article></body></html>'
+result = extract_article(html, url="https://en.wikipedia.org/wiki/Wikipedia")
+print(result.markdown)
+print(f"Extracted {result.word_count} words")
 
-asyncio.run(main())
+# From URL (async) - recommended for web pages
+async def extract():
+    result = await extract_article_from_url("https://en.wikipedia.org/wiki/Wikipedia")
+    if result.success:
+        print(f"Title: {result.title}")
+        print(f"Words: {result.word_count}")
+        print(f"Excerpt: {result.excerpt[:100]}...")
+    else:
+        print(f"Extraction failed: {result.error}")
+
+asyncio.run(extract())
 ```
 
-By default, this uses Playwright if available (for JavaScript-heavy sites), falling back to httpx.
+## Docker Usage
 
-## How It Works
+```bash
+# Run in daemon mode
+docker run -d -p 3000:3000 --name article-extractor \
+    --restart unless-stopped \
+    ghcr.io/pankaj28843/article-extractor:latest
 
-The extraction algorithm is inspired by Mozilla's Readability.js (the engine behind Firefox Reader View):
+# Check logs
+docker logs article-extractor
 
-1. **Parse HTML** – Uses JustHTML's HTML5-compliant parser
-2. **Clean the document** – Removes scripts, styles, nav, footer, and other non-content elements
-3. **Find candidates** – Looks for `<article>`, `<main>`, or high-scoring `<div>`/`<section>` elements
-4. **Score candidates** – Each element gets a score based on:
-   - Tag type (`article`: +5, `div`: +5, `h1-h6`: -5)
-   - Class/ID patterns (+25 for "article", "content"; -25 for "sidebar", "footer")
-   - Paragraph content (+1 per comma, +1 per 100 characters)
-   - Link density (high link ratio = probably navigation, penalized)
-5. **Extract the winner** – Takes content from the highest-scoring candidate
-6. **Convert to Markdown** – Uses JustHTML's GFM-compatible converter
+# Stop/start/restart
+docker stop article-extractor
+docker start article-extractor
+docker restart article-extractor
+
+# CLI mode (one-off extraction)
+docker run --rm ghcr.io/pankaj28843/article-extractor:latest \
+    article-extractor https://en.wikipedia.org/wiki/Wikipedia --output markdown
+```
+
+**With docker-compose:**
+
+```yaml
+services:
+  article-extractor:
+    image: ghcr.io/pankaj28843/article-extractor:latest
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+```
+
+**Test the server:**
+
+```bash
+# Health check
+curl http://localhost:3000/health
+
+# Extract article
+curl -XPOST http://localhost:3000/ \
+    -H "Content-Type: application/json" \
+    -d'{"url": "https://en.wikipedia.org/wiki/Wikipedia"}' | jq '.title'
+```
+
+**Supported platforms:** `linux/amd64`, `linux/arm64`  
+**Available tags:** `latest`, `0`, `0.2`, `0.2.0`
 
 ## API Reference
 
-### `extract_article(html, url="", options=None) -> ArticleResult`
+### HTTP Endpoints
 
-Extract article content from an HTML string.
+- `POST /` – Extract article (send `{"url": "..."}`)
+- `GET /` – Service info
+- `GET /health` – Health check  
+- `GET /docs` – Interactive API docs
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `html` | `str \| bytes` | HTML content to extract from |
-| `url` | `str` | Original URL (used for resolving relative links and title fallback) |
-| `options` | `ExtractionOptions \| None` | Extraction configuration (see below) |
-
-**Returns:** `ArticleResult` with extracted content.
-
-### `extract_article_from_url(url, fetcher=None, options=None, *, prefer_playwright=True) -> ArticleResult`
-
-Async function to fetch a URL and extract article content.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `url` | `str` | URL to fetch |
-| `fetcher` | `Fetcher \| None` | Custom fetcher (auto-creates if not provided) |
-| `options` | `ExtractionOptions \| None` | Extraction configuration |
-| `prefer_playwright` | `bool` | Prefer Playwright over httpx when auto-creating (default: `True`) |
-
-### `ArticleResult`
-
-The result object returned by extraction functions:
+### Python API
 
 ```python
-@dataclass
-class ArticleResult:
-    url: str                       # Original URL
-    title: str                     # Extracted title
-    content: str                   # Cleaned HTML content
-    markdown: str                  # Markdown conversion
-    excerpt: str                   # Short excerpt (~200 chars)
-    word_count: int                # Word count of extracted content
-    success: bool                  # Whether extraction succeeded
-    error: str | None = None       # Error message if failed
-    author: str | None = None      # Author (if found)
-    date_published: str | None = None  # Publication date (if found)
-    language: str | None = None    # Document language (if detected)
-    warnings: list[str] = []       # Non-fatal warnings
+extract_article(html, url="", options=None) -> ArticleResult
+extract_article_from_url(url, fetcher=None, options=None) -> ArticleResult
 ```
 
-### `ExtractionOptions`
+**ArticleResult fields:**
+- `title` – Extracted article title
+- `content` – Clean HTML content
+- `markdown` – Markdown version (GFM-compatible)
+- `excerpt` – First ~200 characters
+- `word_count` – Total words in article
+- `success` – Whether extraction succeeded
+- `error` – Error message if extraction failed
+- `url` – Original URL
+- `author` – Article author (if detected)
+- `date_published` – Publication date (if detected)
+- `language` – Content language (if detected)
+- `warnings` – List of extraction warnings
 
-Configure extraction behavior:
+**Options:**
 
 ```python
-@dataclass
-class ExtractionOptions:
-    min_word_count: int = 150       # Minimum words for valid content
-    min_char_threshold: int = 500   # Minimum chars for candidate consideration
-    include_images: bool = True     # Include images in output
-    include_code_blocks: bool = True # Include code blocks
-    safe_markdown: bool = True      # XSS-safe output (recommended)
+ExtractionOptions(
+    min_word_count=150,
+    min_char_threshold=500,
+    include_images=True,
+    include_code_blocks=True,
+    safe_markdown=True
+)
+```
+
+### CLI
+
+```bash
+article-extractor https://en.wikipedia.org/wiki/Wikipedia  # Extract from URL
+article-extractor --file article.html                      # From file
+article-extractor --file article.html --output markdown    # Markdown output
+article-extractor --server --port 3000                     # Start server
+```
+
+## Use Cases
+
+- **LLM/RAG pipelines** – Extract clean article text for vector databases or prompts
+- **Content archiving** – Save web articles as Markdown for documentation
+- **RSS/feed readers** – Display clean article content without ads
+- **Research tools** – Batch extract articles from reading lists
+- **Web scrapers** – Get main content without parsing complex HTML
+
+## How It Works
+
+1. **Parse HTML** – Uses JustHTML's HTML5-compliant parser
+2. **Clean document** – Removes scripts, styles, navigation, footers
+3. **Find candidates** – Identifies potential content containers (`<article>`, `<main>`, high-scoring divs)
+4. **Score candidates** – Applies readability scoring (tag type, class/ID patterns, text density, link density)
+5. **Extract winner** – Selects highest-scoring element as main content
+6. **Convert to Markdown** – Transforms HTML to clean GFM-compatible Markdown
+
+Algorithm based on [Mozilla Readability.js](https://github.com/mozilla/readability) with Python optimizations.
+
+## Configuration
+
+**Environment variables:**
+
+```bash
+HOST=0.0.0.0        # Server bind address
+PORT=3000           # Server port
+LOG_LEVEL=info      # Logging level (debug, info, warning, error)
+```
+
+**Production deployment:**
+
+```bash
+# With multiple workers
+uvicorn article_extractor.server:app \
+    --host 0.0.0.0 \
+    --port 3000 \
+    --workers 4 \
+    --log-level info
+
+# With Docker (daemon mode)
+docker run -d \
+    -p 3000:3000 \
+    --name article-extractor \
+    --restart unless-stopped \
+    -e LOG_LEVEL=info \
+    ghcr.io/pankaj28843/article-extractor:latest
 ```
 
 ## FAQ
 
-**Q: Why not just use BeautifulSoup?**  
-BeautifulSoup parses HTML, but doesn't know what's "content" vs. "navigation." You'd need to write heuristics yourself. Article Extractor has those heuristics built in.
+**JavaScript-heavy sites?** Install `playwright` extra: `pip install article-extractor[playwright]`
 
-**Q: Does this work on JavaScript-heavy sites?**  
-If you install the `playwright` extra, yes. The async fetcher will render the page with a real browser before extraction.
+**Extraction fails?** Check `result.success` / `result.error`. Common causes: login required, content too short, JavaScript rendering needed
 
-**Q: What if extraction fails?**  
-Check `result.success` and `result.error`. Common issues: page is behind a login, content is too short (below `min_word_count`), or the site uses an unusual structure.
+**Production-ready?** Yes. Pin version: `ghcr.io/pankaj28843/article-extractor:0`
 
-**Q: Can I customize what gets extracted?**  
-Use `ExtractionOptions` to tune thresholds. For more control, you can also pre-process the HTML before passing it to `extract_article`.
+**Rate limiting?** Use reverse proxy (nginx, Caddy) or API gateway
 
 ## Development
 
-Contributions are welcome! Here's how to get set up:
-
 ```bash
-# Clone and install
 git clone https://github.com/pankaj28843/article-extractor.git
 cd article-extractor
 uv sync --all-extras
-
-# Run tests
 uv run pytest
-
-# Format and lint
-uv run ruff format .
-uv run ruff check --fix .
-
-# Run with coverage
-uv run pytest --cov
+uv run ruff format . && uv run ruff check --fix .
 ```
 
-### Project Structure
+**Run server:** `uv run uvicorn article_extractor.server:app --reload --port 3000`
+
+**Structure:**
 
 ```
 src/article_extractor/
-├── __init__.py      # Public API (extract_article, extract_article_from_url)
-├── extractor.py     # Main extraction logic
-├── scorer.py        # Readability-style scoring algorithm
-├── fetcher.py       # URL fetching (httpx, Playwright)
-├── cache.py         # Text calculation caching
-├── constants.py     # Scoring weights, tag lists
-├── types.py         # Data classes (ArticleResult, ExtractionOptions)
-└── utils.py         # Helper functions
+├── server.py    # FastAPI HTTP server
+├── cli.py       # CLI interface  
+├── extractor.py # Extraction logic
+├── scorer.py    # Readability scoring
+└── fetcher.py   # URL fetching
 ```
+
+## Troubleshooting
+
+**Port in use:** `lsof -i :3000` → `uvicorn article_extractor.server:app --port 8000`
+
+**Empty extraction:** Check `result.success`, may need `playwright`, lower `min_word_count`
+
+**Playwright errors:** `playwright install chromium`
 
 ## License
 
-MIT License – see [LICENSE](LICENSE) for details.
+MIT – see [LICENSE](LICENSE)
 
 ## Acknowledgments
 
-- [JustHTML](https://github.com/EmilStenstrom/justhtml) – Pure Python HTML5 parser and Markdown converter
-- [Mozilla Readability.js](https://github.com/mozilla/readability) – Scoring algorithm inspiration
-- [Postlight Parser](https://github.com/postlight/parser) – Additional scoring patterns
+- [JustHTML](https://github.com/EmilStenstrom/justhtml) – HTML5 parser
+- [Mozilla Readability.js](https://github.com/mozilla/readability) – Extraction algorithm
+- [readability-js-server](https://github.com/phpdocker-io/readability-js-server) – API design inspiration
+
+---
+
+**Built with ❤️ using pure Python. No Node.js required.**

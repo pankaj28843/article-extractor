@@ -8,7 +8,7 @@ for safe parallel async usage.
 
 Example:
     >>> from article_extractor import extract_article
-    >>> result = extract_article(html, url="https://example.com")
+    >>> result = extract_article(html, url="https://en.wikipedia.org/wiki/Wikipedia")
     >>> print(result.title)
     >>> print(result.markdown)
 
@@ -20,7 +20,7 @@ For reusable extractor (slightly more efficient for multiple extractions):
 
 For async URL fetching (auto-selects best fetcher):
     >>> from article_extractor import extract_article_from_url
-    >>> result = await extract_article_from_url("https://example.com")
+    >>> result = await extract_article_from_url("https://en.wikipedia.org/wiki/Wikipedia")
 
 With explicit fetcher:
     >>> from article_extractor import extract_article_from_url, PlaywrightFetcher

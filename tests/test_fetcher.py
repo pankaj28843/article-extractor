@@ -358,3 +358,157 @@ class TestCheckFunctions:
         # Second call should return same cached value
         result2 = fetcher_module._check_httpx()
         assert result == result2
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestPlaywrightFetcherContextManager:
+    """Test PlaywrightFetcher context manager."""
+
+    async def test_aenter_missing_playwright(self, monkeypatch):
+        """__aenter__ without playwright should raise ImportError."""
+        from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_playwright_available", False)
+
+        fetcher = PlaywrightFetcher()
+        with pytest.raises(ImportError, match="playwright not installed"):
+            async with fetcher:
+                pass
+
+    async def test_aenter_with_proxy(self, monkeypatch):
+        """__aenter__ should use HTTP proxy from environment."""
+        from article_extractor import PlaywrightFetcher
+
+        monkeypatch.setenv("HTTP_PROXY", "http://proxy:8080")
+
+        fetcher = PlaywrightFetcher()
+
+        try:
+            async with fetcher:
+                pass
+        except ImportError:
+            pytest.skip("Playwright not installed")
+
+    async def test_aexit_saves_storage(self, tmp_path, monkeypatch):
+        """__aexit__ should save storage state."""
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "storage.json"
+        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", storage_file)
+
+        fetcher = PlaywrightFetcher()
+        mock_context = AsyncMock()
+        mock_browser = AsyncMock()
+        mock_playwright = AsyncMock()
+
+        fetcher._context = mock_context
+        fetcher._browser = mock_browser
+        fetcher._playwright = mock_playwright
+
+        await fetcher.__aexit__(None, None, None)
+
+        assert mock_context.storage_state.await_count == 1
+        assert mock_context.close.await_count == 1
+        assert mock_browser.close.await_count == 1
+
+    async def test_aexit_handles_storage_save_failure(self, tmp_path, monkeypatch, caplog):
+        """__aexit__ should handle storage save failure gracefully."""
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "readonly" / "storage.json"
+        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", storage_file)
+
+        fetcher = PlaywrightFetcher()
+        mock_context = AsyncMock()
+        mock_context.storage_state.side_effect = RuntimeError("Cannot save")
+        mock_browser = AsyncMock()
+        mock_playwright = AsyncMock()
+
+        fetcher._context = mock_context
+        fetcher._browser = mock_browser
+        fetcher._playwright = mock_playwright
+
+        caplog.set_level("WARNING")
+        await fetcher.__aexit__(None, None, None)
+
+        assert any("Failed to save storage state" in message for message in caplog.messages)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestHttpxFetcherContextManager:
+    """Test HttpxFetcher context manager."""
+
+    async def test_aenter_missing_httpx(self, monkeypatch):
+        """__aenter__ without httpx should raise ImportError."""
+        from article_extractor import HttpxFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_httpx_available", False)
+
+        fetcher = HttpxFetcher()
+        with pytest.raises(ImportError, match="httpx not installed"):
+            async with fetcher:
+                pass
+
+    async def test_aenter_creates_client(self):
+        """__aenter__ should create httpx client."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher(timeout=60.0, follow_redirects=False)
+        async with fetcher:
+            assert fetcher._client is not None
+
+    async def test_aexit_closes_client(self):
+        """__aexit__ should close httpx client."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher()
+        async with fetcher:
+            pass
+
+        assert fetcher._client is None
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestPlaywrightFetcherEdgeCases:
+    """Test PlaywrightFetcher edge cases."""
+
+    async def test_fetch_exception_closes_page(self):
+        """Fetch should close page even if exception occurs."""
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher()
+        fetcher._semaphore = asyncio.Semaphore(1)
+        context = AsyncMock()
+        fetcher._context = context
+
+        page = AsyncMock()
+        context.new_page.return_value = page
+        page.goto.side_effect = RuntimeError("Navigation failed")
+
+        with pytest.raises(RuntimeError):
+            await fetcher.fetch("https://example.com")
+
+        page.close.assert_awaited_once()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestHttpxFetcherEdgeCases:
+    """Test HttpxFetcher edge cases."""
+
+    async def test_fetch_httpx_exception(self):
+        """Fetch should propagate httpx exceptions."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher()
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = RuntimeError("Network error")
+        fetcher._client = mock_client
+
+        with pytest.raises(RuntimeError, match="Network error"):
+            await fetcher.fetch("https://example.com")

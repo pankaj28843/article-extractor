@@ -318,3 +318,193 @@ class TestClassWeightEdgeCases:
         weight = get_class_weight(nodes[0])
         # "main" and "article" in ID should match positive pattern
         assert weight > 0
+
+
+@pytest.mark.unit
+class TestScoreNode:
+    """Test score_node function."""
+
+    def test_article_tag_positive_score(self):
+        """Article tag should get positive base score."""
+        from article_extractor.scorer import score_node
+
+        doc = JustHTML("<article>content</article>")
+        nodes = doc.query("article")
+        assert len(nodes) == 1
+        score = score_node(nodes[0])
+        assert score > 0
+
+    def test_div_with_content_class(self):
+        """Div with content class should get positive score."""
+        from article_extractor.scorer import score_node
+
+        doc = JustHTML('<div class="content">text</div>')
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        score = score_node(nodes[0])
+        assert score > 0
+
+    def test_div_with_sidebar_class_negative(self):
+        """Div with sidebar class should get negative score."""
+        from article_extractor.scorer import score_node
+
+        doc = JustHTML('<div class="sidebar">text</div>')
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        score = score_node(nodes[0])
+        assert score < 0
+
+
+@pytest.mark.unit
+class TestCalculateContentScore:
+    """Test calculate_content_score function."""
+
+    def test_scores_paragraphs(self, cache: ExtractionCache):
+        """Should calculate score from paragraphs."""
+        from article_extractor.scorer import calculate_content_score
+
+        doc = JustHTML(
+            """
+        <article>
+            <p>This is a paragraph with enough content to score well.</p>
+            <p>Another paragraph with more content, commas, and length.</p>
+        </article>
+        """
+        )
+        nodes = doc.query("article")
+        assert len(nodes) == 1
+        score = calculate_content_score(nodes[0], cache)
+        assert score > 0
+
+    def test_link_density_penalty(self, cache: ExtractionCache):
+        """High link density should penalize score."""
+        from article_extractor.scorer import calculate_content_score
+
+        low_links = JustHTML("<div><p>Lots of normal text content here.</p></div>")
+        high_links = JustHTML('<div><p><a href="#">All text is a link</a></p></div>')
+
+        low_nodes = low_links.query("div")
+        high_nodes = high_links.query("div")
+
+        assert len(low_nodes) == 1
+        assert len(high_nodes) == 1
+
+        low_score = calculate_content_score(low_nodes[0], cache)
+        cache_high = ExtractionCache()
+        high_score = calculate_content_score(high_nodes[0], cache_high)
+
+        assert low_score > high_score
+
+    def test_caches_scores(self, cache: ExtractionCache):
+        """Should cache scores to avoid recalculation."""
+        from article_extractor.scorer import calculate_content_score
+
+        doc = JustHTML("<article><p>Content</p></article>")
+        nodes = doc.query("article")
+        assert len(nodes) == 1
+
+        scores = {}
+        score1 = calculate_content_score(nodes[0], cache, scores)
+        score2 = calculate_content_score(nodes[0], cache, scores)
+
+        assert score1 == score2
+        assert id(nodes[0]) in scores
+
+
+@pytest.mark.unit
+class TestRankCandidates:
+    """Test rank_candidates function."""
+
+    def test_ranks_by_score(self, cache: ExtractionCache):
+        """Should rank candidates by score (highest first)."""
+        from article_extractor.scorer import rank_candidates
+
+        doc = JustHTML(
+            """
+        <body>
+            <div class="sidebar"><p>Short</p></div>
+            <article>
+                <p>This is a long article with substantial content, commas, and other signals.</p>
+                <p>Multiple paragraphs make the score even higher.</p>
+            </article>
+        </body>
+        """
+        )
+
+        sidebar = doc.query(".sidebar")
+        article = doc.query("article")
+        candidates = sidebar + article
+
+        ranked = rank_candidates(candidates, cache)
+
+        assert len(ranked) == 2
+        assert ranked[0].score > ranked[1].score
+
+    def test_returns_scored_candidates(self, cache: ExtractionCache):
+        """Should return ScoredCandidate objects."""
+        from article_extractor.scorer import rank_candidates
+        from article_extractor.types import ScoredCandidate
+
+        doc = JustHTML("<article><p>Content</p></article>")
+        nodes = doc.query("article")
+
+        ranked = rank_candidates(nodes, cache)
+
+        assert len(ranked) == 1
+        assert isinstance(ranked[0], ScoredCandidate)
+        assert ranked[0].score >= 0
+        assert ranked[0].content_length >= 0
+        assert 0 <= ranked[0].link_density <= 1
+
+    def test_empty_candidates(self, cache: ExtractionCache):
+        """Should handle empty candidate list."""
+        from article_extractor.scorer import rank_candidates
+
+        ranked = rank_candidates([], cache)
+        assert ranked == []
+
+
+@pytest.mark.unit
+class TestGetClassIdString:
+    """Test get_class_id_string function."""
+
+    def test_combines_class_and_id(self):
+        """Should combine class and id attributes."""
+        from article_extractor.scorer import get_class_id_string
+
+        doc = JustHTML('<div class="test-class" id="test-id">text</div>')
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        result = get_class_id_string(nodes[0])
+        assert "test-class" in result
+        assert "test-id" in result
+
+    def test_handles_missing_class(self):
+        """Should handle missing class attribute."""
+        from article_extractor.scorer import get_class_id_string
+
+        doc = JustHTML('<div id="only-id">text</div>')
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        result = get_class_id_string(nodes[0])
+        assert "only-id" in result
+
+    def test_handles_missing_id(self):
+        """Should handle missing id attribute."""
+        from article_extractor.scorer import get_class_id_string
+
+        doc = JustHTML('<div class="only-class">text</div>')
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        result = get_class_id_string(nodes[0])
+        assert "only-class" in result
+
+    def test_handles_no_attributes(self):
+        """Should handle element with no class or id."""
+        from article_extractor.scorer import get_class_id_string
+
+        doc = JustHTML("<div>text</div>")
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        result = get_class_id_string(nodes[0])
+        assert result.strip() == ""

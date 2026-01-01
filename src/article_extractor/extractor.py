@@ -325,11 +325,11 @@ async def extract_article_from_url(
 
     Example:
         # Auto-select fetcher
-        result = await extract_article_from_url("https://example.com")
+        result = await extract_article_from_url("https://en.wikipedia.org/wiki/Wikipedia")
 
         # Explicit fetcher
         async with PlaywrightFetcher() as fetcher:
-            result = await extract_article_from_url("https://example.com", fetcher)
+            result = await extract_article_from_url("https://en.wikipedia.org/wiki/Wikipedia", fetcher)
     """
     extractor = ArticleExtractor(options)
 
