@@ -1,7 +1,7 @@
 # Article Extractor
 
 [![PyPI version](https://img.shields.io/pypi/v/article-extractor.svg)](https://pypi.org/project/article-extractor/)
-[![Python versions](https://img.shields.io/pypi/pyversions/article-extractor.svg)](https://pypi.org/project/article-extractor/)
+![Python versions](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/pankaj28843/article-extractor/actions/workflows/ci.yml/badge.svg)](https://github.com/pankaj28843/article-extractor/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/pankaj28843/article-extractor/branch/main/graph/badge.svg)](https://codecov.io/gh/pankaj28843/article-extractor)
@@ -11,6 +11,21 @@
 Article Extractor provides a **Python library**, **HTTP API server**, and **CLI tool** for extracting main content from HTML documents (articles, blog posts, documentation) and converting it to clean Markdown or HTML.
 
 > **Requires Python 3.12+**
+
+## Audience & Requirements
+
+- **Built for** backend engineers, data teams, and tool builders who need high-quality article text for ingestion, summarization, or archiving.
+- **You should be comfortable with** running CLI commands and basic Python packaging (`pip`, `uv`, or Docker).
+- **No front-end or Node.js stack needed**; everything runs on CPython 3.12+.
+
+## Documentation Map
+
+1. [Why Article Extractor?](#why-article-extractor) – value proposition and differentiators.
+2. [Installation](#installation) – Python package and `uv` instructions.
+3. [Quick Start](#quick-start) – run it via server, CLI, or Docker in under five minutes.
+4. [API Reference](#api-reference) – HTTP endpoints and Python helpers.
+5. [Configuration](#configuration) – environment variables and deployment knobs.
+6. [FAQ](#faq) & [Troubleshooting](#troubleshooting) – common questions and fixes.
 
 ## Why Article Extractor?
 
@@ -33,6 +48,8 @@ uv add article-extractor --extra server
 ```
 
 ## Quick Start
+
+> Prerequisites: Python 3.12+, `pip` (or `uv`), and optionally Docker if you prefer containers.
 
 ### As an HTTP Server
 
@@ -162,7 +179,7 @@ curl -XPOST http://localhost:3000/ \
 ```
 
 **Supported platforms:** `linux/amd64`, `linux/arm64`  
-**Available tags:** `latest`, `0`, `0.2`, `0.2.0`
+**Available tags:** `latest`, `0`, `0.2`, `0.2.1`
 
 ## API Reference
 
@@ -310,6 +327,10 @@ src/article_extractor/
 **Empty extraction:** Check `result.success`, may need `playwright`, lower `min_word_count`
 
 **Playwright errors:** `playwright install chromium`
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding standards, and how to run the complete validation loop (`uv run ruff format . && uv run ruff check --fix . && uv run pytest`). Issues and pull requests that include tests and documentation updates are very welcome.
 
 ## License
 
