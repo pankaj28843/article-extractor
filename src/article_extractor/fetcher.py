@@ -95,12 +95,12 @@ class PlaywrightFetcher:
     MAX_CONCURRENT_PAGES = 3
 
     __slots__ = (
-        "headless",
-        "timeout",
-        "_playwright",
         "_browser",
         "_context",
+        "_playwright",
         "_semaphore",
+        "headless",
+        "timeout",
     )
 
     def __init__(self, headless: bool = True, timeout: int = 30000) -> None:
@@ -324,7 +324,7 @@ class HttpxFetcher:
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    __slots__ = ("timeout", "follow_redirects", "_client")
+    __slots__ = ("_client", "follow_redirects", "timeout")
 
     def __init__(self, timeout: float = 30.0, follow_redirects: bool = True) -> None:
         """Initialize httpx fetcher.

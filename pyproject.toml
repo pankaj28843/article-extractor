@@ -63,13 +63,33 @@ select = [
     "SIM",    # flake8-simplify
     "PTH",    # flake8-use-pathlib
     "ASYNC",  # flake8-async
+    # Security rules
+    "S",      # flake8-bandit (security)
+    "T20",    # flake8-print (no print statements in production)
+    "PL",     # pylint
+    "RUF",    # Ruff-specific rules
 ]
 ignore = [
     "E501",   # line length (handled by formatter)
+    "S101",   # allow assert in tests (handled via per-file-ignores)
+    "PLR0913", # too many arguments (common in config classes)
+    "PLR2004", # magic value comparison (common in scoring)
+    "PLC0415", # allow lazy imports (used for optional dependencies)
+    "PLW0603", # allow global statement (used for optional dependency caching)
+    "RUF012",  # mutable class attributes (intentional for defaults)
+    "RUF022",  # __all__ sorting (intentional grouping by category)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ARG001", "ARG002"]
+"tests/**" = [
+    "S101",    # Allow assert in tests
+    "S105",    # Allow hardcoded passwords in tests
+    "S106",    # Allow hardcoded password argument in tests
+    "ARG001",  # Allow unused arguments
+    "ARG002",  # Allow unused arguments
+    "T20",     # Allow print statements in tests
+    "PLR2004", # Allow magic values in tests
+]
 
 [tool.ruff.format]
 quote-style = "double"

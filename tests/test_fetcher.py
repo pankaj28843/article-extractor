@@ -94,7 +94,7 @@ class TestPlaywrightFetcherFetch:
         page.content = AsyncMock(side_effect=["<html>content</html>", "<html>content</html>"])
 
         with patch("asyncio.sleep", AsyncMock()):
-            content, status = await fetcher.fetch("https://example.com", wait_for_selector="#app")
+            _content, status = await fetcher.fetch("https://example.com", wait_for_selector="#app")
 
         page.wait_for_selector.assert_awaited_once_with("#app", timeout=5000)
         assert status == 200
@@ -156,7 +156,7 @@ class TestPlaywrightFetcherFetch:
         page.content = AsyncMock(side_effect=["<html></html>", "<html></html>"])
 
         with patch("asyncio.sleep", AsyncMock()):
-            content, status = await fetcher.fetch("https://example.com", wait_for_stability=True)
+            _content, status = await fetcher.fetch("https://example.com", wait_for_stability=True)
 
         assert status == 200
 

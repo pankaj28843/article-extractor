@@ -24,7 +24,7 @@ class ExtractionCache:
         density = cache.get_link_density(node)
     """
 
-    __slots__ = ("_text_cache", "_link_density_cache")
+    __slots__ = ("_link_density_cache", "_text_cache")
 
     def __init__(self) -> None:
         """Initialize empty caches."""
