@@ -10,12 +10,15 @@ from urllib.parse import urlparse
 from .types import NetworkOptions
 
 ENV_STORAGE_KEY = "PLAYWRIGHT_STORAGE_STATE_FILE"
+ARTICLE_EXTRACTOR_STORAGE_ENV = "ARTICLE_EXTRACTOR_STORAGE_STATE_FILE"
+STORAGE_ENV_KEYS = (ARTICLE_EXTRACTOR_STORAGE_ENV, ENV_STORAGE_KEY)
 DEFAULT_STORAGE_PATH = Path.home() / ".article-extractor" / "storage_state.json"
 DEFAULT_PROXY_BYPASS = ("localhost", "127.0.0.1", "::1")
 
 __all__ = [
     "DEFAULT_PROXY_BYPASS",
     "DEFAULT_STORAGE_PATH",
+    "STORAGE_ENV_KEYS",
     "host_matches_no_proxy",
     "resolve_network_options",
 ]
@@ -121,10 +124,18 @@ def _resolve_storage_state_path(
         return Path(explicit).expanduser()
     if base is not None:
         return base
-    env_value = _lookup_env(env, ENV_STORAGE_KEY)
+    env_value = _lookup_storage_env(env)
     if env_value:
         return Path(env_value).expanduser()
     return DEFAULT_STORAGE_PATH
+
+
+def _lookup_storage_env(env: Mapping[str, str]) -> str | None:
+    for key in STORAGE_ENV_KEYS:
+        value = _lookup_env(env, key)
+        if value:
+            return value
+    return None
 
 
 def _determine_proxy_from_env(url: str | None, env: Mapping[str, str]) -> str | None:

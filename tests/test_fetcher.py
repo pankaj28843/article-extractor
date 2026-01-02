@@ -6,12 +6,25 @@ We mock external dependencies (playwright, httpx) to test the fetcher logic in i
 
 import asyncio
 import sys
+from importlib import reload
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from article_extractor.types import NetworkOptions
+
+
+@pytest.fixture
+def reload_fetcher_module():
+    import article_extractor.fetcher as fetcher_module
+
+    def _reload():
+        return reload(fetcher_module)
+
+    yield _reload
+
+    reload(fetcher_module)
 
 # Test PlaywrightFetcher internals
 
@@ -216,6 +229,30 @@ class TestPlaywrightFetcherStorageState:
 
         fetcher._context.clear_cookies.assert_awaited_once()
         assert not storage_file.exists()
+
+
+class TestPlaywrightFetcherStorageEnv:
+    def test_storage_state_alias_env_wins_over_legacy(
+        self, tmp_path, monkeypatch, reload_fetcher_module
+    ):
+        alias_file = tmp_path / "alias.json"
+        legacy_file = tmp_path / "legacy.json"
+        monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
+        monkeypatch.setenv("PLAYWRIGHT_STORAGE_STATE_FILE", str(legacy_file))
+
+        module = reload_fetcher_module()
+
+        assert module.PlaywrightFetcher.STORAGE_STATE_FILE == alias_file
+
+    def test_storage_state_falls_back_to_legacy_env(
+        self, tmp_path, monkeypatch, reload_fetcher_module
+    ):
+        legacy_file = tmp_path / "legacy.json"
+        monkeypatch.setenv("PLAYWRIGHT_STORAGE_STATE_FILE", str(legacy_file))
+
+        module = reload_fetcher_module()
+
+        assert module.PlaywrightFetcher.STORAGE_STATE_FILE == legacy_file
 
 
 # Test HttpxFetcher

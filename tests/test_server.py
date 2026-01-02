@@ -1,6 +1,7 @@
 """Tests for FastAPI server module."""
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -15,8 +16,10 @@ from article_extractor.server import (
     NetworkRequest,
     _build_cache_key,
     _determine_threadpool_size,
+    _initialize_state_from_env,
     _lookup_cache,
     _read_cache_size,
+    _read_prefer_playwright_env,
     _resolve_preference,
     _resolve_request_network_options,
     _store_cache_entry,
@@ -332,6 +335,63 @@ def test_configure_helpers_store_state():
     assert app.state.prefer_playwright is False
     app.state.network_defaults = original_network
     app.state.prefer_playwright = original_prefer
+
+
+def test_read_prefer_playwright_env_parses_boolean(monkeypatch):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "0")
+
+    assert _read_prefer_playwright_env() is False
+
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "On")
+
+    assert _read_prefer_playwright_env() is True
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+
+
+def test_read_prefer_playwright_env_warns_on_invalid(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "maybe")
+    caplog.set_level("WARNING")
+
+    assert _read_prefer_playwright_env() is True
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT" in message
+        for message in caplog.messages
+    )
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+
+
+def test_initialize_state_from_env_seeds_defaults(monkeypatch, tmp_path):
+    alias_file = tmp_path / "state.json"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "false")
+
+    state = SimpleNamespace()
+
+    _initialize_state_from_env(state)
+
+    assert state.prefer_playwright is False
+    assert state.network_defaults.storage_state_path == Path(alias_file)
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+
+
+def test_initialize_state_from_env_respects_existing_values(monkeypatch):
+    state = SimpleNamespace(
+        network_defaults=NetworkOptions(proxy="http://base"),
+        prefer_playwright=False,
+    )
+
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "true")
+
+    _initialize_state_from_env(state)
+
+    assert state.network_defaults.proxy == "http://base"
+    assert state.prefer_playwright is False
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
 
 
 def test_read_cache_size_invalid_env(monkeypatch, caplog):

@@ -28,7 +28,7 @@ With explicit fetcher:
     ...     result = await extract_article_from_url(url, fetcher)
 """
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 from .extractor import ArticleExtractor, extract_article, extract_article_from_url
 from .types import ArticleResult, ExtractionOptions, NetworkOptions, ScoredCandidate
