@@ -431,6 +431,7 @@ class HttpxFetcher:
         "_client",
         "_headers",
         "_network",
+        "_proxy_client",
         "follow_redirects",
         "timeout",
     )
@@ -451,6 +452,7 @@ class HttpxFetcher:
         self.timeout = timeout
         self.follow_redirects = follow_redirects
         self._client = None
+        self._proxy_client = None
         self._network = network or NetworkOptions()
         self._headers = dict(self.DEFAULT_HEADERS)
         self._headers["User-Agent"] = _select_user_agent(
@@ -466,19 +468,29 @@ class HttpxFetcher:
 
         import httpx
 
-        self._client = httpx.AsyncClient(
-            timeout=self.timeout,
-            follow_redirects=self.follow_redirects,
-            headers=self._headers,
-            trust_env=False,
-        )
+        def _build_client(**extra_kwargs):
+            return httpx.AsyncClient(
+                timeout=self.timeout,
+                follow_redirects=self.follow_redirects,
+                headers=self._headers.copy(),
+                trust_env=False,
+                **extra_kwargs,
+            )
+
+        self._client = _build_client()
+        if self._network.proxy:
+            self._proxy_client = _build_client(proxies=self._network.proxy)
+        else:
+            self._proxy_client = None
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Close httpx client."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        for attr in ("_client", "_proxy_client"):
+            client = getattr(self, attr)
+            if client:
+                await client.aclose()
+                setattr(self, attr, None)
 
     async def fetch(self, url: str) -> tuple[str, int]:
         """Fetch URL content using httpx.
@@ -494,10 +506,15 @@ class HttpxFetcher:
 
         proxy = self._network.proxy
         host = urlparse(url).hostname
-        if proxy and host_matches_no_proxy(host, self._network.proxy_bypass):
-            proxy = None
+        client = self._client
+        if (
+            proxy
+            and self._proxy_client
+            and not host_matches_no_proxy(host, self._network.proxy_bypass)
+        ):
+            client = self._proxy_client
 
-        response = await self._client.get(url, proxy=proxy)
+        response = await client.get(url)
         return response.text, response.status_code
 
 
