@@ -11,6 +11,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 # Build stage: install dependencies with uv using cached layers
 FROM python:${PYTHON_VERSION} AS builder
+ARG TARGETARCH
 
 COPY --from=uv /uv /usr/local/bin/uv
 
@@ -25,13 +26,13 @@ WORKDIR /app
 # Copy lockfiles first to maximize cache hits
 COPY pyproject.toml uv.lock README.md LICENSE ./
 
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache-${TARGETARCH} \
     uv sync --locked --no-install-project --no-dev --no-editable --extra server --extra httpx --extra playwright
 
 # Copy remaining source after deps are installed
 COPY src/ ./src/
 
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache-${TARGETARCH} \
     uv sync --locked --no-dev --no-editable --extra server --extra httpx --extra playwright
 
 # Runtime stage - minimal image
