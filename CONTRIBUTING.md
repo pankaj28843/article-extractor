@@ -71,7 +71,17 @@ uv run pytest --cov=src/article_extractor --cov-report=term-missing -v
 uv run coverage report
 ```
 
-### 5. Commit and Push
+### 5. Docker Smoke Validation
+
+Run the automated Docker debug harness when you need to verify that the container image and Playwright storage wiring still behave correctly:
+
+```bash
+./scripts/debug-docker-deployment.sh
+```
+
+The harness rebuilds `article-extractor:local`, deletes and recreates `tmp/docker-smoke-data/`, mounts that directory into the container, publishes a random host port using Docker's `--publish` flag, waits for `/health`, sends a sample POST request, tails the logs, asserts that Playwright recreated a non-empty `storage_state.json`, and tears down the container automatically. Watch the output for the generated port and the ready-to-run `curl` snippet if you want to repeat the smoke test manually.
+
+### 6. Commit and Push
 
 ```bash
 # Stage your changes

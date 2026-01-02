@@ -388,10 +388,11 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
     )
 
 
-def configure_network_defaults(options: NetworkOptions) -> None:
+def configure_network_defaults(options: NetworkOptions | None) -> None:
     """Allow CLI to seed default network options for server mode."""
 
-    app.state.network_defaults = options
+    base = options or NetworkOptions()
+    app.state.network_defaults = resolve_network_options(base=base)
 
 
 def set_prefer_playwright(prefer: bool) -> None:
