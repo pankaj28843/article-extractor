@@ -140,6 +140,7 @@ class PlaywrightFetcher:
     """
 
     STORAGE_STATE_FILE = _detect_storage_state_file()
+    _INITIAL_STORAGE_STATE_FILE = STORAGE_STATE_FILE
 
     MAX_CONCURRENT_PAGES = 3
 
@@ -194,7 +195,9 @@ class PlaywrightFetcher:
             return Path(self._storage_state_override)
         if self._network.storage_state_path is not None:
             return Path(self._network.storage_state_path)
-        return self.STORAGE_STATE_FILE
+        if self.STORAGE_STATE_FILE != self._INITIAL_STORAGE_STATE_FILE:
+            return Path(self.STORAGE_STATE_FILE)
+        return _detect_storage_state_file()
 
     async def __aenter__(self) -> PlaywrightFetcher:
         """Create browser instance for this fetcher."""

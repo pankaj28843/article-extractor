@@ -255,6 +255,21 @@ class TestPlaywrightFetcherStorageEnv:
 
         assert legacy_file == module.PlaywrightFetcher.STORAGE_STATE_FILE
 
+    def test_runtime_env_override_without_module_reload(self, tmp_path, monkeypatch):
+        from article_extractor import PlaywrightFetcher
+
+        monkeypatch.setattr(
+            PlaywrightFetcher,
+            "STORAGE_STATE_FILE",
+            PlaywrightFetcher._INITIAL_STORAGE_STATE_FILE,
+        )
+        runtime_file = tmp_path / "runtime.json"
+        monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(runtime_file))
+
+        fresh_fetcher = PlaywrightFetcher()
+
+        assert fresh_fetcher.storage_state_file == runtime_file
+
 
 # Test HttpxFetcher
 
