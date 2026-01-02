@@ -136,6 +136,9 @@ class ArticleExtractor:
                 warnings=warnings,
             )
 
+        # Sanitize node before serialization to drop empty anchors/images
+        self._sanitize_content_node(top_candidate)
+
         # Extract content
         try:
             content_html = top_candidate.to_html(
@@ -295,6 +298,84 @@ class ArticleExtractor:
                 return title.title()
 
         return "Untitled"
+
+    def _sanitize_content_node(self, node: SimpleDomNode) -> None:
+        """Remove empty anchors and images without usable sources."""
+
+        self._remove_empty_links(node)
+        self._remove_empty_images(node)
+        self._remove_empty_blocks(node)
+
+    def _remove_empty_links(self, root: SimpleDomNode) -> None:
+        """Drop anchor tags that would render as empty markdown links."""
+
+        anchors = list(root.query("a"))
+
+        # Handle case where root itself is an anchor
+        if getattr(root, "name", "").lower() == "a":
+            anchors.append(root)
+
+        for anchor in anchors:
+            if self._node_has_visible_content(anchor):
+                continue
+
+            parent = getattr(anchor, "parent", None)
+            if parent is not None:
+                parent.remove_child(anchor)
+
+    def _remove_empty_images(self, root: SimpleDomNode) -> None:
+        """Remove <img> elements without a usable src attribute."""
+
+        images = list(root.query("img"))
+
+        if getattr(root, "name", "").lower() == "img":
+            images.append(root)
+
+        for img in images:
+            if self._has_valid_image_src(img):
+                continue
+
+            parent = getattr(img, "parent", None)
+            if parent is not None:
+                parent.remove_child(img)
+
+    def _has_valid_image_src(self, node: SimpleDomNode) -> bool:
+        """Check whether an image node has a non-empty src attribute."""
+
+        attrs = getattr(node, "attrs", {}) or {}
+        src = attrs.get("src")
+        if src is None:
+            return False
+
+        return bool(str(src).strip())
+
+    def _remove_empty_blocks(self, root: SimpleDomNode) -> None:
+        """Strip block-level nodes that no longer carry content."""
+
+        target_tags = ("li", "p", "div")
+        nodes: list[SimpleDomNode] = []
+        for tag in target_tags:
+            nodes.extend(root.query(tag))
+
+        if getattr(root, "name", "").lower() in target_tags:
+            nodes.append(root)
+
+        for node in nodes:
+            if self._node_has_visible_content(node):
+                continue
+
+            parent = getattr(node, "parent", None)
+            if parent is not None:
+                parent.remove_child(node)
+
+    def _node_has_visible_content(self, node: SimpleDomNode) -> bool:
+        """Determine whether a node contains text or media worth keeping."""
+
+        text = node.to_text(strip=True)
+        if text:
+            return True
+
+        return any(self._has_valid_image_src(img) for img in node.query("img"))
 
 
 # Convenience function for backward compatibility
