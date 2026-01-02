@@ -26,13 +26,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md LICENSE ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --no-dev --no-editable --extra server --extra httpx
+    uv sync --locked --no-install-project --no-dev --no-editable --extra server --extra httpx --extra playwright
 
 # Copy remaining source after deps are installed
 COPY src/ ./src/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-editable --extra server --extra httpx
+    uv sync --locked --no-dev --no-editable --extra server --extra httpx --extra playwright
 
 # Runtime stage - minimal image
 FROM python:${PYTHON_VERSION} AS runtime
@@ -53,7 +53,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     LOG_LEVEL=info \
     WEB_CONCURRENCY=2 \
     APP_USER=appuser \
-    APP_GROUP=appgroup
+    APP_GROUP=appgroup \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Install curl for health checks
 RUN apt-get update && \
@@ -69,6 +70,13 @@ WORKDIR /app
 
 # Copy virtual environment from builder stage
 COPY --from=builder /app/.venv /app/.venv
+
+# Preinstall Playwright browsers and system deps inside the runtime image
+RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
+    /app/.venv/bin/playwright install --with-deps chromium firefox webkit && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    chown -R ${APP_USER}:${APP_GROUP} "$PLAYWRIGHT_BROWSERS_PATH"
 
 # Set PATH to use virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
