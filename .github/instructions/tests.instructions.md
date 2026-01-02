@@ -12,7 +12,7 @@ applyTo:
 - No docstrings in test classes/methods—clear method names suffice
 - Avoid verbose comments; test code should be self-documenting
 - Use fixtures over ad-hoc setup to reduce duplication
-
+- Coverage check: `uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing`, minimum 90% overall and close to 100% for new code.
 ## Test Behavior, Not Implementation
 
 ```python

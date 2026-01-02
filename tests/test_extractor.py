@@ -796,6 +796,9 @@ class TestExtractArticleFromUrlAutoFetcher:
         monkeypatch.setattr(fetcher_module, "_httpx_available", True)
 
         class FakeFetcher:
+            def __init__(self, *args, **kwargs):
+                pass
+
             async def __aenter__(self):
                 return self
 

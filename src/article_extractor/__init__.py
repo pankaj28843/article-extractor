@@ -31,7 +31,7 @@ With explicit fetcher:
 __version__ = "0.1.1"
 
 from .extractor import ArticleExtractor, extract_article, extract_article_from_url
-from .types import ArticleResult, ExtractionOptions, ScoredCandidate
+from .types import ArticleResult, ExtractionOptions, NetworkOptions, ScoredCandidate
 
 
 # Lazy imports for optional fetchers
@@ -61,6 +61,7 @@ __all__ = [
     "ArticleExtractor",
     "ArticleResult",
     "ExtractionOptions",
+    "NetworkOptions",
     "ScoredCandidate",
     "extract_article",
     "extract_article_from_url",

@@ -5,10 +5,13 @@ We mock external dependencies (playwright, httpx) to test the fetcher logic in i
 """
 
 import asyncio
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from article_extractor.types import NetworkOptions
 
 # Test PlaywrightFetcher internals
 
@@ -270,7 +273,28 @@ class TestHttpxFetcherFetch:
 
         assert status == 200
         assert content == "<html>test content</html>"
-        mock_client.get.assert_awaited_once_with("https://example.com")
+        mock_client.get.assert_awaited_once_with("https://example.com", proxy=None)
+
+    async def test_fetch_respects_proxy_bypass(self):
+        """HttpxFetcher should skip proxies for NO_PROXY hosts."""
+        from article_extractor import HttpxFetcher
+
+        network = NetworkOptions(
+            proxy="http://proxy:8080", proxy_bypass=("example.com",)
+        )
+        fetcher = HttpxFetcher(network=network)
+        mock_client = AsyncMock()
+        mock_response = MagicMock(text="ok", status_code=200)
+        mock_client.get.side_effect = [mock_response, mock_response]
+        fetcher._client = mock_client
+
+        await fetcher.fetch("https://example.com/article")
+        await fetcher.fetch("https://other.com/article")
+
+        mock_client.get.assert_any_await("https://example.com/article", proxy=None)
+        mock_client.get.assert_any_await(
+            "https://other.com/article", proxy="http://proxy:8080"
+        )
 
 
 # Test get_default_fetcher
@@ -526,3 +550,96 @@ class TestHttpxFetcherEdgeCases:
 
         with pytest.raises(RuntimeError, match="Network error"):
             await fetcher.fetch("https://example.com")
+
+
+@pytest.mark.unit
+class TestUserAgentSelection:
+    def test_select_user_agent_prefers_explicit_override(self):
+        from article_extractor import fetcher as fetcher_module
+
+        network = NetworkOptions(user_agent="Sentinel-UA")
+        result = fetcher_module._select_user_agent(network, "Fallback-UA")
+
+        assert result == "Sentinel-UA"
+
+    def test_select_user_agent_uses_randomized_value(self, monkeypatch):
+        from article_extractor import fetcher as fetcher_module
+
+        network = NetworkOptions(randomize_user_agent=True)
+        monkeypatch.setattr(
+            fetcher_module, "_generate_random_user_agent", lambda: "Random-UA"
+        )
+
+        assert fetcher_module._select_user_agent(network, "Fallback-UA") == "Random-UA"
+
+    def test_select_user_agent_falls_back_when_random_missing(self, monkeypatch):
+        from article_extractor import fetcher as fetcher_module
+
+        network = NetworkOptions(randomize_user_agent=True)
+        monkeypatch.setattr(fetcher_module, "_generate_random_user_agent", lambda: None)
+
+        assert (
+            fetcher_module._select_user_agent(network, "Fallback-UA") == "Fallback-UA"
+        )
+
+
+@pytest.mark.unit
+class TestGenerateRandomUserAgent:
+    def test_generate_random_user_agent_returns_value(self, monkeypatch):
+        from article_extractor import fetcher as fetcher_module
+
+        class DummyUA:
+            @property
+            def random(self):  # pragma: no cover - property is the behavior under test
+                return "Agent/1.0"
+
+        monkeypatch.setattr(fetcher_module, "_fake_useragent", DummyUA())
+
+        assert fetcher_module._generate_random_user_agent() == "Agent/1.0"
+
+    def test_generate_random_user_agent_handles_constructor_failure(
+        self, monkeypatch, caplog
+    ):
+        from article_extractor import fetcher as fetcher_module
+
+        class ExplodingUA:
+            def __init__(self, *args, **kwargs):
+                raise RuntimeError("boom")
+
+        fake_module = SimpleNamespace(UserAgent=ExplodingUA)
+        monkeypatch.setitem(sys.modules, "fake_useragent", fake_module)
+        monkeypatch.setattr(fetcher_module, "_fake_useragent", None)
+        monkeypatch.setattr(fetcher_module, "_fake_useragent_error_logged", False)
+
+        caplog.set_level("WARNING")
+        assert fetcher_module._generate_random_user_agent() is None
+        assert any("fake-useragent unavailable" in msg for msg in caplog.messages)
+
+
+@pytest.mark.unit
+class TestPlaywrightStorageStateFile:
+    def test_storage_state_file_prefers_override(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+
+        override = tmp_path / "override.json"
+        fetcher = PlaywrightFetcher(storage_state_file=override)
+
+        assert fetcher.storage_state_file == override
+
+    def test_storage_state_file_uses_network_path(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+
+        network_path = tmp_path / "network.json"
+        network = NetworkOptions(storage_state_path=network_path)
+        fetcher = PlaywrightFetcher(network=network)
+
+        assert fetcher.storage_state_file == network_path
+
+    def test_storage_state_file_defaults_to_constant(self, tmp_path, monkeypatch):
+        from article_extractor import PlaywrightFetcher
+
+        default_path = tmp_path / "default.json"
+        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", default_path)
+        fetcher = PlaywrightFetcher()
+
+        assert fetcher.storage_state_file == default_path

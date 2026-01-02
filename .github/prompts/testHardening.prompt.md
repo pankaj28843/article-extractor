@@ -19,7 +19,7 @@ Use `#techdocs` for testing patterns, fixtures, and mocking strategies. Key tena
    - Avoid mocking framework behavior; only mock true external dependencies.
 4. **Validation**:
    - `uv run pytest tests/ -v -k <target>`
-   - Coverage check: `uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing`
+   - Coverage check: `uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing`, minimum 90% overall and close to 100% for new code.
 5. **Report**: Provide before/after coverage indicators if available, plus any remaining blind spots.
 
 ## Output

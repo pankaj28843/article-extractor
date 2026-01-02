@@ -36,6 +36,22 @@ curl -XPOST http://localhost:3000/ \
     -d '{"url": "https://en.wikipedia.org/wiki/Wikipedia"}' | jq '.title, .word_count'
 ```
 
+### Override cache + Playwright storage in Docker
+
+- `docker run -e` lets you pass environment variables into the container so you can raise or lower the LRU cache limit (`ARTICLE_EXTRACTOR_CACHE_SIZE`, `ARTICLE_EXTRACTOR_THREADPOOL_SIZE`, etc.) without rebuilding images [Docker container run – env](https://docs.docker.com/reference/cli/docker/container/run/#env) #techdocs.
+- Use `-v/--volume` to mount host directories and persist assets like the Playwright storage-state file between runs [Docker container run – volume](https://docs.docker.com/reference/cli/docker/container/run/#volume) #techdocs.
+- Example: keep Playwright cookies on the host and increase the cache to 2k entries while running the published image:
+
+```bash
+docker run --rm -p 3000:3000 \
+    -e ARTICLE_EXTRACTOR_CACHE_SIZE=2000 \
+    -e PLAYWRIGHT_STORAGE_STATE_FILE=/data/storage-state.json \
+    -v $HOME/.article-extractor:/data \
+    ghcr.io/pankaj28843/article-extractor:latest
+```
+
+Mounting the host directory ensures `/data/storage-state.json` survives container restarts, so Playwright-headed sessions can defeat bot checks once and reuse the same cookies later.
+
 ### Python Library
 
 ```python
@@ -99,6 +115,31 @@ article-extractor --file article.html --output markdown
 # One-off via Docker
 docker run --rm ghcr.io/pankaj28843/article-extractor:latest \
     article-extractor https://en.wikipedia.org/wiki/Wikipedia --output text
+```
+
+### Networking controls (CLI & Server)
+
+- Honor corporate proxies automatically: `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY` are folded into every fetcher, or override them with `--proxy=http://user:pass@proxy:8080` and optional `--prefer-httpx/--prefer-playwright` flags.
+- Rotate or pin User-Agents: pass `--user-agent` for deterministic runs or `--random-user-agent` to synthesize realistic desktop headers with [`fake-useragent`](https://pypi.org/project/fake-useragent/) (`pip install article-extractor[ua]` or use the `all`/`server` extras). Disable later via `--no-random-user-agent`.
+- Handle bot challenges: `--headed --user-interaction-timeout 30` launches Chromium with a visible window, pauses for manual CAPTCHA solving, and persists cookies to `~/.article-extractor/storage_state.json` (override with `--storage-state`).
+- Docker and server mode forward the same defaults. When running the FastAPI server, the CLI seeds these values so all requests inherit them unless the POST body supplies `{"prefer_playwright": false, "network": {"proxy": "http://", "headed": true, ...}}`.
+
+Server POST example with overrides:
+
+```json
+{
+    "url": "https://example.com/paywalled",
+    "prefer_playwright": true,
+    "network": {
+        "user_agent": "MyMonitor/1.0",
+        "random_user_agent": false,
+        "proxy": "http://proxy.internal:8080",
+        "proxy_bypass": ["metadata.internal"],
+        "headed": true,
+        "user_interaction_timeout": 25,
+        "storage_state": "/var/lib/article-extractor/storage_state.json"
+    }
+}
 ```
 
 ## Python API

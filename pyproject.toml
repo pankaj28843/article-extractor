@@ -1,6 +1,6 @@
 [project]
 name = "article-extractor"
-version = "0.2.1"
+version = "0.3.0"
 description = "Pure-Python article extraction library and HTTP service - Drop-in replacement for readability-js-server"
 readme = "README.md"
 license = { text = "MIT" }
@@ -23,8 +23,20 @@ dependencies = ["justhtml>=0.20.0"]
 [project.optional-dependencies]
 playwright = ["playwright>=1.49.0"]
 httpx = ["httpx>=0.28.0"]
-server = ["fastapi>=0.115.0", "uvicorn[standard]>=0.32.0", "httpx>=0.28.0"]
-all = ["playwright>=1.49.0", "httpx>=0.28.0", "fastapi>=0.115.0", "uvicorn[standard]>=0.32.0"]
+server = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "httpx>=0.28.0",
+    "fake-useragent>=1.5.1",
+]
+ua = ["fake-useragent>=1.5.1"]
+all = [
+    "playwright>=1.49.0",
+    "httpx>=0.28.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "fake-useragent>=1.5.1",
+]
 dev = [
     "pytest>=9.0",
     "pytest-asyncio>=1.0",
@@ -33,6 +45,7 @@ dev = [
     "httpx>=0.28.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
+    "fake-useragent>=1.5.1",
 ]
 
 [project.urls]

@@ -22,7 +22,7 @@ from .constants import (
     UNLIKELY_ROLES,
 )
 from .scorer import is_unlikely_candidate, rank_candidates
-from .types import ArticleResult, ExtractionOptions
+from .types import ArticleResult, ExtractionOptions, NetworkOptions
 from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
@@ -407,6 +407,7 @@ async def extract_article_from_url(
     fetcher: Fetcher | None = None,
     options: ExtractionOptions | None = None,
     *,
+    network: NetworkOptions | None = None,
     prefer_playwright: bool = True,
     executor: Executor | None = None,
 ) -> ArticleResult:
@@ -433,6 +434,7 @@ async def extract_article_from_url(
             result = await extract_article_from_url("https://en.wikipedia.org/wiki/Wikipedia", fetcher)
     """
     extractor = ArticleExtractor(options)
+    network = network or NetworkOptions()
 
     # Auto-create fetcher if not provided
     if fetcher is None:
@@ -452,7 +454,7 @@ async def extract_article_from_url(
                 error=str(e),
             )
 
-        async with fetcher_class() as auto_fetcher:
+        async with fetcher_class(network=network) as auto_fetcher:
             return await _extract_with_fetcher(extractor, url, auto_fetcher, executor)
 
     return await _extract_with_fetcher(extractor, url, fetcher, executor)
