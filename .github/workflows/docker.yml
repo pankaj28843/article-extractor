@@ -78,6 +78,27 @@ jobs:
           provenance: true
           sbom: true
 
+      - name: Smoke test Playwright availability
+        if: github.event_name != 'pull_request'
+        run: |
+          docker run --rm --entrypoint /app/.venv/bin/python \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} - <<'PY'
+          import asyncio
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+
+          browsers = Path("/ms-playwright")
+          if not browsers.exists():
+              raise SystemExit("Playwright browsers directory missing")
+
+          async def main() -> None:
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(headless=True)
+                  await browser.close()
+
+          asyncio.run(main())
+          PY
+
       - name: Generate artifact attestation
         if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v3
