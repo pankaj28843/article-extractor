@@ -26,6 +26,7 @@ def reload_fetcher_module():
 
     reload(fetcher_module)
 
+
 # Test PlaywrightFetcher internals
 
 
@@ -242,7 +243,7 @@ class TestPlaywrightFetcherStorageEnv:
 
         module = reload_fetcher_module()
 
-        assert module.PlaywrightFetcher.STORAGE_STATE_FILE == alias_file
+        assert alias_file == module.PlaywrightFetcher.STORAGE_STATE_FILE
 
     def test_storage_state_falls_back_to_legacy_env(
         self, tmp_path, monkeypatch, reload_fetcher_module
@@ -252,7 +253,7 @@ class TestPlaywrightFetcherStorageEnv:
 
         module = reload_fetcher_module()
 
-        assert module.PlaywrightFetcher.STORAGE_STATE_FILE == legacy_file
+        assert legacy_file == module.PlaywrightFetcher.STORAGE_STATE_FILE
 
 
 # Test HttpxFetcher
