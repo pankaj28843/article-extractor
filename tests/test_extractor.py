@@ -343,6 +343,87 @@ class TestEdgeCases:
         result = extract_article(html_bytes, url="https://example.com")
         assert isinstance(result, ArticleResult)
 
+    def test_removes_empty_links_and_images(self):
+        """Should drop anchors without text and images without src."""
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>Sanitization Sample</h1>
+                <p>
+                    This paragraph contains enough substantive words to satisfy the
+                    extraction thresholds and ensures the sanitizer operates on a
+                    realistic article body for the regression test scenario.
+                </p>
+                <a href="https://example.com/share" class="share-link">   </a>
+                <ul class="share-list">
+                    <li><a href="https://example.com/share/1">   </a></li>
+                    <li><a href="https://example.com/share/2">\n</a></li>
+                </ul>
+                <p>
+                    Additional meaningful content lives here to keep the document
+                    robust and confirm extraction continues to succeed after noisy
+                    nodes are removed from the DOM tree prior to serialization.
+                </p>
+                <img alt="Lazy Placeholder" class="lazy" width="650" height="540">
+            </article>
+        </body>
+        </html>
+        """
+
+        options = ExtractionOptions(min_word_count=10, min_char_threshold=50)
+        result = extract_article(
+            html,
+            url="https://example.com/sanitize",
+            options=options,
+        )
+
+        assert isinstance(result, ArticleResult)
+        if result.success:
+            assert "[](" not in result.markdown
+            assert "share-link" not in result.markdown
+            assert "Lazy Placeholder" not in result.content
+            assert "<img" not in result.content
+            lines = [line.strip() for line in result.markdown.splitlines()]
+            assert "-" not in lines
+
+    def test_preserves_non_empty_list_items(self):
+        """Should keep list items with visible text or real images."""
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>List Preservation</h1>
+                <ul>
+                    <li class="social-follow"><a href="https://example.com/follow">Follow Us</a></li>
+                    <li class="social-empty"><a href="https://example.com/empty">   </a></li>
+                    <li class="social-icon"><a href="https://example.com/icon"><img src="https://cdn.example.com/icon.png" alt="Icon"></a></li>
+                </ul>
+                <div class="empty-wrapper"><div class="nested-empty"></div></div>
+                <p>This closing paragraph ensures the article maintains enough substance for extraction.</p>
+            </article>
+        </body>
+        </html>
+        """
+
+        options = ExtractionOptions(min_word_count=10, min_char_threshold=50)
+        result = extract_article(
+            html,
+            url="https://example.com/list",
+            options=options,
+        )
+
+        assert isinstance(result, ArticleResult)
+        if result.success:
+            assert "Follow Us" in result.markdown
+            assert "social-empty" not in result.content
+            assert "social-icon" in result.content
+            assert "empty-wrapper" not in result.content
+            lines = [
+                line.strip() for line in result.markdown.splitlines() if line.strip()
+            ]
+            assert "-" not in [line for line in lines if line == "-"]
+
 
 @pytest.mark.unit
 class TestArticleExtractorClass:
