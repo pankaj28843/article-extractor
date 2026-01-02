@@ -51,12 +51,8 @@ curl http://localhost:3000/health
 ### Phase 4: Docker Validation
 
 ```bash
-# 7. Build Docker image
-docker build -t article-extractor .
-
-# 8. Test Docker container
-docker run --rm -p 3000:3000 article-extractor &
-curl http://localhost:3000/health
+# 7. Run the Docker debug harness (rebuilds image, publishes random port, runs smoke curl)
+./scripts/debug-docker-deployment.sh
 ```
 
 ## Quick Validation (Minimum Required)

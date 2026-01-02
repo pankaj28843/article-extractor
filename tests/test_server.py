@@ -323,16 +323,24 @@ def test_prefer_playwright_override(client, mock_result):
     assert mock_extract.await_args.kwargs["prefer_playwright"] is False
 
 
-def test_configure_helpers_store_state():
-    """configure_network_defaults and set_prefer_playwright should set app state."""
+def test_configure_helpers_store_state(monkeypatch, tmp_path):
+    """configure_network_defaults should merge env overrides before storing."""
 
     original_network = getattr(app.state, "network_defaults", None)
     original_prefer = getattr(app.state, "prefer_playwright", True)
+    env_storage = tmp_path / "env.json"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(env_storage))
+
     network = NetworkOptions(user_agent="helper")
     configure_network_defaults(network)
     set_prefer_playwright(False)
-    assert app.state.network_defaults is network
+
+    stored = app.state.network_defaults
+    assert stored is not network
+    assert stored.user_agent == "helper"
+    assert stored.storage_state_path == env_storage
     assert app.state.prefer_playwright is False
+
     app.state.network_defaults = original_network
     app.state.prefer_playwright = original_prefer
 
@@ -392,6 +400,33 @@ def test_initialize_state_from_env_respects_existing_values(monkeypatch):
     assert state.prefer_playwright is False
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+
+
+def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_result):
+    alias_file = tmp_path / "env-state.json"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
+    original_network = getattr(app.state, "network_defaults", None)
+    try:
+        app.state.network_defaults = None
+
+        with (
+            TestClient(app) as local_client,
+            patch(
+                "article_extractor.server.extract_article_from_url",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ) as mock_extract,
+        ):
+            response = local_client.post(
+                "/",
+                json={"url": "https://example.com/article"},
+            )
+
+        assert response.status_code == 200
+        network = mock_extract.await_args.kwargs["network"]
+        assert network.storage_state_path == alias_file
+    finally:
+        app.state.network_defaults = original_network
 
 
 def test_read_cache_size_invalid_env(monkeypatch, caplog):
