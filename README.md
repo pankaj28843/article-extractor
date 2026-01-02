@@ -40,12 +40,14 @@ curl -XPOST http://localhost:3000/ \
 
 - `docker run -e` lets you pass environment variables into the container so you can raise or lower the LRU cache limit (`ARTICLE_EXTRACTOR_CACHE_SIZE`, `ARTICLE_EXTRACTOR_THREADPOOL_SIZE`, etc.) without rebuilding images [Docker container run – env](https://docs.docker.com/reference/cli/docker/container/run/#env) #techdocs.
 - Use `-v/--volume` to mount host directories and persist assets like the Playwright storage-state file between runs [Docker container run – volume](https://docs.docker.com/reference/cli/docker/container/run/#volume) #techdocs.
-- Example: keep Playwright cookies on the host and increase the cache to 2k entries while running the published image:
+- `ARTICLE_EXTRACTOR_STORAGE_STATE_FILE` is a project-scoped alias for the legacy `PLAYWRIGHT_STORAGE_STATE_FILE`. Set either one (alias wins) to keep cookies/session data on a mounted volume. `ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT` (defaults to `true`) controls which fetcher the server prefers when both Playwright and httpx are installed.
+- Example: keep Playwright cookies on the host, force Playwright as the default fetcher, and increase the cache to 2k entries while running the published image:
 
 ```bash
 docker run --rm -p 3000:3000 \
     -e ARTICLE_EXTRACTOR_CACHE_SIZE=2000 \
-    -e PLAYWRIGHT_STORAGE_STATE_FILE=/data/storage-state.json \
+    -e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage-state.json \
+    -e ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true \
     -v $HOME/.article-extractor:/data \
     ghcr.io/pankaj28843/article-extractor:latest
 ```
@@ -181,6 +183,10 @@ LOG_LEVEL=info
 WEB_CONCURRENCY=2
 ARTICLE_EXTRACTOR_CACHE_SIZE=1000
 ARTICLE_EXTRACTOR_THREADPOOL_SIZE=0
+ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true
+ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage-state.json  # alias for Playwright storage path
+# Legacy equivalent (still supported):
+# PLAYWRIGHT_STORAGE_STATE_FILE=/data/storage-state.json
 ```
 
 ## Troubleshooting

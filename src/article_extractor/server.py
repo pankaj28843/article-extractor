@@ -36,6 +36,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_SIZE = 1000
 CACHE_SIZE_ENV = "ARTICLE_EXTRACTOR_CACHE_SIZE"
 THREADPOOL_ENV = "ARTICLE_EXTRACTOR_THREADPOOL_SIZE"
+PREFER_PLAYWRIGHT_ENV = "ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT"
+
+TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
+FALSE_ENV_VALUES = {"0", "false", "no", "off"}
 
 
 class ExtractionResponseCache:
@@ -92,6 +96,31 @@ def _determine_threadpool_size() -> int:
     return default_workers if requested <= 0 else requested
 
 
+def _initialize_state_from_env(state) -> None:
+    if getattr(state, "network_defaults", None) is None:
+        state.network_defaults = resolve_network_options(env=os.environ)
+    if not hasattr(state, "prefer_playwright") or state.prefer_playwright is None:
+        state.prefer_playwright = _read_prefer_playwright_env()
+
+
+def _read_prefer_playwright_env(default: bool = True) -> bool:
+    raw = os.environ.get(PREFER_PLAYWRIGHT_ENV)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in TRUE_ENV_VALUES:
+        return True
+    if normalized in FALSE_ENV_VALUES:
+        return False
+    logger.warning(
+        "Invalid %s=%s, falling back to %s",
+        PREFER_PLAYWRIGHT_ENV,
+        raw,
+        default,
+    )
+    return default
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
@@ -106,10 +135,7 @@ async def lifespan(app: FastAPI):
     app.state.cache = cache
     app.state.cache_lock = cache_lock
     app.state.threadpool = threadpool
-    if not hasattr(app.state, "network_defaults"):
-        app.state.network_defaults = None
-    if not hasattr(app.state, "prefer_playwright"):
-        app.state.prefer_playwright = True
+    _initialize_state_from_env(app.state)
 
     try:
         yield

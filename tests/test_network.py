@@ -53,6 +53,35 @@ def test_resolve_network_options_storage_state_env(monkeypatch, tmp_path):
     monkeypatch.delenv("PLAYWRIGHT_STORAGE_STATE_FILE", raising=False)
 
 
+def test_storage_state_alias_env(monkeypatch, tmp_path):
+    """ARTICLE_EXTRACTOR_STORAGE_STATE_FILE should act as a namespaced alias."""
+
+    alias_file = tmp_path / "alias-state.json"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
+
+    options = resolve_network_options()
+
+    assert options.storage_state_path == Path(alias_file)
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+
+
+def test_storage_state_alias_wins_over_legacy_env(monkeypatch, tmp_path):
+    """Alias env vars should take precedence over legacy Playwright env names."""
+
+    alias_file = tmp_path / "alias.json"
+    legacy_file = tmp_path / "legacy.json"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
+    monkeypatch.setenv("PLAYWRIGHT_STORAGE_STATE_FILE", str(legacy_file))
+
+    options = resolve_network_options()
+
+    assert options.storage_state_path == Path(alias_file)
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+    monkeypatch.delenv("PLAYWRIGHT_STORAGE_STATE_FILE", raising=False)
+
+
 def test_host_matches_no_proxy_patterns():
     """host_matches_no_proxy should honor common pattern forms."""
 

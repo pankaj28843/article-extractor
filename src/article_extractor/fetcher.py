@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Protocol
 from urllib.parse import urlparse
 
-from .network import DEFAULT_STORAGE_PATH, host_matches_no_proxy
+from .network import DEFAULT_STORAGE_PATH, STORAGE_ENV_KEYS, host_matches_no_proxy
 from .types import NetworkOptions
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,14 @@ def _check_playwright() -> bool:
     return _playwright_available
 
 
+def _detect_storage_state_file() -> Path:
+    for key in STORAGE_ENV_KEYS:
+        value = os.environ.get(key)
+        if value:
+            return Path(value).expanduser()
+    return DEFAULT_STORAGE_PATH
+
+
 class PlaywrightFetcher:
     """Playwright-based fetcher with instance-level browser management.
 
@@ -131,9 +139,7 @@ class PlaywrightFetcher:
             html2, status2 = await fetcher.fetch(url2)
     """
 
-    STORAGE_STATE_FILE = Path(
-        os.environ.get("PLAYWRIGHT_STORAGE_STATE_FILE", str(DEFAULT_STORAGE_PATH))
-    )
+    STORAGE_STATE_FILE = _detect_storage_state_file()
 
     MAX_CONCURRENT_PAGES = 3
 
