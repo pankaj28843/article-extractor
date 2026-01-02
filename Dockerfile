@@ -4,6 +4,8 @@
 # Supports both linux/amd64 and linux/arm64 platforms
 # Production-ready with uvicorn, health checks, and multi-worker support
 
+# python:3.14-slim currently publishes linux/amd64 and linux/arm64 variants.
+# Update this default if Docker Hub drops multi-arch support for the tag.
 ARG PYTHON_VERSION=3.14-slim
 ARG UV_VERSION=0.4.24
 
@@ -74,7 +76,7 @@ COPY --from=builder /app/.venv /app/.venv
 
 # Preinstall Playwright browsers and system deps inside the runtime image
 RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
-    /app/.venv/bin/playwright install --with-deps chromium firefox webkit && \
+    /app/.venv/bin/playwright install --with-deps --only-shell chromium && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     chown -R ${APP_USER}:${APP_GROUP} "$PLAYWRIGHT_BROWSERS_PATH"
