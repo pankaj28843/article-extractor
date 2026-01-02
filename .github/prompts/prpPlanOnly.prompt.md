@@ -5,26 +5,26 @@ argument-hint: brief="one-line objective" scope="files/domains in play"
 ---
 
 ## TechDocs Research
-Use `#techdocs` to ground every assertion. Prioritize `fastapi` (HTTP server), `python`/`pytest` (best practices), and `docker` (containerization). Run `list_tenants` to discover additional documentation sources. Reference **.github/instructions/techdocs.instructions.md** for detailed strategies.
+Use `#techdocs` to ground every assertion. Prioritize `python`/`pytest` (best practices), `fastapi` (HTTP server), `docker` (containerization), and `github-platform` (automation). Run `list_tenants` to discover additional documentation sources. Reference `.github/instructions/techdocs.instructions.md` for the full workflow.
 
 ## Mission
 - Draft or update a PRP aligned with `.github/instructions/PRP-README.md`.
-- Stay in planning mode: no code edits, migrations, config changes, or tests until stakeholders approve.
+- Stay in planning mode: no code edits, migrations, env changes, or tests until stakeholders approve.
 
 ## Required Sections
-1. **Goal / Why / Success Metrics** (tie back to measurable outcomes)
-2. **Current State** (existing modules, dependencies, outstanding gaps, references to specific files/lines)
-3. **Implementation Blueprint** (phased work packages mapped to files + TechDocs evidence)
-4. **Context & Anti-Patterns** (cite patterns, blocked approaches, known gotchas)
-5. **Validation Loop** (commands per phase: `uv run ruff format .`, `uv run ruff check --fix .`, `uv run pytest tests/ -v`)
-6. **Open Questions & Risks** (blockers, missing context, required approvals)
+1. **Goal / Why / Success Metrics** – tie back to measurable outcomes (Playwright parity, extraction accuracy, docs completeness).
+2. **Current State** – cite concrete files/lines (README env vars, Dockerfile install steps, failing tests, etc.).
+3. **Implementation Blueprint** – phased work packages mapped to files/scripts with TechDocs evidence.
+4. **Context & Anti-Patterns** – highlight guardrails from `.github/instructions/software-engineering-principles.instructions.md` and `.github/copilot-instructions.md`.
+5. **Validation Loop** – commands per phase: `uv run ruff format .`, `uv run ruff check --fix .`, `uv run pytest tests/ -v`, `uv run article-extractor --help`, optional Docker smoke.
+6. **Open Questions & Risks** – blockers, missing data, approvals needed.
 
 ## Process
-- Gather facts from repo files and existing code before drafting conclusions.
-- Use TechDocs citations (URL + snippet) for every pattern, architecture, or tooling claim.
-- Keep bullets crisp; prefer ASCII tables for evidence matrices or decision summaries.
-- End with a readiness statement ("Ready to implement", "Need clarification on X", etc.).
+- Inventory facts before conclusions: read relevant modules, scripts, notes, and TechDocs references.
+- Cite TechDocs URLs/snippets plus repo paths for every architectural claim.
+- Keep bullets crisp; prefer ASCII tables for blueprint + evidence matrices.
+- End with a readiness statement ("Ready to implement", "Need answer on storage state", etc.).
 
 ## Output
-- Save/update the plan under `.github/ai-agent-plans/{date}-{slug}-plan.md`.
-- Final response must recap key updates, link to the plan file, and list unresolved questions or approvals needed before coding.
+- Save or update the plan under `.github/ai-agent-plans/{date}-{slug}-plan.md`.
+- Final response must recap key updates, link to the plan file, and list unresolved questions/approvals before coding.
