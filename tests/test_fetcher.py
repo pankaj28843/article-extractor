@@ -273,7 +273,7 @@ class TestHttpxFetcherFetch:
 
         assert status == 200
         assert content == "<html>test content</html>"
-        mock_client.get.assert_awaited_once_with("https://example.com", proxy=None)
+        mock_client.get.assert_awaited_once_with("https://example.com")
 
     async def test_fetch_respects_proxy_bypass(self):
         """HttpxFetcher should skip proxies for NO_PROXY hosts."""
@@ -284,17 +284,18 @@ class TestHttpxFetcherFetch:
         )
         fetcher = HttpxFetcher(network=network)
         mock_client = AsyncMock()
+        mock_proxy_client = AsyncMock()
         mock_response = MagicMock(text="ok", status_code=200)
-        mock_client.get.side_effect = [mock_response, mock_response]
+        mock_client.get.return_value = mock_response
+        mock_proxy_client.get.return_value = mock_response
         fetcher._client = mock_client
+        fetcher._proxy_client = mock_proxy_client
 
         await fetcher.fetch("https://example.com/article")
         await fetcher.fetch("https://other.com/article")
 
-        mock_client.get.assert_any_await("https://example.com/article", proxy=None)
-        mock_client.get.assert_any_await(
-            "https://other.com/article", proxy="http://proxy:8080"
-        )
+        mock_client.get.assert_any_await("https://example.com/article")
+        mock_proxy_client.get.assert_awaited_once_with("https://other.com/article")
 
 
 # Test get_default_fetcher
@@ -499,6 +500,40 @@ class TestHttpxFetcherContextManager:
         async with fetcher:
             assert fetcher._client is not None
 
+    async def test_aenter_builds_proxy_client_with_isolated_headers(self, monkeypatch):
+        """__aenter__ should build dedicated proxy client with copied headers."""
+        from article_extractor import HttpxFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        created_clients = []
+
+        class DummyClient:
+            def __init__(self, **kwargs):
+                created_clients.append(self)
+                self.kwargs = kwargs
+                self.closed = 0
+
+            async def aclose(self):
+                self.closed += 1
+
+        dummy_httpx = SimpleNamespace(AsyncClient=DummyClient)
+        monkeypatch.setitem(sys.modules, "httpx", dummy_httpx)
+        monkeypatch.setattr(fetcher_module, "_httpx_available", True)
+
+        network = NetworkOptions(proxy="http://proxy:9000")
+        fetcher = HttpxFetcher(network=network)
+
+        async with fetcher:
+            assert len(created_clients) == 2
+            base_client, proxy_client = created_clients
+            assert "proxies" not in base_client.kwargs
+            assert proxy_client.kwargs["proxies"] == "http://proxy:9000"
+            assert base_client.kwargs["headers"] == proxy_client.kwargs["headers"]
+            assert base_client.kwargs["headers"] is not proxy_client.kwargs["headers"]
+
+        assert created_clients[0].closed == 1
+        assert created_clients[1].closed == 1
+
     async def test_aexit_closes_client(self):
         """__aexit__ should close httpx client."""
         from article_extractor import HttpxFetcher
@@ -508,6 +543,23 @@ class TestHttpxFetcherContextManager:
             pass
 
         assert fetcher._client is None
+
+    async def test_aexit_closes_proxy_client(self):
+        """__aexit__ should close both primary and proxy clients."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher()
+        base_client = SimpleNamespace(aclose=AsyncMock())
+        proxy_client = SimpleNamespace(aclose=AsyncMock())
+        fetcher._client = base_client
+        fetcher._proxy_client = proxy_client
+
+        await fetcher.__aexit__(None, None, None)
+
+        base_client.aclose.assert_awaited_once()
+        proxy_client.aclose.assert_awaited_once()
+        assert fetcher._client is None
+        assert fetcher._proxy_client is None
 
 
 @pytest.mark.unit
