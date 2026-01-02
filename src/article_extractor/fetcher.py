@@ -25,8 +25,54 @@ import logging
 import os
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urlparse
+
+from .network import DEFAULT_STORAGE_PATH, host_matches_no_proxy
+from .types import NetworkOptions
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+_fake_useragent = None
+_fake_useragent_error_logged = False
+
+
+def _select_user_agent(network: NetworkOptions | None, fallback: str) -> str:
+    """Choose a user agent honoring explicit and randomization settings."""
+
+    if network and network.user_agent:
+        return network.user_agent
+    if network and network.randomize_user_agent:
+        random_value = _generate_random_user_agent()
+        if random_value:
+            return random_value
+    return fallback
+
+
+def _generate_random_user_agent() -> str | None:
+    """Best-effort random desktop user agent string."""
+
+    global _fake_useragent, _fake_useragent_error_logged
+
+    if _fake_useragent is None and not _fake_useragent_error_logged:
+        try:
+            from fake_useragent import UserAgent
+
+            _fake_useragent = UserAgent(browsers=["chrome", "firefox"])
+        except Exception as exc:  # pragma: no cover - best-effort logging
+            _fake_useragent_error_logged = True
+            logger.warning("fake-useragent unavailable: %s", exc)
+            return None
+
+    if _fake_useragent is None:
+        return None
+
+    try:
+        return _fake_useragent.random
+    except Exception as exc:  # pragma: no cover - best-effort logging
+        logger.warning("fake-useragent failed to generate UA: %s", exc)
+        return None
 
 
 class Fetcher(Protocol):
@@ -86,10 +132,7 @@ class PlaywrightFetcher:
     """
 
     STORAGE_STATE_FILE = Path(
-        os.environ.get(
-            "PLAYWRIGHT_STORAGE_STATE_FILE",
-            ".playwright-storage-state/storage-state.json",
-        )
+        os.environ.get("PLAYWRIGHT_STORAGE_STATE_FILE", str(DEFAULT_STORAGE_PATH))
     )
 
     MAX_CONCURRENT_PAGES = 3
@@ -97,25 +140,55 @@ class PlaywrightFetcher:
     __slots__ = (
         "_browser",
         "_context",
+        "_network",
         "_playwright",
         "_semaphore",
+        "_storage_state_override",
         "headless",
         "timeout",
+        "user_interaction_timeout",
     )
 
-    def __init__(self, headless: bool = True, timeout: int = 30000) -> None:
+    def __init__(
+        self,
+        headless: bool | None = None,
+        timeout: int = 30000,
+        *,
+        network: NetworkOptions | None = None,
+        storage_state_file: str | Path | None = None,
+    ) -> None:
         """Initialize Playwright fetcher.
 
         Args:
             headless: Whether to run browser in headless mode
             timeout: Page load timeout in milliseconds (default: 30s)
         """
-        self.headless = headless
+        self._network = network or NetworkOptions()
+        network_headed = self._network.headed
+        self.headless = headless if headless is not None else not network_headed
+        self.user_interaction_timeout = self._network.user_interaction_timeout
         self.timeout = timeout
         self._playwright = None
         self._browser = None
         self._context = None
         self._semaphore: asyncio.Semaphore | None = None
+        self._storage_state_override = (
+            Path(storage_state_file).expanduser()
+            if storage_state_file is not None
+            else self._network.storage_state_path
+        )
+
+    @property
+    def network(self) -> NetworkOptions:
+        return self._network
+
+    @property
+    def storage_state_file(self) -> Path:
+        if self._storage_state_override is not None:
+            return Path(self._storage_state_override)
+        if self._network.storage_state_path is not None:
+            return Path(self._network.storage_state_path)
+        return self.STORAGE_STATE_FILE
 
     async def __aenter__(self) -> PlaywrightFetcher:
         """Create browser instance for this fetcher."""
@@ -131,12 +204,6 @@ class PlaywrightFetcher:
         # Start Playwright
         self._playwright = await async_playwright().start()
 
-        # Check for HTTP proxy
-        http_proxy_key = next(
-            (k for k in os.environ if k.lower() == "http_proxy"), None
-        )
-        http_proxy = os.environ.get(http_proxy_key) if http_proxy_key else None
-
         # Launch browser
         launch_options = {
             "headless": self.headless,
@@ -147,25 +214,24 @@ class PlaywrightFetcher:
             ],
         }
 
-        if http_proxy:
-            launch_options["proxy"] = {"server": http_proxy}
-            logger.info(f"Using proxy: {http_proxy}")
+        if self._network.proxy:
+            launch_options["proxy"] = {"server": self._network.proxy}
+            logger.info("Using Playwright proxy: %s", self._network.proxy)
 
         self._browser = await self._playwright.chromium.launch(**launch_options)
 
         # Create context with realistic settings
         context_options = {
             "viewport": {"width": 1920, "height": 1080},
-            "user_agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            ),
+            "user_agent": _select_user_agent(self._network, DEFAULT_DESKTOP_USER_AGENT),
             "locale": "en-US",
             "timezone_id": "America/New_York",
         }
 
-        if self.STORAGE_STATE_FILE.exists():
-            context_options["storage_state"] = str(self.STORAGE_STATE_FILE)
-            logger.info(f"Loading storage state from {self.STORAGE_STATE_FILE}")
+        storage_file = self.storage_state_file
+        if storage_file.exists():
+            context_options["storage_state"] = str(storage_file)
+            logger.info("Loading storage state from %s", storage_file)
 
         self._context = await self._browser.new_context(**context_options)
         self._semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_PAGES)
@@ -182,9 +248,10 @@ class PlaywrightFetcher:
         # Save storage state before closing
         if self._context:
             try:
-                self.STORAGE_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-                await self._context.storage_state(path=str(self.STORAGE_STATE_FILE))
-                logger.info(f"Saved storage state to {self.STORAGE_STATE_FILE}")
+                storage_file = self.storage_state_file
+                storage_file.parent.mkdir(parents=True, exist_ok=True)
+                await self._context.storage_state(path=str(storage_file))
+                logger.info("Saved storage state to %s", storage_file)
             except Exception as e:
                 logger.warning(f"Failed to save storage state: {e}")
 
@@ -237,6 +304,8 @@ class PlaywrightFetcher:
                     if wait_for_selector:
                         await page.wait_for_selector(wait_for_selector, timeout=5000)
 
+                    await self._maybe_wait_for_user(page)
+
                     if wait_for_stability:
                         previous_content = ""
                         for _ in range(max_stability_checks):
@@ -288,8 +357,9 @@ class PlaywrightFetcher:
                 "Cleared all storage state - browser now looks LESS like a real user!"
             )
 
-        if self.STORAGE_STATE_FILE.exists():
-            self.STORAGE_STATE_FILE.unlink()
+        storage_file = self.storage_state_file
+        if storage_file.exists():
+            storage_file.unlink()
             logger.warning("Deleted persistent storage state file")
 
     async def clear_cookies(self) -> None:
@@ -298,9 +368,26 @@ class PlaywrightFetcher:
             await self._context.clear_cookies()
             logger.info("Cleared all cookies")
 
-        if self.STORAGE_STATE_FILE.exists():
-            self.STORAGE_STATE_FILE.unlink()
+        storage_file = self.storage_state_file
+        if storage_file.exists():
+            storage_file.unlink()
             logger.info("Deleted persistent storage state file")
+
+    async def _maybe_wait_for_user(self, _page) -> None:
+        """Allow human interaction when headed mode is enabled."""
+
+        if self.headless or self.user_interaction_timeout <= 0:
+            return
+
+        remaining = float(self.user_interaction_timeout)
+        logger.info(
+            "Headed mode active; waiting up to %.1fs for manual interaction",
+            remaining,
+        )
+        interval = 0.5
+        while remaining > 0:
+            await asyncio.sleep(min(interval, remaining))
+            remaining -= interval
 
 
 # =============================================================================
@@ -335,16 +422,26 @@ class HttpxFetcher:
     """
 
     DEFAULT_HEADERS = {
-        "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        ),
+        "User-Agent": DEFAULT_DESKTOP_USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    __slots__ = ("_client", "follow_redirects", "timeout")
+    __slots__ = (
+        "_client",
+        "_headers",
+        "_network",
+        "follow_redirects",
+        "timeout",
+    )
 
-    def __init__(self, timeout: float = 30.0, follow_redirects: bool = True) -> None:
+    def __init__(
+        self,
+        timeout: float = 30.0,
+        follow_redirects: bool = True,
+        *,
+        network: NetworkOptions | None = None,
+    ) -> None:
         """Initialize httpx fetcher.
 
         Args:
@@ -354,6 +451,11 @@ class HttpxFetcher:
         self.timeout = timeout
         self.follow_redirects = follow_redirects
         self._client = None
+        self._network = network or NetworkOptions()
+        self._headers = dict(self.DEFAULT_HEADERS)
+        self._headers["User-Agent"] = _select_user_agent(
+            self._network, DEFAULT_DESKTOP_USER_AGENT
+        )
 
     async def __aenter__(self) -> HttpxFetcher:
         """Create httpx client."""
@@ -367,7 +469,8 @@ class HttpxFetcher:
         self._client = httpx.AsyncClient(
             timeout=self.timeout,
             follow_redirects=self.follow_redirects,
-            headers=self.DEFAULT_HEADERS,
+            headers=self._headers,
+            trust_env=False,
         )
         return self
 
@@ -389,7 +492,12 @@ class HttpxFetcher:
         if not self._client:
             raise RuntimeError("HttpxFetcher not initialized (use 'async with')")
 
-        response = await self._client.get(url)
+        proxy = self._network.proxy
+        host = urlparse(url).hostname
+        if proxy and host_matches_no_proxy(host, self._network.proxy_bypass):
+            proxy = None
+
+        response = await self._client.get(url, proxy=proxy)
         return response.text, response.status_code
 
 

@@ -28,7 +28,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
 from .extractor import extract_article_from_url
-from .types import ExtractionOptions
+from .network import resolve_network_options
+from .types import ExtractionOptions, NetworkOptions
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,10 @@ async def lifespan(app: FastAPI):
     app.state.cache = cache
     app.state.cache_lock = cache_lock
     app.state.threadpool = threadpool
+    if not hasattr(app.state, "network_defaults"):
+        app.state.network_defaults = None
+    if not hasattr(app.state, "prefer_playwright"):
+        app.state.prefer_playwright = True
 
     try:
         yield
@@ -129,6 +134,12 @@ class ExtractionRequest(BaseModel):
     """Request model for article extraction."""
 
     url: Annotated[HttpUrl, Field(description="URL to extract article content from")]
+    prefer_playwright: bool | None = Field(
+        default=None, description="Prefer Playwright fetcher when available"
+    )
+    network: NetworkRequest | None = Field(
+        default=None, description="Optional networking overrides"
+    )
 
 
 class ExtractionResponse(BaseModel):
@@ -147,6 +158,36 @@ class ExtractionResponse(BaseModel):
     markdown: str = Field(description="Markdown version of content")
     word_count: int = Field(description="Word count of content")
     success: bool = Field(description="Whether extraction succeeded")
+
+
+class NetworkRequest(BaseModel):
+    """Network configuration overrides accepted by the server."""
+
+    user_agent: str | None = Field(
+        default=None, description="Explicit User-Agent header"
+    )
+    random_user_agent: bool | None = Field(
+        default=None, description="Randomize User-Agent via fake-useragent"
+    )
+    proxy: str | None = Field(
+        default=None, description="Proxy URL overriding HTTP(S)_PROXY env"
+    )
+    proxy_bypass: list[str] | None = Field(
+        default=None,
+        description="Hosts or domains that should bypass the configured proxy",
+    )
+    headed: bool | None = Field(
+        default=None, description="Launch Playwright in headed mode"
+    )
+    user_interaction_timeout: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Seconds to pause for manual interaction when headed",
+    )
+    storage_state: str | None = Field(
+        default=None,
+        description="Filesystem path for Playwright storage_state.json",
+    )
 
 
 @app.get("/", status_code=status.HTTP_200_OK)
@@ -232,9 +273,14 @@ async def extract_article_endpoint(
             return cached
 
         # Extract article using default options
+        network_options = _resolve_request_network_options(extraction_request, request)
+        prefer_playwright = _resolve_preference(extraction_request, request)
+
         result = await extract_article_from_url(
             url,
             options=options,
+            network=network_options,
+            prefer_playwright=prefer_playwright,
             executor=getattr(request.app.state, "threadpool", None),
         )
 
@@ -314,3 +360,48 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error", "error": f"{exc!s}"},
     )
+
+
+def configure_network_defaults(options: NetworkOptions) -> None:
+    """Allow CLI to seed default network options for server mode."""
+
+    app.state.network_defaults = options
+
+
+def set_prefer_playwright(prefer: bool) -> None:
+    """Allow CLI or embedding apps to toggle fetcher preference."""
+
+    app.state.prefer_playwright = prefer
+
+
+def _resolve_request_network_options(
+    extraction_request: ExtractionRequest, request: Request
+) -> NetworkOptions:
+    network_payload = extraction_request.network
+    base: NetworkOptions | None = getattr(request.app.state, "network_defaults", None)
+    return resolve_network_options(
+        url=str(extraction_request.url),
+        base=base,
+        user_agent=network_payload.user_agent if network_payload else None,
+        randomize_user_agent=(
+            network_payload.random_user_agent if network_payload else None
+        ),
+        proxy=network_payload.proxy if network_payload else None,
+        proxy_bypass=network_payload.proxy_bypass if network_payload else None,
+        headed=network_payload.headed if network_payload else None,
+        user_interaction_timeout=(
+            network_payload.user_interaction_timeout if network_payload else None
+        ),
+        storage_state_path=network_payload.storage_state if network_payload else None,
+    )
+
+
+def _resolve_preference(
+    extraction_request: ExtractionRequest, request: Request
+) -> bool:
+    if extraction_request.prefer_playwright is not None:
+        return extraction_request.prefer_playwright
+    state_value = getattr(request.app.state, "prefer_playwright", None)
+    if state_value is None:
+        return True
+    return bool(state_value)

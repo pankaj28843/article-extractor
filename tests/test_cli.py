@@ -2,7 +2,7 @@
 
 import json
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -42,11 +42,22 @@ def failed_result():
 
 def test_main_url_json_output(mock_result, capsys):
     """Test extracting from URL with JSON output."""
+    sentinel_network = object()
     with (
-        patch("article_extractor.cli.asyncio.run", return_value=mock_result),
+        patch(
+            "article_extractor.cli.resolve_network_options",
+            return_value=sentinel_network,
+        ),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_extract,
         patch("sys.argv", ["article-extractor", "https://example.com"]),
     ):
         assert main() == 0
+    mock_extract.assert_awaited_once()
+    assert mock_extract.await_args.kwargs["network"] is sentinel_network
 
     captured = capsys.readouterr()
     result = json.loads(captured.out)
@@ -57,11 +68,19 @@ def test_main_url_json_output(mock_result, capsys):
 
 def test_main_url_markdown_output(mock_result, capsys):
     """Test extracting from URL with markdown output."""
-    with patch("article_extractor.cli.asyncio.run", return_value=mock_result):
-        with patch(
-            "sys.argv", ["article-extractor", "https://example.com", "-o", "markdown"]
-        ):
-            assert main() == 0
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch(
+            "sys.argv",
+            ["article-extractor", "https://example.com", "-o", "markdown"],
+        ),
+    ):
+        assert main() == 0
 
     captured = capsys.readouterr()
     assert "# Test Article" in captured.out
@@ -70,11 +89,19 @@ def test_main_url_markdown_output(mock_result, capsys):
 
 def test_main_url_text_output(mock_result, capsys):
     """Test extracting from URL with text output."""
-    with patch("article_extractor.cli.asyncio.run", return_value=mock_result):
-        with patch(
-            "sys.argv", ["article-extractor", "https://example.com", "-o", "text"]
-        ):
-            assert main() == 0
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch(
+            "sys.argv",
+            ["article-extractor", "https://example.com", "-o", "text"],
+        ),
+    ):
+        assert main() == 0
 
     captured = capsys.readouterr()
     assert "Title: Test Article" in captured.out
@@ -112,9 +139,16 @@ def test_main_stdin_input(mock_result, capsys):
 
 def test_main_extraction_failure(failed_result, capsys):
     """Test handling extraction failure."""
-    with patch("article_extractor.cli.asyncio.run", return_value=failed_result):
-        with patch("sys.argv", ["article-extractor", "https://example.com"]):
-            assert main() == 1
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=failed_result,
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 1
 
     captured = capsys.readouterr()
     assert "Error: Extraction failed" in captured.err
@@ -123,7 +157,12 @@ def test_main_extraction_failure(failed_result, capsys):
 def test_main_extraction_options(mock_result):
     """Test extraction options are applied."""
     with (
-        patch("article_extractor.cli.asyncio.run", return_value=mock_result),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
         patch(
             "sys.argv",
             [
@@ -140,11 +179,79 @@ def test_main_extraction_options(mock_result):
         assert result == 0
 
 
+def test_main_network_flag_passthrough(mock_result, tmp_path):
+    """CLI networking flags should be forwarded to resolve_network_options."""
+
+    storage_file = tmp_path / "state.json"
+
+    with (
+        patch("article_extractor.cli.resolve_network_options") as mock_network,
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "https://example.com",
+                "--user-agent",
+                "Custom/1.0",
+                "--random-user-agent",
+                "--proxy",
+                "http://proxy:9000",
+                "--headed",
+                "--user-interaction-timeout",
+                "7.5",
+                "--storage-state",
+                str(storage_file),
+            ],
+        ),
+    ):
+        assert main() == 0
+
+    kwargs = mock_network.call_args.kwargs
+    assert kwargs["user_agent"] == "Custom/1.0"
+    assert kwargs["randomize_user_agent"] is True
+    assert kwargs["proxy"] == "http://proxy:9000"
+    assert kwargs["headed"] is True
+    assert kwargs["user_interaction_timeout"] == 7.5
+    assert kwargs["storage_state_path"] == storage_file
+
+
+def test_main_prefer_httpx_flag(mock_result):
+    """CLI should respect --prefer-httpx when hitting URLs."""
+
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_extract,
+        patch(
+            "sys.argv",
+            ["article-extractor", "https://example.com", "--prefer-httpx"],
+        ),
+    ):
+        assert main() == 0
+
+    assert mock_extract.await_args.kwargs["prefer_playwright"] is False
+
+
 def test_main_keyboard_interrupt(capsys):
     """Test handling keyboard interrupt."""
-    with patch("article_extractor.cli.asyncio.run", side_effect=KeyboardInterrupt):
-        with patch("sys.argv", ["article-extractor", "https://example.com"]):
-            assert main() == 130
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            side_effect=KeyboardInterrupt,
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 130
 
     captured = capsys.readouterr()
     assert "Interrupted" in captured.err
@@ -152,11 +259,16 @@ def test_main_keyboard_interrupt(capsys):
 
 def test_main_exception(capsys):
     """Test handling general exceptions."""
-    with patch(
-        "article_extractor.cli.asyncio.run", side_effect=RuntimeError("Test error")
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Test error"),
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
     ):
-        with patch("sys.argv", ["article-extractor", "https://example.com"]):
-            assert main() == 1
+        assert main() == 1
 
     captured = capsys.readouterr()
     assert "Error: Test error" in captured.err
@@ -168,11 +280,18 @@ def test_server_mode():
     mock_run = MagicMock()
     mock_uvicorn_module.run = mock_run
 
-    with patch.dict("sys.modules", {"uvicorn": mock_uvicorn_module}):
-        with patch("sys.argv", ["article-extractor", "--server"]):
-            assert main() == 0
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch.dict("sys.modules", {"uvicorn": mock_uvicorn_module}),
+        patch("article_extractor.server.configure_network_defaults") as mock_config,
+        patch("article_extractor.server.set_prefer_playwright") as mock_prefer,
+        patch("sys.argv", ["article-extractor", "--server"]),
+    ):
+        assert main() == 0
 
     assert mock_run.called
+    mock_config.assert_called_once()
+    mock_prefer.assert_called_once_with(True)
 
 
 def test_server_mode_custom_host_port():
@@ -181,12 +300,17 @@ def test_server_mode_custom_host_port():
     mock_run = MagicMock()
     mock_uvicorn_module.run = mock_run
 
-    with patch.dict("sys.modules", {"uvicorn": mock_uvicorn_module}):
-        with patch(
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch.dict("sys.modules", {"uvicorn": mock_uvicorn_module}),
+        patch("article_extractor.server.configure_network_defaults"),
+        patch("article_extractor.server.set_prefer_playwright"),
+        patch(
             "sys.argv",
             ["article-extractor", "--server", "--host", "127.0.0.1", "--port", "8000"],
-        ):
-            assert main() == 0
+        ),
+    ):
+        assert main() == 0
 
     assert mock_run.called
 
@@ -203,7 +327,10 @@ def test_server_mode_missing_dependencies(capsys):
         return real_import(name, *args, **kwargs)
 
     with patch("builtins.__import__", side_effect=mock_import):
-        with patch("sys.argv", ["article-extractor", "--server"]):
+        with (
+            patch("article_extractor.cli.resolve_network_options"),
+            patch("sys.argv", ["article-extractor", "--server"]),
+        ):
             assert main() == 1
 
     captured = capsys.readouterr()

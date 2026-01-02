@@ -6,6 +6,7 @@ Provides ArticleResult and ExtractionOptions dataclasses.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -39,6 +40,21 @@ class ExtractionOptions:
     include_images: bool = True
     include_code_blocks: bool = True
     safe_markdown: bool = True  # Use JustHTML safe sanitization
+
+
+@dataclass
+class NetworkOptions:
+    """Networking controls shared by httpx and Playwright fetchers."""
+
+    user_agent: str | None = None
+    randomize_user_agent: bool = False
+    proxy: str | None = None
+    proxy_bypass: tuple[str, ...] = field(
+        default_factory=lambda: ("localhost", "127.0.0.1", "::1")
+    )
+    headed: bool = False
+    user_interaction_timeout: float = 0.0
+    storage_state_path: Path | None = None
 
 
 @dataclass
