@@ -83,6 +83,7 @@ notes.md
 .playwright-storage-state/
 *.playwright-storage-state/
 .article-extractor/
+site/
 
 
 # github copilot ai agent plans to stay on local machine only

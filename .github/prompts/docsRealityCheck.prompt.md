@@ -7,8 +7,9 @@ Prevent documentation drift by enforcing reality-grounded workflows. This is an 
 
 1. **Before editing docs**: Run every command you plan to document (CLI, FastAPI, Docker) in your current environment.
 2. **Capture output**: Copy-paste actual terminal output into docs. Trim secrets, but keep real prompts + exit codes.
-3. **Never invent outputs**: If you have not run it, do not document it.
-4. **Clean up**: Do not leave verification notes or TODOs in published docs—keep them in notes.md if needed.
+3. **Use repo-local temp storage**: Write verification artifacts, logs, and scratch files to `./tmp/...` (gitignored) so you never rely on `/tmp` permissions that might differ per host.
+4. **Never invent outputs**: If you have not run it, do not document it.
+5. **Clean up**: Do not leave verification notes or TODOs in published docs—keep them in notes.md if needed.
 
 ## Checklist (All Must Pass)
 
