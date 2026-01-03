@@ -144,6 +144,78 @@ Server POST example with overrides:
 }
 ```
 
+## Observability
+
+- Structured logs stream to stderr/stdout in JSON by default so Docker logging drivers and `journald` can parse them. Switch to text locally via `--log-format text` (CLI) or `ARTICLE_EXTRACTOR_LOG_FORMAT=text` (server/CLI/env files).
+- Control verbosity with `--log-level` (`critical` default for CLI) or `ARTICLE_EXTRACTOR_LOG_LEVEL`. The FastAPI server defaults to `INFO` unless overridden.
+- URLs in log entries are sanitized (`https://host/path` without query strings or credentials) to avoid leaking secrets.
+- Deep fetch diagnostics (httpx retries, Playwright storage metadata) stay muted by default; flip them on with `ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1` before running either the CLI or FastAPI server when you need per-request breadcrumbs. Leave it at `0` (default) to keep production logs lean.
+- Every HTTP response includes an `X-Request-ID` (echoing inbound headers when provided). 500/422 responses also embed the request id in the JSON payload so you can cross-reference logs quickly.
+
+When triaging locally you can combine the diagnostics flag with the CLI:
+
+```bash
+ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1 uv run article-extractor https://example.com
+```
+
+### Log Shipping Recipes
+
+- **Docker logging drivers**: Containers keep writing newline-delimited JSON to stdout/stderr, so you can wire them into drivers like `fluentd`, `gelf`, or `local`. Per the official [Docker logging driver guide](https://docs.docker.com/engine/logging/configure/), start the server container with:
+
+    ```bash
+    docker run \
+        --log-driver fluentd \
+        --log-opt fluentd-address=host.docker.internal:24224 \
+        --log-opt tag=article-extractor \
+        -e ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1 \
+        pankaj28843/article-extractor:latest
+    ```
+
+    This streams JSON logs (plus the optional diagnostics fields) straight into Fluent Bit/Fluentd without touching the application code.
+
+- **Fluent Bit → Elasticsearch (ELK) pipeline**: Point the logging driver at a Fluent Bit sidecar that forwards to Elasticsearch/Kibana.
+
+    ```ini
+    # fluent-bit.conf
+    [INPUT]
+            Name    forward
+            Listen  0.0.0.0
+            Port    24224
+
+    [FILTER]
+            Name    modify
+            Match   article-extractor
+            Add     service article-extractor
+
+    [OUTPUT]
+            Name    es
+            Match   *
+            Host    elasticsearch
+            Port    9200
+            Index   article-extractor-logs
+    ```
+
+    Compose this with the Docker logging driver snippet above and Kibana immediately ingests request/diagnostic fields for dashboards.
+
+### Metrics
+
+- Enable structured counters/timers with `ARTICLE_EXTRACTOR_METRICS_ENABLED=1`. Without further configuration, metrics fall back to the log sink and show up as JSON lines tagged with `metric_*` fields for scraping or `jq` piping.
+- Set `ARTICLE_EXTRACTOR_METRICS_SINK=statsd` and provide `ARTICLE_EXTRACTOR_METRICS_STATSD_HOST/ARTICLE_EXTRACTOR_METRICS_STATSD_PORT` (typically `8125`) to stream the same counters to StatsD/DogStatsD. Use `ARTICLE_EXTRACTOR_METRICS_NAMESPACE=article_extractor` (or any prefix) to keep dashboards tidy.
+- The FastAPI server records request totals and durations in middleware so every request can be tagged with `method`, `path`, `status`, and the coarse `status_group` bucket described in the [FastAPI middleware guide](https://fastapi.tiangolo.com/tutorial/middleware/) #techdocs fastapi.
+- The CLI emits `cli_extractions_total`, `cli_extractions_failed_total`, and `cli_extraction_duration_ms` to track batch jobs by source (`url`, `file`, `stdin`) and output format.
+- Metrics share the same `.env` loading rules as the rest of the settings, so a `.env` file can toggle log-formatting, diagnostics, and StatsD routing together.
+
+Example: send request metrics to a local DogStatsD sidecar while still logging JSON:
+
+```bash
+ARTICLE_EXTRACTOR_METRICS_ENABLED=1 \
+ARTICLE_EXTRACTOR_METRICS_SINK=statsd \
+ARTICLE_EXTRACTOR_METRICS_STATSD_HOST=127.0.0.1 \
+ARTICLE_EXTRACTOR_METRICS_STATSD_PORT=8125 \
+ARTICLE_EXTRACTOR_METRICS_NAMESPACE=article_extractor \
+uv run uvicorn article_extractor.server:app --port 3000
+```
+
 ## Python API
 
 ```python
@@ -179,12 +251,20 @@ ArticleResult fields: `title`, `content`, `markdown`, `excerpt`, `word_count`, `
 ```bash
 HOST=0.0.0.0
 PORT=3000
-LOG_LEVEL=info
 WEB_CONCURRENCY=2
 ARTICLE_EXTRACTOR_CACHE_SIZE=1000
 ARTICLE_EXTRACTOR_THREADPOOL_SIZE=0
 ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true
 ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage-state.json  # alias for Playwright storage path
+ARTICLE_EXTRACTOR_LOG_LEVEL=info
+ARTICLE_EXTRACTOR_LOG_FORMAT=json
+ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=0
+ARTICLE_EXTRACTOR_METRICS_ENABLED=0
+ARTICLE_EXTRACTOR_METRICS_SINK=log
+# Define host/port when using StatsD
+ARTICLE_EXTRACTOR_METRICS_STATSD_HOST=127.0.0.1
+ARTICLE_EXTRACTOR_METRICS_STATSD_PORT=8125
+ARTICLE_EXTRACTOR_METRICS_NAMESPACE=article_extractor
 # Legacy equivalent (still supported):
 # PLAYWRIGHT_STORAGE_STATE_FILE=/data/storage-state.json
 ```
@@ -204,6 +284,11 @@ ARTICLE_EXTRACTOR_CACHE_SIZE=2000
 ARTICLE_EXTRACTOR_THREADPOOL_SIZE=8
 ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=false
 ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=$HOME/.article-extractor/storage_state.json
+ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=0
+ARTICLE_EXTRACTOR_METRICS_ENABLED=1
+ARTICLE_EXTRACTOR_METRICS_SINK=statsd
+ARTICLE_EXTRACTOR_METRICS_STATSD_HOST=dogstatsd
+ARTICLE_EXTRACTOR_METRICS_STATSD_PORT=8125
 ```
 
 Environment variables still win over `.env` values, so CI/CD pipelines can

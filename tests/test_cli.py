@@ -138,6 +138,128 @@ def test_main_stdin_input(mock_result, capsys):
     assert result["success"] is True
 
 
+def test_main_configures_logging(mock_result):
+    """CLI should configure logging with CLI overrides."""
+
+    with (
+        patch("article_extractor.cli.setup_logging") as mock_setup,
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "https://example.com",
+                "--log-level",
+                "info",
+                "--log-format",
+                "text",
+            ],
+        ),
+    ):
+        assert main() == 0
+
+    kwargs = mock_setup.call_args.kwargs
+    assert kwargs["component"] == "cli"
+    assert kwargs["default_level"] == "CRITICAL"
+    assert kwargs["log_format"] == "text"
+    assert kwargs["level"] == "INFO"
+
+
+def test_main_uses_settings_logging_defaults(mock_result):
+    """Settings-provided log preferences should flow into setup_logging."""
+
+    settings = _settings_stub(
+        diagnostics=False,
+        log_level="WARNING",
+        log_format="text",
+    )
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging") as mock_setup,
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 0
+
+    kwargs = mock_setup.call_args.kwargs
+    assert kwargs["level"] == "WARNING"
+    assert kwargs["log_format"] == "text"
+
+
+def test_main_records_metrics_on_success(mock_result):
+    settings = _settings_stub(
+        diagnostics=False,
+        metrics_enabled=True,
+        metrics_sink="log",
+    )
+    emitter = MagicMock()
+    emitter.enabled = True
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.build_metrics_emitter", return_value=emitter),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com", "-o", "json"]),
+    ):
+        assert main() == 0
+
+    increment_call = emitter.increment.call_args
+    assert increment_call.args[0] == "cli_extractions_total"
+    assert increment_call.kwargs["tags"] == {"source": "url", "output": "json"}
+    observe_call = emitter.observe.call_args
+    assert observe_call.args[0] == "cli_extraction_duration_ms"
+    assert observe_call.kwargs["tags"] == {
+        "source": "url",
+        "output": "json",
+        "success": "true",
+    }
+
+
+def test_main_records_metrics_on_failure(failed_result):
+    settings = _settings_stub(
+        diagnostics=False,
+        metrics_enabled=True,
+        metrics_sink="log",
+    )
+    emitter = MagicMock()
+    emitter.enabled = True
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.build_metrics_emitter", return_value=emitter),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=failed_result,
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 1
+
+    failure_call = emitter.increment.call_args
+    assert failure_call.args[0] == "cli_extractions_failed_total"
+    assert failure_call.kwargs["tags"] == {"source": "url", "output": "json"}
+
+
 def test_main_extraction_failure(failed_result, capsys):
     """Test handling extraction failure."""
     with (
@@ -241,6 +363,80 @@ def test_main_prefer_httpx_flag(mock_result):
         assert main() == 0
 
     assert mock_extract.await_args.kwargs["prefer_playwright"] is False
+
+
+def _settings_stub(
+    *,
+    diagnostics: bool,
+    log_level: str | None = "INFO",
+    log_format: str | None = "json",
+    metrics_enabled: bool = False,
+    metrics_sink: str | None = None,
+    metrics_statsd_host: str | None = None,
+    metrics_statsd_port: int | None = None,
+    metrics_namespace: str | None = None,
+) -> object:
+    class _Settings:
+        def __init__(self):
+            self.log_level = log_level
+            self.log_format = log_format
+            self.prefer_playwright = True
+            self.log_diagnostics = diagnostics
+            self.metrics_enabled = metrics_enabled
+            self.metrics_sink = metrics_sink
+            self.metrics_statsd_host = metrics_statsd_host
+            self.metrics_statsd_port = metrics_statsd_port
+            self.metrics_namespace = metrics_namespace
+
+        @staticmethod
+        def build_network_env():
+            return {}
+
+    return _Settings()
+
+
+def test_main_passes_log_diagnostics_flag(mock_result):
+    """CLI should forward the diagnostics toggle derived from settings."""
+
+    with (
+        patch(
+            "article_extractor.cli.get_settings",
+            return_value=_settings_stub(diagnostics=True),
+        ),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_extract,
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 0
+
+    assert mock_extract.await_args.kwargs["diagnostic_logging"] is True
+
+
+def test_main_disables_diagnostics_when_setting_false(mock_result):
+    """Diagnostics remain off unless explicitly enabled via settings/env."""
+
+    with (
+        patch(
+            "article_extractor.cli.get_settings",
+            return_value=_settings_stub(diagnostics=False),
+        ),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_extract,
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 0
+
+    assert mock_extract.await_args.kwargs["diagnostic_logging"] is False
 
 
 def test_main_keyboard_interrupt(capsys):
