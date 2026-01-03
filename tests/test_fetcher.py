@@ -617,6 +617,7 @@ class TestPlaywrightFetcherContextManager:
 
         fetcher = PlaywrightFetcher(storage_state_file=storage_file)
         mock_context = AsyncMock()
+        mock_context.storage_state.return_value = {"cookies": ["session"]}
         mock_browser = AsyncMock()
         mock_playwright = AsyncMock()
 
@@ -629,6 +630,23 @@ class TestPlaywrightFetcherContextManager:
         assert mock_context.storage_state.await_count == 1
         assert mock_context.close.await_count == 1
         assert mock_browser.close.await_count == 1
+        assert storage_file.exists()
+        assert "session" in storage_file.read_text(encoding="utf-8")
+
+    async def test_persist_storage_payload_writes_via_queue(self, tmp_path):
+        """_persist_storage_payload should leverage the storage queue."""
+        from article_extractor import PlaywrightFetcher
+        from article_extractor.storage_queue import normalize_payload
+
+        storage_file = tmp_path / "state.json"
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+        fetcher._storage_lock = asyncio.Lock()
+
+        payload = normalize_payload({"cookies": ["queued"]})
+        await fetcher._persist_storage_payload(payload)
+
+        assert storage_file.exists()
+        assert "queued" in storage_file.read_text(encoding="utf-8")
 
     async def test_aexit_handles_storage_save_failure(self, tmp_path, caplog):
         """__aexit__ should handle storage save failure gracefully."""
