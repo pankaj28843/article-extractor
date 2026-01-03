@@ -52,7 +52,7 @@ The MkDocs site (Overview, Tutorials, Operations, Reference, Explanations) lives
 
 ## Contributing
 
-We welcome pull requests paired with docs. Follow the [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/#development-workflow-and-validation) for validation, skim the [Style Guide](https://pankaj28843.github.io/article-extractor/style-guide/) before editing prose, and document real command output via the DocsRealityCheck log in `notes.md`.
+We welcome pull requests paired with docs. Follow the [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/#development-workflow-and-validation) for validation and include real command output in the PR description when you update documentation.
 
 ## License
 

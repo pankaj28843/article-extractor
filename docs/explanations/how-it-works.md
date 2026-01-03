@@ -1,8 +1,6 @@
 # How It Works
 
-> **Problem**: Without a single explanation page, contributors guessed how scoring, fetchers, and observability fit together.  \
-> **Why**: A Philosophy of Software Design reminds us that obscurity (missing context) breeds fragility (#techdocs file:///home/pankaj/Personal/Code/docs-mcp-server/mcp-data/a-philosophy-of-software-design/06-2-the-nature-of-complexity.md).  \
-> **Outcome**: One deterministic pipeline overview covering scoring math, module boundaries, and observability hooks.
+This page summarizes how parsing, scoring, fetchers, and observability fit together so contributors can reason about the system before editing code or docs.
 
 ## Deterministic Pipeline
 
