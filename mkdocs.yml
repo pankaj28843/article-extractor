@@ -1,4 +1,3 @@
-# site_name is required per MkDocs configuration guide (#techdocs mkdocs/user-guide/configuration.md)
 site_name: Article Extractor Docs
 site_description: Library, CLI, and API docs for Article Extractor
 site_author: Article Extractor Maintainers
@@ -14,8 +13,6 @@ nav:
   - Overview:
     - Home: index.md
     - How It Works: explanations/how-it-works.md
-    - Voice & Style: style-guide.md
-    - Content Inventory: content-inventory.md
   - Tutorials: tutorials.md
   - Operations: operations.md
   - Reference: reference.md

@@ -1,8 +1,6 @@
 # Operations Runbook
 
-> **Problem**: Ops tasks (cache tuning, proxies, diagnostics, releases) lived in separate guides, forcing context switches mid-incident.  \
-> **Why**: Collapsing everything into a single runbook keeps env vars, Docker flags, and GitHub Actions steps visible in one scroll (#techdocs https://docs.github.com/en/actions/concepts/workflows-and-actions/).  \
-> **Outcome**: Five Arrange/Act/Assert recipes covering caches, networking, observability, validation, and releases—each with real commands and citations to Docker/MkDocs guidance.
+Five Arrange/Act/Assert recipes keep cache tuning, networking, diagnostics, validation, and release automation in one place so you can work through incidents without hopping across multiple files.
 
 ## Cache and Playwright Storage
 
@@ -67,7 +65,7 @@ uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia \
 - CLI banner shows `Fetched with Playwright` (diagnostics) or prints the expected word count even when a proxy is active.
 - Server response returns `"Example Domain"` with `word_count: 19` and `warnings: null`.
 - `./tmp/uvicorn.log` includes a JSON line logging the resolved proxy, matching the overrides you posted.
-- Unset `HTTPS_PROXY`/`NO_PROXY` after debugging to avoid surprises. Docker env syntax mirrors the official docs (#techdocs https://docs.docker.com/reference/cli/docker/container/run/#env).
+- Unset `HTTPS_PROXY`/`NO_PROXY` after debugging to avoid surprises.
 
 ## Diagnostics and Metrics
 
@@ -129,7 +127,7 @@ Add `uv run scripts/debug_docker_deployment.py --skip-build --tail-lines 120` wh
 **Assert**
 - Coverage stays ≥93%.
 - CLI help exits 0 and prints the latest options.
-- MkDocs builds succeed without nav/anchor warnings (strict mode per #techdocs file:///home/pankaj/Personal/Code/docs-mcp-server/mcp-data/mkdocs/user-guide/writing-your-docs.md).
+- MkDocs builds succeed without nav/anchor warnings.
 
 ## Release Automation
 
@@ -157,4 +155,4 @@ uv run mkdocs gh-deploy --remote-branch gh-pages
 - Local server health check succeeds before tagging.
 - Smoke harness logs `Docker validation harness completed successfully` and HTTP 200s.
 - `gh run list` shows the latest docs workflow green; `gh api repos/:owner/:repo/pages` confirms Actions-based publishing.
-- `mkdocs gh-deploy` serves as the documented fallback (#techdocs https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site/). Record the fallback in PR notes so the workflow can resume control on the next push.
+- `mkdocs gh-deploy` serves as the documented fallback. Record the fallback in the PR description so the workflow can resume control on the next push.

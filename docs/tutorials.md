@@ -1,10 +1,6 @@
 # Tutorials
 
-> **Problem**: New users bounce between README snippets and scattered guides before running anything end-to-end.  \
-> **Why**: Following the FastAPI tutorial pattern (#techdocs https://fastapi.tiangolo.com/tutorial/) keeps every job runnable with copy/paste commands.  \
-> **Outcome**: Three Arrange/Act/Assert walkthroughs that land a working CLI, Docker service, or Python embedding in minutes.
-
-Each tutorial below embeds the exact commands and trimmed output captured on 2026-01-03. Swap URLs as needed, but keep the verification steps so you know when to trust the scorer.
+Each tutorial embeds the exact commands and trimmed output captured on 2026-01-03. Swap URLs as needed, but keep the verification steps so you know when to trust the scorer.
 
 ## CLI Fast Path
 
@@ -66,7 +62,7 @@ INFO:     Uvicorn running on http://0.0.0.0:3000 (Press CTRL+C to quit)
 - Container stays in `running` per `docker ps` and logs the uvicorn banner.
 - `/health` responds with HTTP 200 JSON.
 - POST returns a title + positive word count before you stop the container.
-- Add `-v $HOME/.article-extractor:/data` and `-e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage_state.json` to persist cookies (mount syntax per #techdocs https://docs.docker.com/reference/cli/docker/container/run/#volume).
+- Add `-v $HOME/.article-extractor:/data` and `-e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage_state.json` to persist cookies.
 
 ## Python Embedding
 

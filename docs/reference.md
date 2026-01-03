@@ -1,8 +1,6 @@
 # Reference
 
-> **Problem**: Operators needed three separate pages to find env defaults, CLI syntax, or FastAPI schemas.  \
-> **Why**: Docker's option tables (#techdocs https://docs.docker.com/reference/cli/docker/buildx/build/) and FastAPI's settings guide (#techdocs https://fastapi.tiangolo.com/advanced/settings/) show how concise references unblock readers mid-task.  \
-> **Outcome**: One lookup table plus canonical commands for every surface.
+One lookup table consolidates the runtime settings plus canonical CLI, FastAPI, and library entrypoints so you can grab the exact knob that matters mid-incident.
 
 ## Configuration
 
@@ -30,7 +28,7 @@
 
 ## `.env` and precedence
 
-Both the CLI and FastAPI server load settings via `pydantic-settings`, matching FastAPI's recommended approach (#techdocs https://fastapi.tiangolo.com/advanced/settings/). Drop a `.env` file next to your entrypoint and every `ARTICLE_EXTRACTOR_*` variable will be loaded automatically; explicit environment variables override `.env` entries so CI/CD can replace local defaults without touching the file.
+Both the CLI and FastAPI server load settings via `pydantic-settings`. Drop a `.env` file next to your entrypoint and every `ARTICLE_EXTRACTOR_*` variable will be loaded automatically; explicit environment variables override `.env` entries so CI/CD can replace local defaults without touching the file.
 
 ```ini
 # .env example
