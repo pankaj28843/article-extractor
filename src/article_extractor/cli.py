@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .extractor import extract_article, extract_article_from_url
 from .network import resolve_network_options
+from .settings import get_settings
 from .types import ExtractionOptions
 
 
@@ -147,8 +148,17 @@ def main() -> int:  # noqa: PLR0915 - CLI parser intentionally verbose
 
     args = parser.parse_args()
 
+    settings = get_settings()
+    prefer_playwright = (
+        args.prefer_playwright
+        if args.prefer_playwright is not None
+        else settings.prefer_playwright
+    )
+    network_env = settings.build_network_env()
+
     network = resolve_network_options(
         url=args.url,
+        env=network_env,
         user_agent=args.user_agent,
         randomize_user_agent=args.random_user_agent,
         proxy=args.proxy,
@@ -165,7 +175,7 @@ def main() -> int:  # noqa: PLR0915 - CLI parser intentionally verbose
             from .server import app, configure_network_defaults, set_prefer_playwright
 
             configure_network_defaults(network)
-            set_prefer_playwright(args.prefer_playwright)
+            set_prefer_playwright(prefer_playwright)
             uvicorn.run(app, host=args.host, port=args.port)
             return 0
         except ImportError:
@@ -190,7 +200,7 @@ def main() -> int:  # noqa: PLR0915 - CLI parser intentionally verbose
                     args.url,
                     options=options,
                     network=network,
-                    prefer_playwright=args.prefer_playwright,
+                    prefer_playwright=prefer_playwright,
                 )
             )
         elif args.file:

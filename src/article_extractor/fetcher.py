@@ -42,11 +42,14 @@ def _select_user_agent(network: NetworkOptions | None, fallback: str) -> str:
     """Choose a user agent honoring explicit and randomization settings."""
 
     if network and network.user_agent:
+        logger.debug("Using explicit user agent override: %s", network.user_agent)
         return network.user_agent
     if network and network.randomize_user_agent:
         random_value = _generate_random_user_agent()
         if random_value:
+            logger.debug("Randomized user agent selected: %s", random_value)
             return random_value
+        logger.debug("Random user agent requested but generation failed; falling back")
     return fallback
 
 
@@ -107,8 +110,10 @@ def _check_playwright() -> bool:
             import playwright.async_api  # noqa: F401
 
             _playwright_available = True
+            logger.debug("Playwright import succeeded; fetcher available")
         except ImportError:
             _playwright_available = False
+            logger.debug("Playwright import failed; fetcher unavailable")
     return _playwright_available
 
 
@@ -116,7 +121,9 @@ def _detect_storage_state_file() -> Path:
     for key in STORAGE_ENV_KEYS:
         value = os.environ.get(key)
         if value:
-            return Path(value).expanduser()
+            path = Path(value).expanduser()
+            logger.debug("Storage state resolved from env %s=%s", key, path)
+            return path
     return DEFAULT_STORAGE_PATH
 
 
@@ -230,9 +237,12 @@ class PlaywrightFetcher:
         self._browser = await self._playwright.chromium.launch(**launch_options)
 
         # Create context with realistic settings
+        selected_user_agent = _select_user_agent(
+            self._network, DEFAULT_DESKTOP_USER_AGENT
+        )
         context_options = {
             "viewport": {"width": 1920, "height": 1080},
-            "user_agent": _select_user_agent(self._network, DEFAULT_DESKTOP_USER_AGENT),
+            "user_agent": selected_user_agent,
             "locale": "en-US",
             "timezone_id": "America/New_York",
         }
@@ -241,9 +251,21 @@ class PlaywrightFetcher:
         if storage_file.exists():
             context_options["storage_state"] = str(storage_file)
             logger.info("Loading storage state from %s", storage_file)
+        else:
+            logger.info(
+                "No storage state file found at %s; starting fresh", storage_file
+            )
 
         self._context = await self._browser.new_context(**context_options)
         self._semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_PAGES)
+
+        logger.info(
+            "Playwright context ready (headless=%s, user_agent=%s, proxy=%s, storage=%s)",
+            self.headless,
+            selected_user_agent,
+            self._network.proxy or "disabled",
+            storage_file,
+        )
 
         logger.info(
             f"Playwright browser created (max {self.MAX_CONCURRENT_PAGES} concurrent pages)"
@@ -305,6 +327,12 @@ class PlaywrightFetcher:
             page = await self._context.new_page()
 
             try:
+                logger.debug(
+                    "Playwright navigating to %s (wait_for_selector=%s, wait_for_stability=%s)",
+                    url,
+                    wait_for_selector,
+                    wait_for_stability,
+                )
                 response = await page.goto(
                     url, wait_until="domcontentloaded", timeout=self.timeout
                 )
@@ -414,8 +442,10 @@ def _check_httpx() -> bool:
             import httpx  # noqa: F401
 
             _httpx_available = True
+            logger.debug("httpx import succeeded; fetcher available")
         except ImportError:
             _httpx_available = False
+            logger.debug("httpx import failed; fetcher unavailable")
     return _httpx_available
 
 
@@ -491,6 +521,12 @@ class HttpxFetcher:
             self._proxy_client = _build_client(proxies=self._network.proxy)
         else:
             self._proxy_client = None
+        logger.info(
+            "httpx client initialized (timeout=%.1fs, follow_redirects=%s, proxy=%s)",
+            self.timeout,
+            self.follow_redirects,
+            self._network.proxy or "disabled",
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -522,6 +558,9 @@ class HttpxFetcher:
             and not host_matches_no_proxy(host, self._network.proxy_bypass)
         ):
             client = self._proxy_client
+            logger.debug("Routing %s via proxy %s", url, proxy)
+        else:
+            logger.debug("Routing %s via direct connection", url)
 
         response = await client.get(url)
         return response.text, response.status_code
@@ -547,10 +586,19 @@ def get_default_fetcher(
         ImportError: If no fetcher is available
     """
     if prefer_playwright and _check_playwright():
+        logger.info(
+            "Default fetcher: Playwright (prefer_playwright=%s)", prefer_playwright
+        )
         return PlaywrightFetcher
     if _check_httpx():
+        logger.info(
+            "Default fetcher: httpx (prefer_playwright=%s, playwright_available=%s)",
+            prefer_playwright,
+            _playwright_available,
+        )
         return HttpxFetcher
     if _check_playwright():
+        logger.info("Default fetcher fallback: Playwright only option available")
         return PlaywrightFetcher
 
     raise ImportError(

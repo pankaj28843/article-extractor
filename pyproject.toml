@@ -18,7 +18,11 @@ classifiers = [
     "Topic :: Text Processing :: Markup :: HTML",
 ]
 
-dependencies = ["justhtml>=0.20.0"]
+dependencies = [
+    "justhtml>=0.20.0",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+]
 
 [project.optional-dependencies]
 playwright = ["playwright>=1.49.0"]

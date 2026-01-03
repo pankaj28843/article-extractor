@@ -1,46 +1,84 @@
 # syntax=docker/dockerfile:1.6
 
-# Multi-architecture Dockerfile for article-extractor HTTP server
-# Supports both linux/amd64 and linux/arm64 platforms
-# Production-ready with uvicorn, health checks, and multi-worker support
+# Single-stage Dockerfile using the official uv Debian image
+# Keeps dependency installs cached while letting source/docs change freely
 
-# python:3.14-slim currently publishes linux/amd64 and linux/arm64 variants.
-# Update this default if Docker Hub drops multi-arch support for the tag.
-ARG PYTHON_VERSION=3.14-slim
-ARG UV_VERSION=0.4.24
-
-FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
-
-# Build stage: install dependencies with uv using cached layers
-FROM python:${PYTHON_VERSION} AS builder
+ARG UV_VERSION=0.9.17-debian
+ARG APP_USER=appuser
+ARG APP_GROUP=appgroup
+ARG APP_UID=1000
+ARG APP_GID=1000
 ARG TARGETARCH
 
-COPY --from=uv /uv /usr/local/bin/uv
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
+ARG APP_USER
+ARG APP_GROUP
+ARG APP_UID
+ARG APP_GID
+ARG TARGETARCH
+
+USER root
+
+ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_HTTP_TIMEOUT=300 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOST=0.0.0.0 \
+    PORT=3000 \
+    LOG_LEVEL=info \
+    WEB_CONCURRENCY=2 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-WORKDIR /app
+# System dependencies for Playwright + curl for health checks
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        libasound2 \
+        libatk-bridge2.0-0 \
+        libatk1.0-0 \
+        libatspi2.0-0 \
+        libcairo2 \
+        libcups2 \
+        libdbus-1-3 \
+        libdrm2 \
+        libgbm1 \
+        libnspr4 \
+        libnss3 \
+        libpango-1.0-0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libxrandr2 && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy lockfiles first to maximize cache hits
-COPY pyproject.toml uv.lock README.md LICENSE ./
+# Create or reuse a non-root user/group that matches provided IDs
+RUN set -eux; \
+    if getent group "${APP_GID}" >/dev/null; then \
+        existing_group="$(getent group "${APP_GID}" | cut -d: -f1)"; \
+        if [ "$existing_group" != "${APP_GROUP}" ]; then \
+            groupmod -n "${APP_GROUP}" "$existing_group"; \
+        fi; \
+    else \
+        groupadd --gid "${APP_GID}" "${APP_GROUP}"; \
+    fi; \
+    if getent passwd "${APP_UID}" >/dev/null; then \
+        existing_user="$(getent passwd "${APP_UID}" | cut -d: -f1)"; \
+        usermod -l "${APP_USER}" -d "/home/${APP_USER}" -m "$existing_user"; \
+        usermod -g "${APP_GID}" "${APP_USER}"; \
+    else \
+        useradd --uid "${APP_UID}" --gid "${APP_GID}" --shell /bin/bash --create-home "${APP_USER}"; \
+    fi; \
+    mkdir -p /home/${APP_USER}/app && chown -R ${APP_USER}:${APP_GROUP} /home/${APP_USER}
 
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache-${TARGETARCH} \
-    uv sync --locked --no-install-project --no-dev --no-editable --extra server --extra httpx --extra playwright
+RUN mkdir -p ${PLAYWRIGHT_BROWSERS_PATH} && chown ${APP_USER}:${APP_GROUP} ${PLAYWRIGHT_BROWSERS_PATH}
 
-# Copy remaining source after deps are installed
-COPY src/ ./src/
+ENV HOME=/home/${APP_USER}
+WORKDIR /home/${APP_USER}/app
 
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache-${TARGETARCH} \
-    uv sync --locked --no-dev --no-editable --extra server --extra httpx --extra playwright
-
-# Runtime stage - minimal image
-FROM python:${PYTHON_VERSION} AS runtime
-
-# Labels for container metadata
 LABEL org.opencontainers.image.title="article-extractor" \
       org.opencontainers.image.description="Pure-Python article extraction HTTP service - Drop-in replacement for readability-js-server" \
       org.opencontainers.image.url="https://github.com/pankaj28843/article-extractor" \
@@ -48,49 +86,32 @@ LABEL org.opencontainers.image.title="article-extractor" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.authors="Pankaj Kumar Singh <pankaj28843@gmail.com>"
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0 \
-    PORT=3000 \
-    LOG_LEVEL=info \
-    WEB_CONCURRENCY=2 \
-    APP_USER=appuser \
-    APP_GROUP=appgroup \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-# Install curl for health checks
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create non-root user for security
-RUN groupadd --gid 1000 ${APP_GROUP} && \
-    useradd --uid 1000 --gid ${APP_GROUP} --shell /bin/bash --create-home ${APP_USER}
-
-WORKDIR /app
-
-# Copy virtual environment from builder stage
-COPY --from=builder /app/.venv /app/.venv
-
-# Preinstall Playwright browsers and system deps inside the runtime image
-RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
-    /app/.venv/bin/playwright install --with-deps --only-shell chromium && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    chown -R ${APP_USER}:${APP_GROUP} "$PLAYWRIGHT_BROWSERS_PATH"
-
-# Set PATH to use virtual environment
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Switch to non-root user
 USER ${APP_USER}
 
-# Expose port
+# blank README and LICENSE to allow caching of dependency layer
+RUN touch README.md LICENSE
+
+# Copy dependency manifests first to maximize caching of uv sync
+COPY --chown=${APP_USER}:${APP_GROUP} pyproject.toml uv.lock ./
+
+RUN --mount=type=cache,target=/home/${APP_USER}/.cache/uv,id=uv-cache-${TARGETARCH},uid=${APP_UID},gid=${APP_GID} \
+    uv sync --locked --no-install-project --no-dev --no-editable --extra server --extra httpx --extra playwright
+    
+# Preinstall Playwright browsers inside the image
+RUN uv run playwright install --only-shell chromium
+
+# Copy source and docs after dependencies are cached
+COPY --chown=${APP_USER}:${APP_GROUP} src/ ./src/
+COPY --chown=${APP_USER}:${APP_GROUP} README.md LICENSE ./
+
+# Editable install keeps dependency layer stable while allowing code changes
+RUN --mount=type=cache,target=/home/${APP_USER}/.cache/uv,id=uv-cache-${TARGETARCH},uid=${APP_UID},gid=${APP_GID} \
+    uv pip install --no-deps -e .
+
+ENV PATH="/home/${APP_USER}/app/.venv/bin:$PATH"
+
 EXPOSE 3000
 
-# Health check - use the /health endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -fsS --max-time 2 http://localhost:3000/health || exit 1
 

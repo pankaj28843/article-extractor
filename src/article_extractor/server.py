@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -29,17 +28,10 @@ from pydantic import BaseModel, Field, HttpUrl
 
 from .extractor import extract_article_from_url
 from .network import resolve_network_options
+from .settings import ServiceSettings, get_settings
 from .types import ExtractionOptions, NetworkOptions
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_CACHE_SIZE = 1000
-CACHE_SIZE_ENV = "ARTICLE_EXTRACTOR_CACHE_SIZE"
-THREADPOOL_ENV = "ARTICLE_EXTRACTOR_THREADPOOL_SIZE"
-PREFER_PLAYWRIGHT_ENV = "ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT"
-
-TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
-FALSE_ENV_VALUES = {"0", "false", "no", "off"}
 
 
 class ExtractionResponseCache:
@@ -69,66 +61,36 @@ class ExtractionResponseCache:
 
 
 def _read_cache_size() -> int:
-    raw = os.environ.get(CACHE_SIZE_ENV)
-    if raw is None:
-        return DEFAULT_CACHE_SIZE
-    try:
-        return max(1, int(raw))
-    except ValueError:
-        logger.warning(
-            "Invalid %s=%s, falling back to %s", CACHE_SIZE_ENV, raw, DEFAULT_CACHE_SIZE
-        )
-        return DEFAULT_CACHE_SIZE
+    return get_settings().cache_size
 
 
-def _determine_threadpool_size() -> int:
-    default_workers = max(4, (os.cpu_count() or 1) * 2)
-    raw = os.environ.get(THREADPOOL_ENV)
-    if raw is None:
-        return default_workers
-    try:
-        requested = int(raw)
-    except ValueError:
-        logger.warning(
-            "Invalid %s=%s, falling back to %s", THREADPOOL_ENV, raw, default_workers
-        )
-        return default_workers
-    return default_workers if requested <= 0 else requested
+def _determine_threadpool_size(settings: ServiceSettings | None = None) -> int:
+    settings = settings or get_settings()
+    return settings.determine_threadpool_size()
 
 
 def _initialize_state_from_env(state) -> None:
+    settings = get_settings()
     if getattr(state, "network_defaults", None) is None:
-        state.network_defaults = resolve_network_options(env=os.environ)
+        env_mapping = settings.build_network_env()
+        state.network_defaults = resolve_network_options(env=env_mapping)
     if not hasattr(state, "prefer_playwright") or state.prefer_playwright is None:
         state.prefer_playwright = _read_prefer_playwright_env()
 
 
-def _read_prefer_playwright_env(default: bool = True) -> bool:
-    raw = os.environ.get(PREFER_PLAYWRIGHT_ENV)
-    if raw is None:
-        return default
-    normalized = raw.strip().lower()
-    if normalized in TRUE_ENV_VALUES:
-        return True
-    if normalized in FALSE_ENV_VALUES:
-        return False
-    logger.warning(
-        "Invalid %s=%s, falling back to %s",
-        PREFER_PLAYWRIGHT_ENV,
-        raw,
-        default,
-    )
-    return default
+def _read_prefer_playwright_env(_default: bool = True) -> bool:
+    return get_settings().prefer_playwright
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
 
-    cache = ExtractionResponseCache(_read_cache_size())
+    settings = get_settings()
+    cache = ExtractionResponseCache(settings.cache_size)
     cache_lock = asyncio.Lock()
     threadpool = ThreadPoolExecutor(
-        max_workers=_determine_threadpool_size(),
+        max_workers=_determine_threadpool_size(settings),
         thread_name_prefix="article-extractor",
     )
 
@@ -391,8 +353,11 @@ async def general_exception_handler(_request: Request, exc: Exception) -> JSONRe
 def configure_network_defaults(options: NetworkOptions | None) -> None:
     """Allow CLI to seed default network options for server mode."""
 
+    settings = get_settings()
     base = options or NetworkOptions()
-    app.state.network_defaults = resolve_network_options(base=base)
+    app.state.network_defaults = resolve_network_options(
+        base=base, env=settings.build_network_env()
+    )
 
 
 def set_prefer_playwright(prefer: bool) -> None:
