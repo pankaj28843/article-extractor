@@ -4,6 +4,8 @@ import json
 import logging
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from article_extractor import observability
 from article_extractor.observability import (
     MetricsEmitter,
@@ -18,6 +20,19 @@ from article_extractor.observability import (
 def test_strip_url_sanitizes_query_and_credentials():
     raw = "https://user:pass@example.com:8443/path?q=secret#section"
     assert strip_url(raw) == "https://example.com:8443/path"
+
+
+def test_strip_url_returns_original_on_value_error(monkeypatch):
+    def _explode(_url):
+        raise ValueError("bad url")
+
+    monkeypatch.setattr(observability, "urlsplit", _explode)
+
+    assert strip_url("//invalid") == "//invalid"
+
+
+def test_strip_url_returns_original_when_missing_scheme():
+    assert strip_url("example.com/path") == "example.com/path"
 
 
 def test_generate_request_id_prefers_existing_value():
@@ -86,6 +101,15 @@ def test_metrics_emitter_statsd_sink_sends_metrics():
     assert fake_client.send.call_count == 2
 
 
+def test_metrics_emitter_disabled_skips_emit():
+    with patch.object(MetricsEmitter, "_emit", autospec=True) as emit_mock:
+        emitter = MetricsEmitter(component="cli", enabled=False, sink="log")
+        emitter.increment("noop")
+        emitter.observe("noop", value=1.0)
+
+    emit_mock.assert_not_called()
+
+
 def test_metrics_emitter_statsd_missing_host_disables(caplog):
     caplog.set_level("WARNING")
     emitter = build_metrics_emitter(
@@ -120,6 +144,30 @@ def test_json_formatter_includes_custom_fields():
     assert payload["extra_field"] == "value"
 
 
+def test_json_formatter_includes_stack_info():
+    formatter = observability._JsonFormatter()
+    record = logging.LogRecord(
+        name="stack",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=123,
+        msg="boom",
+        args=(),
+        exc_info=None,
+    )
+    record.component = "cli"
+    record.stack_info = "stacktrace"
+    try:
+        raise RuntimeError("explode")
+    except RuntimeError as exc:
+        record.exc_info = (exc.__class__, exc, exc.__traceback__)
+
+    payload = json.loads(formatter.format(record))
+
+    assert payload["stack"] == "stacktrace"
+    assert "exc_info" in payload
+
+
 def test_text_formatter_appends_context_fields():
     formatter = observability._TextFormatter()
     record = logging.LogRecord(
@@ -141,6 +189,24 @@ def test_text_formatter_appends_context_fields():
     assert "server" in formatted
     assert "request_id=req-123" in formatted
     assert "status_code=200" in formatted
+
+
+def test_text_formatter_without_extras_returns_base():
+    formatter = observability._TextFormatter()
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=77,
+        msg="plain log",
+        args=(),
+        exc_info=None,
+    )
+    record.component = "cli"
+
+    formatted = formatter.format(record)
+
+    assert "|" not in formatted
 
 
 def test_component_filter_sets_component():
@@ -188,6 +254,28 @@ def test_statsd_client_send_serializes_namespace_and_tags(monkeypatch):
 
     assert sent["payload"] == "article.hits:2|c|#env:test"
     assert sent["address"] == ("localhost", 8125)
+
+
+def test_statsd_client_raises_for_unknown_metric_type(monkeypatch):
+    class DummySocket:
+        def setblocking(self, _flag):
+            return None
+
+        def sendto(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(
+        observability.socket, "socket", lambda *_args, **_kwargs: DummySocket()
+    )
+    client = observability._StatsdClient("localhost", 8125, namespace=None)
+
+    with pytest.raises(OSError, match="Unsupported StatsD metric type"):
+        client.send(
+            metric_type="histogram",
+            metric_name="demo",
+            metric_value=1,
+            tags=None,
+        )
 
 
 def test_metrics_emitter_statsd_logs_debug_on_failure():

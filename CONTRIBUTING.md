@@ -73,13 +73,23 @@ uv run coverage report
 
 ### 5. Docker Smoke Validation
 
-Run the automated Docker debug harness when you need to verify that the container image and Playwright storage wiring still behave correctly:
+Run the automated Docker debug harness whenever you need to validate the container image and Playwright storage wiring end-to-end:
 
 ```bash
-./scripts/debug-docker-deployment.sh
+uv run scripts/debug_docker_deployment.py
 ```
 
-The harness rebuilds `article-extractor:local`, deletes and recreates `tmp/docker-smoke-data/`, mounts that directory into the container, publishes a random host port using Docker's `--publish` flag, waits for `/health`, sends a sample POST request, tails the logs, asserts that Playwright recreated a non-empty `storage_state.json`, and tears down the container automatically. Watch the output for the generated port and the ready-to-run `curl` snippet if you want to repeat the smoke test manually.
+The shell entrypoint now delegates to `scripts/debug_docker_deployment.py`, which:
+
+- Rebuilds `article-extractor:local` (unless `--skip-build` is supplied)
+- Deletes and recreates `tmp/docker-smoke-data/` via `article_extractor.storage`
+- Runs the container with a random published port and shared storage mount
+- Waits for `/health` and then POSTs ~20 curated URLs in parallel (configurable via `--urls-file`)
+- Aggregates the HTTP status for every URL, printing excerpts for failures and retrying once per target by default (`--retries`)
+- Verifies that `storage_state.json` exists, is non-empty, and contains both Playwright `origins` and `cookies`
+- Streams the final log tail and prints a ready-to-run `curl` snippet before cleaning up
+
+You can pass any harness flag through the wrapper, for example `uv run scripts/debug_docker_deployment.py --concurrency 8 --urls-file urls.txt`. The underlying Python script also exposes `--keep-container` if you want to inspect the running container manually.
 
 ### 6. Commit and Push
 

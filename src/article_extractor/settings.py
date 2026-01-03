@@ -35,10 +35,17 @@ METRICS_SINK_ENV = "ARTICLE_EXTRACTOR_METRICS_SINK"
 METRICS_STATSD_HOST_ENV = "ARTICLE_EXTRACTOR_METRICS_STATSD_HOST"
 METRICS_STATSD_PORT_ENV = "ARTICLE_EXTRACTOR_METRICS_STATSD_PORT"
 METRICS_NAMESPACE_ENV = "ARTICLE_EXTRACTOR_METRICS_NAMESPACE"
+STORAGE_QUEUE_DIR_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR"
+STORAGE_QUEUE_MAX_ENTRIES_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES"
+STORAGE_QUEUE_MAX_AGE_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS"
+STORAGE_QUEUE_RETENTION_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS"
 TRUE_VALUES = {"1", "true", "yes", "on"}
 FALSE_VALUES = {"0", "false", "no", "off"}
 VALID_LOG_FORMATS = {"json", "text"}
 VALID_METRICS_SINKS = {"log", "statsd"}
+DEFAULT_QUEUE_MAX_ENTRIES = 20
+DEFAULT_QUEUE_MAX_AGE_SECONDS = 60.0
+DEFAULT_QUEUE_RETENTION_SECONDS = 300.0
 
 
 class ServiceSettings(BaseSettings):
@@ -48,6 +55,12 @@ class ServiceSettings(BaseSettings):
     threadpool_size: int | None = Field(default=None)
     prefer_playwright: bool = Field(default=True)
     storage_state_file: Path = Field(default=DEFAULT_STORAGE_PATH)
+    storage_queue_dir: Path | None = Field(default=None)
+    storage_queue_max_entries: int = Field(default=DEFAULT_QUEUE_MAX_ENTRIES)
+    storage_queue_max_age_seconds: float = Field(default=DEFAULT_QUEUE_MAX_AGE_SECONDS)
+    storage_queue_retention_seconds: float = Field(
+        default=DEFAULT_QUEUE_RETENTION_SECONDS
+    )
     log_level: str | None = Field(default=None)
     log_format: str | None = Field(default=None)
     log_diagnostics: bool = Field(default=False)
@@ -93,6 +106,40 @@ class ServiceSettings(BaseSettings):
         if value in (None, ""):
             return DEFAULT_STORAGE_PATH
         return Path(value).expanduser()
+
+    @field_validator("storage_queue_dir", mode="before")
+    @classmethod
+    def _expand_storage_queue(cls, value: Any):
+        if value in (None, ""):
+            return None
+        return Path(value).expanduser()
+
+    @field_validator("storage_queue_max_entries", mode="before")
+    @classmethod
+    def _coerce_queue_entries(cls, value: Any):
+        return _coerce_positive_int(
+            value,
+            STORAGE_QUEUE_MAX_ENTRIES_ENV,
+            fallback=DEFAULT_QUEUE_MAX_ENTRIES,
+        )
+
+    @field_validator("storage_queue_max_age_seconds", mode="before")
+    @classmethod
+    def _coerce_queue_age(cls, value: Any):
+        return _coerce_non_negative_float(
+            value,
+            STORAGE_QUEUE_MAX_AGE_ENV,
+            fallback=DEFAULT_QUEUE_MAX_AGE_SECONDS,
+        )
+
+    @field_validator("storage_queue_retention_seconds", mode="before")
+    @classmethod
+    def _coerce_queue_retention(cls, value: Any):
+        return _coerce_non_negative_float(
+            value,
+            STORAGE_QUEUE_RETENTION_ENV,
+            fallback=DEFAULT_QUEUE_RETENTION_SECONDS,
+        )
 
     @field_validator("log_level", mode="before")
     @classmethod
@@ -167,6 +214,30 @@ def _coerce_positive_int(
             env_name,
             value,
             _format_fallback(fallback),
+        )
+        return fallback
+    return parsed
+
+
+def _coerce_non_negative_float(value: Any, env_name: str, *, fallback: float) -> float:
+    if value in (None, ""):
+        return fallback
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        logger.warning(
+            "Invalid %s=%s, falling back to %s",
+            env_name,
+            value,
+            fallback,
+        )
+        return fallback
+    if parsed < 0:
+        logger.warning(
+            "Invalid %s=%s, falling back to %s",
+            env_name,
+            value,
+            fallback,
         )
         return fallback
     return parsed

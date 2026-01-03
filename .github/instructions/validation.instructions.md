@@ -16,6 +16,14 @@ These validation steps MUST run after ANY code change (addition, edit, or deleti
 
 Run these in order after EVERY code change:
 
+### Phase 0: Environment Refresh
+
+```bash
+uv sync --extra all --upgrade
+uv lock --upgrade
+uv run playwright install
+```
+
 ### Phase 1: Code Quality
 
 ```bash
@@ -26,9 +34,12 @@ uv run ruff check --fix .
 # 2. Check for type errors (use get_errors tool on changed files)
 # Fix ALL errors before proceeding
 
-# 3. Run tests
-uv run pytest tests/ -v
+# 3. Run tests with coverage (fail if total coverage < 93%)
+PYTHONPATH=src uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
 ```
+
+> Coverage expectation: if the reported total drops below **93%**, treat the run as failed and address gaps before proceeding.
+
 
 ### Phase 2: CLI Testing
 
@@ -51,8 +62,8 @@ curl http://localhost:3000/health
 ### Phase 4: Docker Validation
 
 ```bash
-# 7. Run the Docker debug harness (rebuilds image, publishes random port, runs smoke curl)
-./scripts/debug-docker-deployment.sh
+# 7. Run the Python Docker harness (rebuilds image, resets storage, fires parallel smoke requests)
+uv run scripts/debug_docker_deployment.py
 ```
 
 ## Quick Validation (Minimum Required)

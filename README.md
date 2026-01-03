@@ -10,31 +10,86 @@ High-fidelity article extraction in pure Python: library, HTTP API, and CLI that
 
 > Requires Python 3.12+
 
-## Who This Helps
+## Audience & Prerequisites
 
 - Backend, data, and tooling teams that need reliable article text for search, RAG, or analytics.
 - Engineers who prefer a single-language stack with fast installs and reproducible results.
 - Teams that want a ready-to-ship server/CLI and a composable Python API.
 
+**Prerequisites**
+
+- Python 3.12+ with `pip` or `uv` for the CLI/library flows
+- Docker 24+ for the container/server quick start
+- A network connection to fetch the target page (proxy-friendly; see networking section later)
+
+Expect the CLI tutorial to reach first output in <2 minutes once dependencies are installed; server and Docker flows average ~5 minutes end-to-end.
+
 ## Quick Start (pick one)
 
-### CLI (fastest)
+Pick the flow that matches your environment. Each mini-tutorial highlights the time commitment, prerequisites, and the expected result so you can confirm success quickly.
 
-```bash
-pip install article-extractor
-article-extractor https://en.wikipedia.org/wiki/Wikipedia --output markdown
+### Tutorial: CLI in 2 minutes
+
+**Time**: ~2 minutes once Python is installed  
+**Prerequisites**: Python 3.12+, `pip` (or `uv pip`)  
+**What you'll learn**: Run the CLI against a public URL and capture Markdown output
+
+1. Install the package:
+
+    ```bash
+    pip install article-extractor
+    ```
+
+2. Extract from Wikipedia and print Markdown:
+
+    ```bash
+    article-extractor https://en.wikipedia.org/wiki/Wikipedia --output markdown
+    ```
+
+Successful runs echo the detected title, excerpt, and word count before streaming Markdown to stdout. If you hit proxy hurdles, skip down to the networking controls section.
+
+### Tutorial: Server via Docker (5 minutes)
+
+**Time**: ~5 minutes  
+**Prerequisites**: Docker 24+, outbound network access  
+**What you'll learn**: Launch the FastAPI server in a container and verify extraction through `curl`
+
+1. Start the container:
+
+    ```bash
+    docker run -p 3000:3000 ghcr.io/pankaj28843/article-extractor:latest
+    ```
+
+2. POST a URL to the service:
+
+    ```bash
+    curl -XPOST http://localhost:3000/ \
+        -H "Content-Type: application/json" \
+        -d '{"url": "https://en.wikipedia.org/wiki/Wikipedia"}' | jq '.title, .word_count'
+    ```
+
+Look for HTTP 200 with title + word count in the JSON response. Use the Docker overrides section below if you want persistent storage or Playwright defaults.
+
+### Tutorial: Python Library (5 minutes)
+
+**Time**: ~5 minutes including install  
+**Prerequisites**: Python 3.12+, ability to import from `src` or installed package  
+**What you'll learn**: Call `extract_article()` directly inside your codebase
+
+```python
+from article_extractor import extract_article
+
+html = """
+<html><body><article><h1>Title</h1><p>Content...</p></article></body></html>
+"""
+
+result = extract_article(html, url="https://example.com/demo")
+print(result.title)
+print(result.markdown.splitlines()[0])
+print(f"Words: {result.word_count}")
 ```
 
-You will see clean Markdown printed to stdout along with detected title, excerpt, and word count.
-
-### Server (Docker)
-
-```bash
-docker run -p 3000:3000 ghcr.io/pankaj28843/article-extractor:latest
-curl -XPOST http://localhost:3000/ \
-    -H "Content-Type: application/json" \
-    -d '{"url": "https://en.wikipedia.org/wiki/Wikipedia"}' | jq '.title, .word_count'
-```
+Expect `result.success` to be `True`; passing the `url` parameter improves scoring and warning metadata.
 
 ### Override cache + Playwright storage in Docker
 
@@ -54,20 +109,12 @@ docker run --rm -p 3000:3000 \
 
 Mounting the host directory ensures `/data/storage-state.json` survives container restarts, so Playwright-headed sessions can defeat bot checks once and reuse the same cookies later.
 
-### Python Library
+## Documentation Map
 
-```python
-from article_extractor import extract_article
-
-html = """
-<html><body><article><h1>Title</h1><p>Content...</p></article></body></html>
-"""
-
-result = extract_article(html, url="https://example.com/demo")
-print(result.title)
-print(result.markdown.splitlines()[0])
-print(f"Words: {result.word_count}")
-```
+- **Tutorials**: Follow the [Quick Start](#quick-start-pick-one) paths or the [Docker smoke harness](#docker-smoke-harness) section to learn workflows end-to-end.
+- **How-To Guides**: Use [Override cache + Playwright storage in Docker](#override-cache--playwright-storage-in-docker) and [Networking controls](#networking-controls-cli--server) when solving specific deployment tasks.
+- **Reference**: Keep [Configuration](#configuration) and [Observability](#observability) handy for environment variables, metrics, and logging switches.
+- **Explanation**: Read [Why Teams Choose Article Extractor](#why-teams-choose-article-extractor) and [How It Works](#how-it-works) for the rationale behind our scoring pipeline.
 
 ## Why Teams Choose Article Extractor
 
@@ -146,75 +193,24 @@ Server POST example with overrides:
 
 ## Observability
 
-- Structured logs stream to stderr/stdout in JSON by default so Docker logging drivers and `journald` can parse them. Switch to text locally via `--log-format text` (CLI) or `ARTICLE_EXTRACTOR_LOG_FORMAT=text` (server/CLI/env files).
-- Control verbosity with `--log-level` (`critical` default for CLI) or `ARTICLE_EXTRACTOR_LOG_LEVEL`. The FastAPI server defaults to `INFO` unless overridden.
-- URLs in log entries are sanitized (`https://host/path` without query strings or credentials) to avoid leaking secrets.
-- Deep fetch diagnostics (httpx retries, Playwright storage metadata) stay muted by default; flip them on with `ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1` before running either the CLI or FastAPI server when you need per-request breadcrumbs. Leave it at `0` (default) to keep production logs lean.
-- Every HTTP response includes an `X-Request-ID` (echoing inbound headers when provided). 500/422 responses also embed the request id in the JSON payload so you can cross-reference logs quickly.
+- Structured logs stream to stderr/stdout in JSON so Docker logging drivers and `journald` can parse them; flip to text with `--log-format text` or `ARTICLE_EXTRACTOR_LOG_FORMAT=text` when debugging locally.
+- Control verbosity via `--log-level` (CLI default `critical`) or `ARTICLE_EXTRACTOR_LOG_LEVEL` (server default `INFO`).
+- Sanitized URLs (`https://host/path`) prevent credential leakage; every response carries an `X-Request-ID` for trace correlation.
+- Enable per-request diagnostics with `ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1` (or CLI flag) to capture httpx retries, Playwright metadata, and queue stats.
+- Point Docker logging to Fluent Bit/Fluentd/GELF using the [official logging driver switches](https://docs.docker.com/engine/logging/configure/) instead of duplicating collector configs here.
 
-When triaging locally you can combine the diagnostics flag with the CLI:
+Example local triage session:
 
 ```bash
 ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1 uv run article-extractor https://example.com
 ```
 
-### Log Shipping Recipes
-
-- **Docker logging drivers**: Containers keep writing newline-delimited JSON to stdout/stderr, so you can wire them into drivers like `fluentd`, `gelf`, or `local`. Per the official [Docker logging driver guide](https://docs.docker.com/engine/logging/configure/), start the server container with:
-
-    ```bash
-    docker run \
-        --log-driver fluentd \
-        --log-opt fluentd-address=host.docker.internal:24224 \
-        --log-opt tag=article-extractor \
-        -e ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1 \
-        pankaj28843/article-extractor:latest
-    ```
-
-    This streams JSON logs (plus the optional diagnostics fields) straight into Fluent Bit/Fluentd without touching the application code.
-
-- **Fluent Bit → Elasticsearch (ELK) pipeline**: Point the logging driver at a Fluent Bit sidecar that forwards to Elasticsearch/Kibana.
-
-    ```ini
-    # fluent-bit.conf
-    [INPUT]
-            Name    forward
-            Listen  0.0.0.0
-            Port    24224
-
-    [FILTER]
-            Name    modify
-            Match   article-extractor
-            Add     service article-extractor
-
-    [OUTPUT]
-            Name    es
-            Match   *
-            Host    elasticsearch
-            Port    9200
-            Index   article-extractor-logs
-    ```
-
-    Compose this with the Docker logging driver snippet above and Kibana immediately ingests request/diagnostic fields for dashboards.
-
 ### Metrics
 
-- Enable structured counters/timers with `ARTICLE_EXTRACTOR_METRICS_ENABLED=1`. Without further configuration, metrics fall back to the log sink and show up as JSON lines tagged with `metric_*` fields for scraping or `jq` piping.
-- Set `ARTICLE_EXTRACTOR_METRICS_SINK=statsd` and provide `ARTICLE_EXTRACTOR_METRICS_STATSD_HOST/ARTICLE_EXTRACTOR_METRICS_STATSD_PORT` (typically `8125`) to stream the same counters to StatsD/DogStatsD. Use `ARTICLE_EXTRACTOR_METRICS_NAMESPACE=article_extractor` (or any prefix) to keep dashboards tidy.
-- The FastAPI server records request totals and durations in middleware so every request can be tagged with `method`, `path`, `status`, and the coarse `status_group` bucket described in the [FastAPI middleware guide](https://fastapi.tiangolo.com/tutorial/middleware/) #techdocs fastapi.
-- The CLI emits `cli_extractions_total`, `cli_extractions_failed_total`, and `cli_extraction_duration_ms` to track batch jobs by source (`url`, `file`, `stdin`) and output format.
-- Metrics share the same `.env` loading rules as the rest of the settings, so a `.env` file can toggle log-formatting, diagnostics, and StatsD routing together.
-
-Example: send request metrics to a local DogStatsD sidecar while still logging JSON:
-
-```bash
-ARTICLE_EXTRACTOR_METRICS_ENABLED=1 \
-ARTICLE_EXTRACTOR_METRICS_SINK=statsd \
-ARTICLE_EXTRACTOR_METRICS_STATSD_HOST=127.0.0.1 \
-ARTICLE_EXTRACTOR_METRICS_STATSD_PORT=8125 \
-ARTICLE_EXTRACTOR_METRICS_NAMESPACE=article_extractor \
-uv run uvicorn article_extractor.server:app --port 3000
-```
+- Toggle metrics with `ARTICLE_EXTRACTOR_METRICS_ENABLED`. By default, counters are logged as JSON (`metric_*` fields) so you can scrape them with any log pipeline.
+- Switch `ARTICLE_EXTRACTOR_METRICS_SINK` to `statsd` plus host/port env vars to emit the same counters (namespaced via `ARTICLE_EXTRACTOR_METRICS_NAMESPACE`).
+- FastAPI middleware tracks request totals/durations; the CLI emits `cli_extractions_*` counters for URLs, files, and stdin sources.
+- Configure the above via `.env` the same way you manage cache, logging, or storage settings—see the [Configuration](#configuration) table for canonical defaults.
 
 ## Python API
 
@@ -269,6 +265,29 @@ ARTICLE_EXTRACTOR_METRICS_NAMESPACE=article_extractor
 # PLAYWRIGHT_STORAGE_STATE_FILE=/data/storage-state.json
 ```
 
+### Playwright storage queue (shared cookies)
+
+Headed Playwright runs now write session cookies through a durable queue so
+multiple workers can share one `storage_state.json` without clobbering each
+other. The queue lives beside the storage file (`storage_state.json.changes/` by
+default) and replays the newest payload atomically after every request. Tune it
+with the new environment variables:
+
+- `ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR` — override the default
+    `<storage_state>.changes` directory if you prefer a custom mount.
+- `ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES` — CRITICAL log threshold when
+    pending snapshots exceed this depth (default 20).
+- `ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS` — emits CRITICAL logs when
+    the oldest pending snapshot stays queued longer than this many seconds
+    (default 60s).
+- `ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS` — how long processed
+    change docs stick around for forensic analysis before being pruned (default
+    300s).
+
+Set these env vars (or `.env` keys) wherever you run the CLI/server so shared
+Playwright state stays consistent across cron jobs, Docker containers, or
+headed-debug sessions.
+
 ### `.env` files everywhere
 
 Both the CLI and FastAPI server load settings via
@@ -308,6 +327,45 @@ cd article-extractor
 uv sync --all-extras
 uv run ruff format . && uv run ruff check --fix .
 uv run pytest tests/ -v
+```
+
+### Docker smoke harness
+
+Run the Python-based Docker harness whenever you touch the container image,
+Playwright storage, or queue defaults. It rebuilds the image (unless you pass
+`--skip-build`), mounts `tmp/docker-smoke-data/`, waits for `/health`, POSTs the
+curated URL list in parallel, and tails the container logs so you can inspect
+queue diagnostics and storage snapshots:
+
+```text
+$ uv run scripts/debug_docker_deployment.py --help
+usage: debug_docker_deployment.py [-h] [--image-tag IMAGE_TAG] [--container-name CONTAINER_NAME] [--container-port CONTAINER_PORT] [--concurrency CONCURRENCY]
+                                                                    [--retries RETRIES] [--urls-file URLS_FILE] [--skip-build] [--keep-container] [--diagnostics-flag DIAGNOSTICS_FLAG]
+                                                                    [--tail-lines TAIL_LINES] [--health-timeout HEALTH_TIMEOUT]
+
+Rebuild the Docker image, start the FastAPI service, and fire parallel smoke requests to validate Playwright storage behavior.
+
+options:
+    -h, --help            show this help message and exit
+    --image-tag IMAGE_TAG
+                                                Docker image tag to build/run.
+    --container-name CONTAINER_NAME
+                                                Name of the temporary Docker container.
+    --container-port CONTAINER_PORT
+                                                Internal container port exposed by the FastAPI app.
+    --concurrency CONCURRENCY
+                                                Maximum concurrent POST requests to issue against the server.
+    --retries RETRIES     Number of additional attempts per URL when the first POST fails.
+    --urls-file URLS_FILE
+                                                Optional file containing newline-separated URLs (comments starting with # are ignored).
+    --skip-build          Skip rebuilding the Docker image and reuse the current tag.
+    --keep-container      Leave the smoke container running after the harness exits.
+    --diagnostics-flag DIAGNOSTICS_FLAG
+                                                Value for ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS passed into the container (defaults to env value).
+    --tail-lines TAIL_LINES
+                                                Number of log lines to stream from the container after the run completes.
+    --health-timeout HEALTH_TIMEOUT
+                                                Seconds to wait for /health to report ready before failing the harness.
 ```
 
 ## Contributing

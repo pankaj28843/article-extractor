@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlparse
@@ -32,6 +33,14 @@ from .network import (
     resolve_network_options,
 )
 from .observability import build_url_log_context
+from .storage_queue import (
+    QueueStats,
+    StorageQueue,
+    StorageSnapshot,
+    capture_snapshot,
+    compute_fingerprint,
+    normalize_payload,
+)
 from .types import NetworkOptions
 
 logger = logging.getLogger(__name__)
@@ -160,7 +169,11 @@ class PlaywrightFetcher:
         "_network",
         "_playwright",
         "_semaphore",
+        "_storage_lock",
+        "_storage_queue",
+        "_storage_snapshot",
         "_storage_state_override",
+        "_worker_token",
         "headless",
         "timeout",
         "user_interaction_timeout",
@@ -197,6 +210,10 @@ class PlaywrightFetcher:
             else self._network.storage_state_path
         )
         self._diagnostics_enabled = diagnostics_enabled
+        self._storage_queue = self._initialize_storage_queue()
+        self._storage_snapshot = None
+        self._storage_lock: asyncio.Lock | None = None
+        self._worker_token = f"playwright-{os.getpid()}-{id(self)}"
 
     def _log_diagnostic(
         self,
@@ -208,6 +225,33 @@ class PlaywrightFetcher:
         if not self._diagnostics_enabled:
             return
         logger.log(level, message, extra=extra)
+
+    def _initialize_storage_queue(self) -> StorageQueue | None:
+        queue_kwargs: dict[str, Any] = {}
+        try:  # Lazy import keeps fetcher usable without settings module
+            from .settings import get_settings
+        except Exception:  # pragma: no cover - settings always importable in repo
+            settings = None
+        else:
+            settings = get_settings()
+        if settings is not None:
+            queue_kwargs = {
+                "queue_dir": settings.storage_queue_dir,
+                "max_entries": settings.storage_queue_max_entries,
+                "max_age_seconds": settings.storage_queue_max_age_seconds,
+                "processed_retention_seconds": settings.storage_queue_retention_seconds,
+            }
+        try:
+            return StorageQueue(self.storage_state_file, **queue_kwargs)
+        except Exception as exc:  # pragma: no cover - best-effort fallback
+            logger.warning(
+                "Storage queue unavailable; falling back to direct writes",
+                extra={
+                    "storage_state": str(self.storage_state_file),
+                    "error": exc.__class__.__name__,
+                },
+            )
+            return None
 
     def _log_storage_state(self, stage: str) -> None:
         if not self._diagnostics_enabled:
@@ -254,6 +298,85 @@ class PlaywrightFetcher:
                 user_interaction_timeout=self.user_interaction_timeout,
             ),
         )
+
+    def _log_queue_stats(self, stats: QueueStats | None) -> None:
+        if not self._diagnostics_enabled or stats is None:
+            return
+        self._log_diagnostic(
+            "Playwright storage queue",
+            extra={
+                "queue_pending": stats.pending,
+                "queue_oldest_age": stats.oldest_age,
+                "queue_latest_change_id": stats.newest_change_id,
+            },
+        )
+
+    async def _persist_storage_payload(self, payload: bytes) -> None:
+        fingerprint = compute_fingerprint(payload)
+        snapshot: StorageSnapshot | None = self._storage_snapshot
+        if snapshot and snapshot.fingerprint == fingerprint:
+            self._log_diagnostic(
+                "Playwright storage unchanged",
+                extra={
+                    "storage_state": str(snapshot.path),
+                    "fingerprint": fingerprint,
+                },
+            )
+            return
+
+        queue = self._storage_queue
+        storage_file = self.storage_state_file
+        if queue is None or self._storage_lock is None:
+            self._write_storage_direct(payload)
+            self._storage_snapshot = StorageSnapshot(
+                path=storage_file, fingerprint=fingerprint, size=len(payload)
+            )
+            return
+
+        try:
+            async with self._storage_lock:
+                queue.enqueue(
+                    payload,
+                    fingerprint=fingerprint,
+                    worker_id=self._worker_token,
+                )
+                stats = queue.merge()
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.warning(
+                "Failed to merge storage queue; falling back to direct write",
+                extra={
+                    "storage_state": str(storage_file),
+                    "error": exc.__class__.__name__,
+                },
+            )
+            self._write_storage_direct(payload)
+            self._storage_snapshot = StorageSnapshot(
+                path=storage_file, fingerprint=fingerprint, size=len(payload)
+            )
+            return
+
+        self._log_queue_stats(stats)
+        self._storage_snapshot = StorageSnapshot(
+            path=storage_file, fingerprint=fingerprint, size=len(payload)
+        )
+        logger.info(
+            "Persisted storage state via queue",
+            extra={
+                "storage_state": str(storage_file),
+                "latest_change_id": stats.newest_change_id if stats else None,
+            },
+        )
+        self._log_storage_state("save")
+
+    def _write_storage_direct(self, payload: bytes) -> None:
+        storage_file = self.storage_state_file
+        storage_file.parent.mkdir(parents=True, exist_ok=True)
+        with storage_file.open("wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        logger.info("Saved storage state to %s", storage_file)
+        self._log_storage_state("save")
 
     @property
     def network(self) -> NetworkOptions:
@@ -309,6 +432,8 @@ class PlaywrightFetcher:
         }
 
         storage_file = self.storage_state_file
+        self._storage_snapshot = capture_snapshot(storage_file)
+        self._storage_lock = asyncio.Lock()
         self._log_storage_state("load")
         if storage_file.exists():
             context_options["storage_state"] = str(storage_file)
@@ -341,11 +466,8 @@ class PlaywrightFetcher:
         # Save storage state before closing
         if self._context:
             try:
-                storage_file = self.storage_state_file
-                storage_file.parent.mkdir(parents=True, exist_ok=True)
-                await self._context.storage_state(path=str(storage_file))
-                logger.info("Saved storage state to %s", storage_file)
-                self._log_storage_state("save")
+                payload = await self._context.storage_state()
+                await self._persist_storage_payload(normalize_payload(payload))
             except Exception as e:
                 logger.warning(f"Failed to save storage state: {e}")
 
@@ -361,6 +483,8 @@ class PlaywrightFetcher:
             self._playwright = None
 
         self._semaphore = None
+        self._storage_lock = None
+        self._storage_snapshot = None
         logger.info("Playwright browser closed")
 
     async def fetch(

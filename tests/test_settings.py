@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from article_extractor.settings import get_settings, reload_settings
+import pytest
+
+from article_extractor.network import DEFAULT_STORAGE_PATH
+from article_extractor.settings import (
+    _coerce_bool,
+    get_settings,
+    reload_settings,
+    settings_dependency,
+)
 
 
 def test_settings_respect_env_overrides(monkeypatch):
@@ -12,6 +20,16 @@ def test_settings_respect_env_overrides(monkeypatch):
     settings = get_settings()
 
     assert settings.cache_size == 2048
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
+    reload_settings()
+
+
+def test_settings_cache_size_minimum(monkeypatch):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "0")
+    reload_settings()
+
+    assert get_settings().cache_size == 1
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
     reload_settings()
@@ -46,6 +64,16 @@ def test_build_network_env_sets_storage_alias(tmp_path):
     reload_settings()
 
 
+def test_storage_state_env_defaults_when_blank(monkeypatch):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", "")
+    reload_settings()
+
+    assert get_settings().storage_state_file == DEFAULT_STORAGE_PATH
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+    reload_settings()
+
+
 def test_reload_settings_overrides_take_precedence():
     reload_settings(cache_size=321)
 
@@ -69,6 +97,18 @@ def test_settings_log_format_env(monkeypatch):
     reload_settings()
 
     assert get_settings().log_format == "text"
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_LOG_FORMAT", raising=False)
+    reload_settings()
+
+
+def test_settings_log_format_invalid_value_warns(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_LOG_FORMAT", "xml")
+    caplog.set_level("WARNING")
+    reload_settings()
+
+    assert get_settings().log_format is None
+    assert any("Invalid ARTICLE_EXTRACTOR_LOG_FORMAT" in msg for msg in caplog.messages)
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_LOG_FORMAT", raising=False)
     reload_settings()
@@ -180,3 +220,68 @@ def test_settings_metrics_namespace_blank_warns(monkeypatch, caplog):
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_METRICS_NAMESPACE", raising=False)
     reload_settings()
+
+
+def test_storage_queue_env_overrides(tmp_path, monkeypatch):
+    queue_dir = tmp_path / "queue"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR", str(queue_dir))
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES", "42")
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS", "90.5")
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS", "12")
+    reload_settings()
+
+    settings = get_settings()
+    assert settings.storage_queue_dir == queue_dir
+    assert settings.storage_queue_max_entries == 42
+    assert settings.storage_queue_max_age_seconds == pytest.approx(90.5)
+    assert settings.storage_queue_retention_seconds == pytest.approx(12.0)
+
+    for env in [
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR",
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES",
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS",
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS",
+    ]:
+        monkeypatch.delenv(env, raising=False)
+    reload_settings()
+
+
+def test_storage_queue_invalid_values_warn(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES", "-5")
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS", "-1")
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS", "bad")
+    caplog.set_level("WARNING")
+    reload_settings()
+
+    settings = get_settings()
+    assert settings.storage_queue_max_entries == 20
+    assert settings.storage_queue_max_age_seconds == pytest.approx(60.0)
+    assert settings.storage_queue_retention_seconds == pytest.approx(300.0)
+    assert any(
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES" in message
+        for message in caplog.messages
+    )
+
+    for env in [
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES",
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS",
+        "ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS",
+    ]:
+        monkeypatch.delenv(env, raising=False)
+    reload_settings()
+
+
+def test_coerce_bool_handles_numeric_values():
+    assert _coerce_bool(0, default=True, env_name="TEST") is False
+    assert _coerce_bool(2, default=False, env_name="TEST") is True
+
+
+def test_settings_dependency_returns_cached_instance():
+    reload_settings(cache_size=123)
+
+    try:
+        cached = get_settings()
+        assert settings_dependency() is cached
+        assert settings_dependency().cache_size == 123
+    finally:
+        reload_settings()
