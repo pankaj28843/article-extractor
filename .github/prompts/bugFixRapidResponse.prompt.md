@@ -11,6 +11,7 @@ Use `#techdocs` to verify correct API usage for the buggy component. Key tenants
 - Reproduce the bug first; capture logs, failing CLI invocations, or red tests.
 - Keep the diff as small as possible—no opportunistic cleanups unless they unblock the fix.
 - Follow `.github/copilot-instructions.md` (Prime Directives) and `.github/instructions/validation.instructions.md` (validation loop, smoke expectations).
+- Run every Python-facing command through `uv run` so the managed `.venv` is on `sys.path` ([uv docs](https://docs.astral.sh/uv/concepts/projects/run/)).
 
 ## Steps
 1. **Confirm scope**: Identify the exact entrypoints (library call, CLI command, FastAPI route) plus the HTML sample that triggers the bug.
