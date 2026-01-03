@@ -124,3 +124,59 @@ def test_settings_metrics_statsd_env(monkeypatch):
     monkeypatch.delenv("ARTICLE_EXTRACTOR_METRICS_STATSD_PORT", raising=False)
     monkeypatch.delenv("ARTICLE_EXTRACTOR_METRICS_NAMESPACE", raising=False)
     reload_settings()
+
+
+def test_settings_prefer_playwright_invalid_value_warns(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "maybe")
+    caplog.set_level("WARNING")
+    reload_settings()
+
+    assert get_settings().prefer_playwright is True
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT" in message
+        for message in caplog.messages
+    )
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+    reload_settings()
+
+
+def test_settings_log_level_invalid_value_warns(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_LOG_LEVEL", "verbose")
+    caplog.set_level("WARNING")
+    reload_settings()
+
+    assert get_settings().log_level is None
+    assert any("Invalid ARTICLE_EXTRACTOR_LOG_LEVEL" in msg for msg in caplog.messages)
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_LOG_LEVEL", raising=False)
+    reload_settings()
+
+
+def test_settings_metrics_host_blank_warns(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_METRICS_STATSD_HOST", "   ")
+    caplog.set_level("WARNING")
+    reload_settings()
+
+    assert get_settings().metrics_statsd_host is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_STATSD_HOST" in msg
+        for msg in caplog.messages
+    )
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_METRICS_STATSD_HOST", raising=False)
+    reload_settings()
+
+
+def test_settings_metrics_namespace_blank_warns(monkeypatch, caplog):
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_METRICS_NAMESPACE", "   ")
+    caplog.set_level("WARNING")
+    reload_settings()
+
+    assert get_settings().metrics_namespace is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_NAMESPACE" in msg for msg in caplog.messages
+    )
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_METRICS_NAMESPACE", raising=False)
+    reload_settings()
