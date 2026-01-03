@@ -189,6 +189,26 @@ ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage-state.json  # alias for Playw
 # PLAYWRIGHT_STORAGE_STATE_FILE=/data/storage-state.json
 ```
 
+### `.env` files everywhere
+
+Both the CLI and FastAPI server load settings via
+[`pydantic-settings`](https://docs.pydantic.dev/latest/concepts/pydantic_settings/),
+mirroring the pattern recommended in the
+[FastAPI settings guide](https://fastapi.tiangolo.com/advanced/settings/).
+Drop a `.env` file in your working directory and every `ARTICLE_EXTRACTOR_*`
+variable will be read automatically without exporting shell env vars:
+
+```
+# .env
+ARTICLE_EXTRACTOR_CACHE_SIZE=2000
+ARTICLE_EXTRACTOR_THREADPOOL_SIZE=8
+ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=false
+ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=$HOME/.article-extractor/storage_state.json
+```
+
+Environment variables still win over `.env` values, so CI/CD pipelines can
+override local defaults without touching the file.
+
 ## Troubleshooting
 
 - JavaScript-heavy sites: `pip install article-extractor[playwright]` and try again.

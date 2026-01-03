@@ -2,6 +2,15 @@
 
 import pytest
 
+from article_extractor.settings import reload_settings
+
+
+@pytest.fixture(autouse=True)
+def _reset_settings_cache():
+    reload_settings()
+    yield
+    reload_settings()
+
 
 @pytest.fixture
 def simple_article_html() -> str:

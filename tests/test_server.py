@@ -29,6 +29,7 @@ from article_extractor.server import (
     http_exception_handler,
     set_prefer_playwright,
 )
+from article_extractor.settings import reload_settings
 from article_extractor.types import ArticleResult, ExtractionOptions, NetworkOptions
 
 
@@ -247,20 +248,24 @@ def test_extract_article_uses_cache(client, mock_result):
 def test_cache_size_env_override(monkeypatch):
     """Cache size should respect ARTICLE_EXTRACTOR_CACHE_SIZE env overrides."""
     monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "5")
+    reload_settings()
     with TestClient(app) as local_client:
         data = local_client.get("/health").json()
     assert data["cache"]["max_size"] == 5
     monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
+    reload_settings()
 
 
 def test_threadpool_env_override(monkeypatch):
     """Threadpool size should use ARTICLE_EXTRACTOR_THREADPOOL_SIZE overrides."""
 
     monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "3")
+    reload_settings()
     with TestClient(app) as local_client:
         data = local_client.get("/health").json()
     assert data["worker_pool"]["max_workers"] == 3
     monkeypatch.delenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", raising=False)
+    reload_settings()
 
 
 def test_network_payload_overrides(client, mock_result, tmp_path):
@@ -330,6 +335,7 @@ def test_configure_helpers_store_state(monkeypatch, tmp_path):
     original_prefer = getattr(app.state, "prefer_playwright", True)
     env_storage = tmp_path / "env.json"
     monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(env_storage))
+    reload_settings()
 
     network = NetworkOptions(user_agent="helper")
     configure_network_defaults(network)
@@ -343,23 +349,29 @@ def test_configure_helpers_store_state(monkeypatch, tmp_path):
 
     app.state.network_defaults = original_network
     app.state.prefer_playwright = original_prefer
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+    reload_settings()
 
 
 def test_read_prefer_playwright_env_parses_boolean(monkeypatch):
     monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "0")
+    reload_settings()
 
     assert _read_prefer_playwright_env() is False
 
     monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "On")
+    reload_settings()
 
     assert _read_prefer_playwright_env() is True
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+    reload_settings()
 
 
 def test_read_prefer_playwright_env_warns_on_invalid(monkeypatch, caplog):
     monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "maybe")
     caplog.set_level("WARNING")
+    reload_settings()
 
     assert _read_prefer_playwright_env() is True
     assert any(
@@ -368,12 +380,14 @@ def test_read_prefer_playwright_env_warns_on_invalid(monkeypatch, caplog):
     )
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+    reload_settings()
 
 
 def test_initialize_state_from_env_seeds_defaults(monkeypatch, tmp_path):
     alias_file = tmp_path / "state.json"
     monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
     monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "false")
+    reload_settings()
 
     state = SimpleNamespace()
 
@@ -384,6 +398,7 @@ def test_initialize_state_from_env_seeds_defaults(monkeypatch, tmp_path):
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
     monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
+    reload_settings()
 
 
 def test_initialize_state_from_env_respects_existing_values(monkeypatch):
@@ -393,6 +408,7 @@ def test_initialize_state_from_env_respects_existing_values(monkeypatch):
     )
 
     monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "true")
+    reload_settings()
 
     _initialize_state_from_env(state)
 
@@ -405,6 +421,7 @@ def test_initialize_state_from_env_respects_existing_values(monkeypatch):
 def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_result):
     alias_file = tmp_path / "env-state.json"
     monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
+    reload_settings()
     original_network = getattr(app.state, "network_defaults", None)
     try:
         app.state.network_defaults = None
@@ -427,17 +444,21 @@ def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_resul
         assert network.storage_state_path == alias_file
     finally:
         app.state.network_defaults = original_network
+        monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+        reload_settings()
 
 
 def test_read_cache_size_invalid_env(monkeypatch, caplog):
     monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "not-a-number")
 
     caplog.set_level("WARNING")
+    reload_settings()
     size = _read_cache_size()
 
     assert size == 1000
     assert any("Invalid ARTICLE_EXTRACTOR_CACHE_SIZE" in msg for msg in caplog.messages)
     monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
+    reload_settings()
 
 
 def test_determine_threadpool_size_invalid_requests(monkeypatch):
@@ -445,12 +466,15 @@ def test_determine_threadpool_size_invalid_requests(monkeypatch):
     default_value = _determine_threadpool_size()
 
     monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "0")
+    reload_settings()
     assert _determine_threadpool_size() == default_value
 
     monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "abc")
+    reload_settings()
     assert _determine_threadpool_size() == default_value
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", raising=False)
+    reload_settings()
 
 
 def test_build_cache_key_reflects_options():

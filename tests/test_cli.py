@@ -1,6 +1,7 @@
 """Tests for CLI module."""
 
 import json
+from collections.abc import Mapping
 from io import StringIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -212,12 +213,14 @@ def test_main_network_flag_passthrough(mock_result, tmp_path):
         assert main() == 0
 
     kwargs = mock_network.call_args.kwargs
+    env_mapping = kwargs.pop("env")
     assert kwargs["user_agent"] == "Custom/1.0"
     assert kwargs["randomize_user_agent"] is True
     assert kwargs["proxy"] == "http://proxy:9000"
     assert kwargs["headed"] is True
     assert kwargs["user_interaction_timeout"] == 7.5
     assert kwargs["storage_state_path"] == storage_file
+    assert isinstance(env_mapping, Mapping)
 
 
 def test_main_prefer_httpx_flag(mock_result):
