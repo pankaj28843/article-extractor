@@ -1,5 +1,6 @@
 """Tests for CLI module."""
 
+import argparse
 import json
 from collections.abc import Mapping
 from io import StringIO
@@ -7,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from article_extractor.cli import main
+from article_extractor.cli import _describe_source, _metrics_source_label, main
 from article_extractor.types import ArticleResult
 
 
@@ -39,6 +40,16 @@ def failed_result():
         success=False,
         error="Extraction failed",
     )
+
+
+def test_describe_source_prefers_stdin():
+    args = argparse.Namespace(url=None, file=None, stdin=True)
+    assert _describe_source(args) == "stdin"
+
+
+def test_metrics_source_label_includes_stdin():
+    args = argparse.Namespace(url=None, file=None, stdin=True)
+    assert _metrics_source_label(args) == "stdin"
 
 
 def test_main_url_json_output(mock_result, capsys):
@@ -448,12 +459,16 @@ def test_main_keyboard_interrupt(capsys):
             new_callable=AsyncMock,
             side_effect=KeyboardInterrupt,
         ),
+        patch("article_extractor.cli.logger") as mock_logger,
         patch("sys.argv", ["article-extractor", "https://example.com"]),
     ):
         assert main() == 130
 
     captured = capsys.readouterr()
     assert "Interrupted" in captured.err
+    mock_logger.warning.assert_called_once()
+    warning_kwargs = mock_logger.warning.call_args.kwargs
+    assert warning_kwargs["extra"]["url"].endswith("example.com/")
 
 
 def test_main_exception(capsys):
@@ -465,12 +480,16 @@ def test_main_exception(capsys):
             new_callable=AsyncMock,
             side_effect=RuntimeError("Test error"),
         ),
+        patch("article_extractor.cli.logger") as mock_logger,
         patch("sys.argv", ["article-extractor", "https://example.com"]),
     ):
         assert main() == 1
 
     captured = capsys.readouterr()
     assert "Error: Test error" in captured.err
+    mock_logger.exception.assert_called_once()
+    exception_kwargs = mock_logger.exception.call_args.kwargs
+    assert exception_kwargs["extra"]["url"].endswith("example.com/")
 
 
 def test_server_mode():
@@ -534,3 +553,45 @@ def test_server_mode_missing_dependencies(capsys):
 
     captured = capsys.readouterr()
     assert "Server dependencies not installed" in captured.err
+
+
+def test_server_mode_records_metrics_when_enabled():
+    settings = _settings_stub(
+        diagnostics=False,
+        metrics_enabled=True,
+        metrics_sink="statsd",
+        metrics_statsd_host="localhost",
+        metrics_statsd_port=8125,
+        metrics_namespace="article",
+    )
+    emitter = MagicMock()
+    emitter.enabled = True
+    mock_uvicorn_module = MagicMock()
+    mock_uvicorn_module.run = MagicMock()
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.build_metrics_emitter", return_value=emitter),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch.dict("sys.modules", {"uvicorn": mock_uvicorn_module}),
+        patch("article_extractor.server.configure_network_defaults"),
+        patch("article_extractor.server.set_prefer_playwright"),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "--server",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "4000",
+            ],
+        ),
+    ):
+        assert main() == 0
+
+    emitter.increment.assert_any_call(
+        "cli_server_start_total",
+        tags={"host": "127.0.0.1", "port": "4000"},
+    )

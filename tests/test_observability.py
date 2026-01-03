@@ -1,7 +1,10 @@
 """Tests for observability helpers."""
 
+import json
+import logging
 from unittest.mock import MagicMock, patch
 
+from article_extractor import observability
 from article_extractor.observability import (
     MetricsEmitter,
     build_metrics_emitter,
@@ -95,3 +98,212 @@ def test_metrics_emitter_statsd_missing_host_disables(caplog):
 
     assert emitter.enabled is False
     assert any("StatsD sink requires host" in message for message in caplog.messages)
+
+
+def test_json_formatter_includes_custom_fields():
+    formatter = observability._JsonFormatter()
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=42,
+        msg="hello",
+        args=(),
+        exc_info=None,
+    )
+    record.component = "cli"
+    record.extra_field = "value"
+
+    payload = json.loads(formatter.format(record))
+
+    assert payload["component"] == "cli"
+    assert payload["extra_field"] == "value"
+
+
+def test_text_formatter_appends_context_fields():
+    formatter = observability._TextFormatter()
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=99,
+        msg="Request complete",
+        args=(),
+        exc_info=None,
+    )
+    record.component = "server"
+    record.request_id = "req-123"
+    record.status_code = 200
+    record.url = "https://example.com"
+
+    formatted = formatter.format(record)
+
+    assert "server" in formatted
+    assert "request_id=req-123" in formatted
+    assert "status_code=200" in formatted
+
+
+def test_component_filter_sets_component():
+    flt = observability._ComponentFilter("fetcher")
+    record = logging.LogRecord(
+        name="any",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=10,
+        msg="message",
+        args=(),
+        exc_info=None,
+    )
+
+    assert flt.filter(record) is True
+    assert record.component == "fetcher"
+
+
+def test_statsd_client_send_serializes_namespace_and_tags(monkeypatch):
+    sent = {}
+
+    class DummySocket:
+        def __init__(self, *_args, **_kwargs):
+            sent["created"] = True
+
+        def setblocking(self, _flag):
+            return None
+
+        def sendto(self, payload, address):
+            sent["payload"] = payload.decode("utf-8")
+            sent["address"] = address
+
+    def _socket_factory(*_args, **_kwargs):
+        return DummySocket()
+
+    monkeypatch.setattr(observability.socket, "socket", _socket_factory)
+
+    client = observability._StatsdClient("localhost", 8125, namespace="article")
+    client.send(
+        metric_type="counter",
+        metric_name="hits",
+        metric_value=2,
+        tags={"env": "test"},
+    )
+
+    assert sent["payload"] == "article.hits:2|c|#env:test"
+    assert sent["address"] == ("localhost", 8125)
+
+
+def test_metrics_emitter_statsd_logs_debug_on_failure():
+    fake_client = MagicMock()
+    fake_client.send.side_effect = OSError("blocked")
+    debug_logger = MagicMock()
+
+    with patch(
+        "article_extractor.observability.logging.getLogger", return_value=debug_logger
+    ):
+        emitter = MetricsEmitter(
+            component="cli",
+            enabled=True,
+            sink="statsd",
+            statsd_client=fake_client,
+        )
+        emitter.increment("fail_metric")
+
+    debug_logger.debug.assert_called_once()
+
+
+def test_build_metrics_emitter_handles_unsupported_sink(caplog):
+    caplog.set_level("WARNING")
+    emitter = build_metrics_emitter(component="cli", enabled=True, sink="otlp")
+
+    assert emitter.enabled is False
+    assert any("Unsupported metrics sink" in msg for msg in caplog.messages)
+
+
+def test_build_metrics_emitter_statsd_init_failure(monkeypatch, caplog):
+    caplog.set_level("WARNING")
+
+    def _boom(*_args, **_kwargs):
+        raise OSError("bad socket")
+
+    monkeypatch.setattr(observability, "_StatsdClient", _boom)
+
+    emitter = build_metrics_emitter(
+        component="cli",
+        enabled=True,
+        sink="statsd",
+        statsd_host="localhost",
+        statsd_port=8125,
+    )
+
+    assert emitter.enabled is False
+    assert any("Failed to initialize StatsD sink" in msg for msg in caplog.messages)
+
+
+def test_format_helpers_normalize_values():
+    assert observability._normalize_format("TEXT") == "text"
+    assert observability._normalize_format("unknown") == "json"
+    assert observability._resolve_level("warning") == logging.WARNING
+    assert observability._resolve_level(15) == 15
+    assert observability._resolve_level("bogus") is None
+
+
+def test_metrics_emitter_log_sink_copies_tags():
+    logger = MagicMock()
+    with patch(
+        "article_extractor.observability.logging.getLogger",
+        return_value=logger,
+    ):
+        emitter = build_metrics_emitter(component="cli", enabled=True, sink="log")
+        emitter.increment("demo", tags={"foo": "bar"})
+
+    logger.info.assert_called_once()
+    extra = logger.info.call_args.kwargs["extra"]
+    assert extra["metric_tags"] == {"foo": "bar"}
+
+
+def test_metrics_emitter_statsd_sink_handles_timer(monkeypatch):
+    client = MagicMock()
+    def _client_factory(*_args, **_kwargs):
+        return client
+
+    monkeypatch.setattr(observability, "_StatsdClient", _client_factory)
+
+    emitter = build_metrics_emitter(
+        component="cli",
+        enabled=True,
+        sink="statsd",
+        statsd_host="localhost",
+        statsd_port=8125,
+        namespace="article",
+    )
+    emitter.observe("render_time", value=12.5, tags={"env": "test"})
+
+    client.send.assert_called_once()
+    kwargs = client.send.call_args.kwargs
+    assert kwargs["metric_type"] == "timer"
+    assert kwargs["tags"] == {"env": "test"}
+
+
+def test_build_metrics_emitter_log_disabled_when_enabled_false():
+    emitter = build_metrics_emitter(component="cli", enabled=False)
+
+    assert emitter.enabled is False
+
+
+def test_stable_url_hash_returns_none_for_invalid():
+    assert stable_url_hash(None) is None
+
+
+def test_component_filter_integration_with_logger(monkeypatch):
+    handler = logging.StreamHandler()
+    monkeypatch.setattr(
+        "article_extractor.observability.logging.StreamHandler",
+        lambda: handler,
+    )
+    mock_basic = MagicMock()
+    monkeypatch.setattr(
+        "article_extractor.observability.logging.basicConfig", mock_basic
+    )
+
+    observability.setup_logging(component="cli", log_format="text", level="info")
+
+    assert handler.filters
+    assert isinstance(handler.filters[0], observability._ComponentFilter)

@@ -1,6 +1,7 @@
 """Tests for FastAPI server module."""
 
 import asyncio
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -294,6 +295,31 @@ def test_extract_article_uses_cache(client, mock_result):
     assert mock_extract.call_count == 1
 
 
+def _sample_response(title: str) -> ExtractionResponse:
+    return ExtractionResponse(
+        url=f"https://example.com/{title}",
+        title=title,
+        byline=None,
+        dir="ltr",
+        content="<p>cached</p>",
+        length=12,
+        excerpt="cached",
+        siteName=None,
+        markdown="cached",
+        word_count=2,
+        success=True,
+    )
+
+
+def test_cache_evicts_oldest_entry():
+    cache = ExtractionResponseCache(1)
+    cache.set("first", _sample_response("first"))
+    cache.set("second", _sample_response("second"))
+
+    assert cache.get("first") is None
+    assert cache.get("second").title == "second"
+
+
 def test_cache_size_env_override(monkeypatch):
     """Cache size should respect ARTICLE_EXTRACTOR_CACHE_SIZE env overrides."""
     monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "5")
@@ -402,6 +428,40 @@ def test_request_metrics_emitted(mock_result):
         "path": "/",
         "status_group": "2xx",
     }
+
+
+@pytest.mark.asyncio
+async def test_request_context_logging_exception_path_emits_metrics():
+    class StubURL:
+        def __str__(self) -> str:  # pragma: no cover - helper
+            return "https://example.com/fail"
+
+        @property
+        def path(self) -> str:
+            return "/fail"
+
+    emitter = MagicMock()
+    emitter.enabled = True
+    request = SimpleNamespace(
+        headers={"x-request-id": "req-123"},
+        state=SimpleNamespace(),
+        method="GET",
+        url=StubURL(),
+        app=SimpleNamespace(state=SimpleNamespace(metrics_emitter=emitter)),
+    )
+
+    async def failing_call_next(_):
+        raise RuntimeError("boom")
+
+    with (
+        patch("article_extractor.server.logger") as mock_logger,
+        patch("article_extractor.server._emit_request_metrics") as mock_emit,
+        pytest.raises(RuntimeError),
+    ):
+        await server_module.request_context_logging(request, failing_call_next)
+
+    mock_logger.exception.assert_called_once()
+    mock_emit.assert_called_once()
 
 
 def test_configure_helpers_store_state(monkeypatch, tmp_path):
@@ -602,6 +662,17 @@ async def test_lookup_cache_without_state_returns_none():
     assert await _lookup_cache(request, "missing") is None
 
 
+@pytest.mark.asyncio
+async def test_store_cache_entry_without_lock_is_noop():
+    cache = MagicMock(spec=ExtractionResponseCache)
+    state = SimpleNamespace(cache=cache, cache_lock=None)
+    request = SimpleNamespace(app=SimpleNamespace(state=state))
+
+    await _store_cache_entry(request, "sample", _sample_response("noop"))
+
+    cache.set.assert_not_called()
+
+
 def test_resolve_preference_prefers_request_override():
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(prefer_playwright=True))
@@ -680,3 +751,14 @@ async def test_general_exception_handler_returns_500():
 
     assert response.status_code == 500
     assert "Internal server error" in response.body.decode()
+
+
+@pytest.mark.asyncio
+async def test_general_exception_handler_includes_request_id():
+    request = SimpleNamespace(state=SimpleNamespace(request_id="abc123"))
+
+    response = await general_exception_handler(request, RuntimeError("boom"))
+
+    body = json.loads(response.body.decode())
+    assert body["request_id"] == "abc123"
+    assert response.headers["X-Request-ID"] == "abc123"

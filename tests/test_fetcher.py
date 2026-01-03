@@ -13,6 +13,18 @@ import pytest
 
 from article_extractor.types import NetworkOptions
 
+
+def test_augment_context_merges_without_none():
+    from article_extractor import fetcher as fetcher_module
+
+    base = {"url": "https://example.com"}
+    merged = fetcher_module._augment_context(base, status_code=None, attempts=2)
+
+    assert merged["url"] == "https://example.com"
+    assert merged["attempts"] == 2
+    assert "status_code" not in merged
+
+
 # Test PlaywrightFetcher internals
 
 
@@ -523,6 +535,80 @@ class TestPlaywrightFetcherContextManager:
         except ImportError:
             pytest.skip("Playwright not installed")
 
+    async def test_aenter_initializes_browser_and_context(self, monkeypatch, tmp_path):
+        """__aenter__ should launch browser, load storage, and create semaphore."""
+
+        from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_check_playwright", lambda: True)
+
+        class DummyContext:
+            def __init__(self):
+                self.closed = False
+
+            async def close(self):
+                self.closed = True
+
+            async def storage_state(
+                self, *args, **kwargs
+            ):  # pragma: no cover - used in __aexit__
+                return None
+
+            @property
+            def pages(
+                self,
+            ):  # pragma: no cover - not used but maintained for API parity
+                return []
+
+        class DummyBrowser:
+            def __init__(self):
+                self.context_options = None
+
+            async def new_context(self, **kwargs):
+                self.context_options = kwargs
+                return DummyContext()
+
+            async def close(self):
+                return None
+
+        class DummyPlaywright:
+            def __init__(self):
+                self.browser = DummyBrowser()
+                self.chromium = SimpleNamespace(launch=self._launch)
+                self.stopped = False
+
+            async def _launch(self, **_kwargs):
+                self.launch_kwargs = _kwargs
+                return self.browser
+
+            async def stop(self):
+                self.stopped = True
+
+        class DummyAsyncPlaywright:
+            async def start(self):
+                return DummyPlaywright()
+
+        dummy_module = SimpleNamespace(async_playwright=lambda: DummyAsyncPlaywright())
+        monkeypatch.setitem(sys.modules, "playwright.async_api", dummy_module)
+
+        storage_file = tmp_path / "state.json"
+        storage_file.write_text("{}", encoding="utf-8")
+        network = NetworkOptions(
+            proxy="http://proxy:8080", storage_state_path=storage_file
+        )
+        fetcher = PlaywrightFetcher(network=network, diagnostics_enabled=True)
+
+        entered = await fetcher.__aenter__()
+
+        assert entered is fetcher
+        assert fetcher._browser is not None
+        assert fetcher._context is not None
+        assert fetcher._semaphore is not None
+        assert fetcher._browser.context_options["storage_state"] == str(storage_file)
+
+        await fetcher.__aexit__(None, None, None)
+
     async def test_aexit_saves_storage(self, tmp_path):
         """__aexit__ should save storage state."""
         from article_extractor import PlaywrightFetcher
@@ -604,6 +690,23 @@ class TestPlaywrightDiagnostics:
         fetcher._log_storage_state("load")
 
         assert "Playwright storage state" not in caplog.text
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_playwright_wait_for_user_respects_timeout(monkeypatch):
+    from article_extractor import PlaywrightFetcher
+
+    fetcher = PlaywrightFetcher()
+    fetcher.headless = False
+    fetcher.user_interaction_timeout = 1.0
+
+    sleep = AsyncMock()
+    monkeypatch.setattr("article_extractor.fetcher.asyncio.sleep", sleep)
+
+    await fetcher._maybe_wait_for_user(None)
+
+    assert sleep.await_count >= 1
 
 
 @pytest.mark.unit
