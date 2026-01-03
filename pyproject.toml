@@ -1,6 +1,6 @@
 [project]
 name = "article-extractor"
-version = "0.3.2"
+version = "0.4.0"
 description = "Pure-Python article extraction library and HTTP service - Drop-in replacement for readability-js-server"
 readme = "README.md"
 license = { text = "MIT" }

@@ -6,26 +6,12 @@ We mock external dependencies (playwright, httpx) to test the fetcher logic in i
 
 import asyncio
 import sys
-from importlib import reload
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from article_extractor.types import NetworkOptions
-
-
-@pytest.fixture
-def reload_fetcher_module():
-    import article_extractor.fetcher as fetcher_module
-
-    def _reload():
-        return reload(fetcher_module)
-
-    yield _reload
-
-    reload(fetcher_module)
-
 
 # Test PlaywrightFetcher internals
 
@@ -193,20 +179,18 @@ class TestPlaywrightFetcherFetch:
 class TestPlaywrightFetcherStorageState:
     """Test storage state management."""
 
-    async def test_clear_storage_state(self, tmp_path, monkeypatch):
+    async def test_clear_storage_state(self, tmp_path):
         """clear_storage_state should flush cookies, localStorage, and disk cache."""
         from article_extractor import PlaywrightFetcher
 
-        fetcher = PlaywrightFetcher()
+        storage_file = tmp_path / "state.json"
+        storage_file.write_text("data", encoding="utf-8")
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
         context = AsyncMock()
         page_one = AsyncMock()
         page_two = AsyncMock()
         context.pages = [page_one, page_two]
         fetcher._context = context
-
-        storage_file = tmp_path / "state.json"
-        storage_file.write_text("data", encoding="utf-8")
-        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", storage_file)
 
         await fetcher.clear_storage_state()
 
@@ -215,16 +199,14 @@ class TestPlaywrightFetcherStorageState:
         assert page_two.evaluate.await_count == 1
         assert not storage_file.exists()
 
-    async def test_clear_cookies(self, tmp_path, monkeypatch):
+    async def test_clear_cookies(self, tmp_path):
         """clear_cookies should clear cookies and delete storage file."""
         from article_extractor import PlaywrightFetcher
 
-        fetcher = PlaywrightFetcher()
-        fetcher._context = AsyncMock()
-
         storage_file = tmp_path / "cookies.json"
         storage_file.write_text("cookies", encoding="utf-8")
-        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", storage_file)
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+        fetcher._context = AsyncMock()
 
         await fetcher.clear_cookies()
 
@@ -233,42 +215,42 @@ class TestPlaywrightFetcherStorageState:
 
 
 class TestPlaywrightFetcherStorageEnv:
-    def test_storage_state_alias_env_wins_over_legacy(
-        self, tmp_path, monkeypatch, reload_fetcher_module
-    ):
+    def test_storage_state_alias_env_wins_over_legacy(self, tmp_path, monkeypatch):
+        from article_extractor import PlaywrightFetcher
+
         alias_file = tmp_path / "alias.json"
         legacy_file = tmp_path / "legacy.json"
         monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
         monkeypatch.setenv("PLAYWRIGHT_STORAGE_STATE_FILE", str(legacy_file))
 
-        module = reload_fetcher_module()
+        fetcher = PlaywrightFetcher()
 
-        assert alias_file == module.PlaywrightFetcher.STORAGE_STATE_FILE
+        assert fetcher.storage_state_file == alias_file
 
-    def test_storage_state_falls_back_to_legacy_env(
-        self, tmp_path, monkeypatch, reload_fetcher_module
-    ):
+    def test_storage_state_falls_back_to_legacy_env(self, tmp_path, monkeypatch):
+        from article_extractor import PlaywrightFetcher
+
         legacy_file = tmp_path / "legacy.json"
         monkeypatch.setenv("PLAYWRIGHT_STORAGE_STATE_FILE", str(legacy_file))
 
-        module = reload_fetcher_module()
+        fetcher = PlaywrightFetcher()
 
-        assert legacy_file == module.PlaywrightFetcher.STORAGE_STATE_FILE
+        assert fetcher.storage_state_file == legacy_file
 
     def test_runtime_env_override_without_module_reload(self, tmp_path, monkeypatch):
         from article_extractor import PlaywrightFetcher
 
-        monkeypatch.setattr(
-            PlaywrightFetcher,
-            "STORAGE_STATE_FILE",
-            PlaywrightFetcher._INITIAL_STORAGE_STATE_FILE,
-        )
-        runtime_file = tmp_path / "runtime.json"
-        monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(runtime_file))
+        first_file = tmp_path / "first.json"
+        monkeypatch.setenv("PLAYWRIGHT_STORAGE_STATE_FILE", str(first_file))
 
-        fresh_fetcher = PlaywrightFetcher()
+        fetcher_one = PlaywrightFetcher()
+        assert fetcher_one.storage_state_file == first_file
 
-        assert fresh_fetcher.storage_state_file == runtime_file
+        second_file = tmp_path / "second.json"
+        monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(second_file))
+
+        fetcher_two = PlaywrightFetcher()
+        assert fetcher_two.storage_state_file == second_file
 
 
 # Test HttpxFetcher
@@ -349,6 +331,68 @@ class TestHttpxFetcherFetch:
 
         mock_client.get.assert_any_await("https://example.com/article")
         mock_proxy_client.get.assert_awaited_once_with("https://other.com/article")
+
+    async def test_fetch_retries_on_exception_with_diagnostics(self, caplog):
+        """HttpxFetcher should retry transient errors and log diagnostics when enabled."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher(diagnostics_enabled=True)
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = [
+            RuntimeError("boom"),
+            SimpleNamespace(text="<html>OK</html>", status_code=200),
+        ]
+        fetcher._client = mock_client
+
+        caplog.set_level("INFO")
+        content, status = await fetcher.fetch("https://example.com")
+
+        assert status == 200
+        assert "<html>OK</html>" in content
+        assert mock_client.get.await_count == 2
+        assert any(
+            "httpx fetch exception" in record.message for record in caplog.records
+        )
+
+    async def test_fetch_retries_on_retryable_status_with_diagnostics(self, caplog):
+        """Retryable HTTP status responses should trigger diagnostics and another attempt."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher(diagnostics_enabled=True)
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = [
+            SimpleNamespace(text="retry", status_code=502),
+            SimpleNamespace(text="ok", status_code=200),
+        ]
+        fetcher._client = mock_client
+
+        caplog.set_level("INFO")
+        _, status = await fetcher.fetch("https://example.org")
+
+        assert status == 200
+        assert mock_client.get.await_count == 2
+        assert any(
+            "httpx retryable response" in record.message for record in caplog.records
+        )
+
+    async def test_fetch_retries_silently_when_diagnostics_disabled(self, caplog):
+        """Retries still occur even when diagnostics logging stays off."""
+        from article_extractor import HttpxFetcher
+
+        fetcher = HttpxFetcher()
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = [
+            SimpleNamespace(text="retry", status_code=502),
+            SimpleNamespace(text="ok", status_code=200),
+        ]
+        fetcher._client = mock_client
+
+        caplog.set_level("INFO")
+        await fetcher.fetch("https://retry.example")
+
+        assert mock_client.get.await_count == 2
+        assert "httpx retryable response" not in caplog.text
+        assert "httpx fetch summary" not in caplog.text
 
 
 # Test get_default_fetcher
@@ -479,14 +523,13 @@ class TestPlaywrightFetcherContextManager:
         except ImportError:
             pytest.skip("Playwright not installed")
 
-    async def test_aexit_saves_storage(self, tmp_path, monkeypatch):
+    async def test_aexit_saves_storage(self, tmp_path):
         """__aexit__ should save storage state."""
         from article_extractor import PlaywrightFetcher
 
         storage_file = tmp_path / "storage.json"
-        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", storage_file)
 
-        fetcher = PlaywrightFetcher()
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
         mock_context = AsyncMock()
         mock_browser = AsyncMock()
         mock_playwright = AsyncMock()
@@ -501,16 +544,13 @@ class TestPlaywrightFetcherContextManager:
         assert mock_context.close.await_count == 1
         assert mock_browser.close.await_count == 1
 
-    async def test_aexit_handles_storage_save_failure(
-        self, tmp_path, monkeypatch, caplog
-    ):
+    async def test_aexit_handles_storage_save_failure(self, tmp_path, caplog):
         """__aexit__ should handle storage save failure gracefully."""
         from article_extractor import PlaywrightFetcher
 
         storage_file = tmp_path / "readonly" / "storage.json"
-        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", storage_file)
 
-        fetcher = PlaywrightFetcher()
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
         mock_context = AsyncMock()
         mock_context.storage_state.side_effect = RuntimeError("Cannot save")
         mock_browser = AsyncMock()
@@ -526,6 +566,44 @@ class TestPlaywrightFetcherContextManager:
         assert any(
             "Failed to save storage state" in message for message in caplog.messages
         )
+
+
+class TestPlaywrightDiagnostics:
+    """Diagnostics helpers should expose storage metadata when enabled."""
+
+    def test_storage_state_logging_includes_metadata(self, tmp_path, caplog):
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "storage.json"
+        storage_file.write_text("{}", encoding="utf-8")
+        fetcher = PlaywrightFetcher(
+            diagnostics_enabled=True, storage_state_file=storage_file
+        )
+
+        caplog.set_level("INFO")
+        fetcher._log_storage_state("load")
+
+        matching = [
+            record
+            for record in caplog.records
+            if record.message == "Playwright storage state"
+        ]
+        assert matching, "Expected diagnostic storage state log"
+        record = matching[0]
+        assert getattr(record, "storage_state", "") == str(storage_file)
+        assert getattr(record, "storage_bytes", 0) == storage_file.stat().st_size
+
+    def test_storage_state_logging_disabled_by_default(self, tmp_path, caplog):
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "storage.json"
+        storage_file.write_text("{}", encoding="utf-8")
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+
+        caplog.set_level("INFO")
+        fetcher._log_storage_state("load")
+
+        assert "Playwright storage state" not in caplog.text
 
 
 @pytest.mark.unit
@@ -740,11 +818,19 @@ class TestPlaywrightStorageStateFile:
 
         assert fetcher.storage_state_file == network_path
 
-    def test_storage_state_file_defaults_to_constant(self, tmp_path, monkeypatch):
+    def test_storage_state_file_defaults_via_network_resolver(
+        self, tmp_path, monkeypatch
+    ):
         from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
 
         default_path = tmp_path / "default.json"
-        monkeypatch.setattr(PlaywrightFetcher, "STORAGE_STATE_FILE", default_path)
+
+        def _fake_resolver(**_kwargs):
+            return NetworkOptions(storage_state_path=default_path)
+
+        monkeypatch.setattr(fetcher_module, "resolve_network_options", _fake_resolver)
+
         fetcher = PlaywrightFetcher()
 
         assert fetcher.storage_state_file == default_path

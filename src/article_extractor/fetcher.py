@@ -22,15 +22,30 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from urllib.parse import urlparse
 
-from .network import DEFAULT_STORAGE_PATH, STORAGE_ENV_KEYS, host_matches_no_proxy
+from .network import (
+    DEFAULT_STORAGE_PATH,
+    host_matches_no_proxy,
+    resolve_network_options,
+)
+from .observability import build_url_log_context
 from .types import NetworkOptions
 
 logger = logging.getLogger(__name__)
+
+
+def _augment_context(context: dict[str, str], **extra: Any) -> dict[str, Any]:
+    if not context and not extra:
+        return {}
+    merged: dict[str, Any] = dict(context)
+    for key, value in extra.items():
+        if value is not None:
+            merged[key] = value
+    return merged
+
 
 DEFAULT_DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
@@ -117,16 +132,6 @@ def _check_playwright() -> bool:
     return _playwright_available
 
 
-def _detect_storage_state_file() -> Path:
-    for key in STORAGE_ENV_KEYS:
-        value = os.environ.get(key)
-        if value:
-            path = Path(value).expanduser()
-            logger.debug("Storage state resolved from env %s=%s", key, path)
-            return path
-    return DEFAULT_STORAGE_PATH
-
-
 class PlaywrightFetcher:
     """Playwright-based fetcher with instance-level browser management.
 
@@ -146,14 +151,12 @@ class PlaywrightFetcher:
             html2, status2 = await fetcher.fetch(url2)
     """
 
-    STORAGE_STATE_FILE = _detect_storage_state_file()
-    _INITIAL_STORAGE_STATE_FILE = STORAGE_STATE_FILE
-
     MAX_CONCURRENT_PAGES = 3
 
     __slots__ = (
         "_browser",
         "_context",
+        "_diagnostics_enabled",
         "_network",
         "_playwright",
         "_semaphore",
@@ -170,6 +173,7 @@ class PlaywrightFetcher:
         *,
         network: NetworkOptions | None = None,
         storage_state_file: str | Path | None = None,
+        diagnostics_enabled: bool = False,
     ) -> None:
         """Initialize Playwright fetcher.
 
@@ -177,7 +181,8 @@ class PlaywrightFetcher:
             headless: Whether to run browser in headless mode
             timeout: Page load timeout in milliseconds (default: 30s)
         """
-        self._network = network or NetworkOptions()
+        resolved_network = network or resolve_network_options()
+        self._network = resolved_network
         network_headed = self._network.headed
         self.headless = headless if headless is not None else not network_headed
         self.user_interaction_timeout = self._network.user_interaction_timeout
@@ -191,6 +196,64 @@ class PlaywrightFetcher:
             if storage_state_file is not None
             else self._network.storage_state_path
         )
+        self._diagnostics_enabled = diagnostics_enabled
+
+    def _log_diagnostic(
+        self,
+        message: str,
+        *,
+        extra: dict[str, Any] | None = None,
+        level: int = logging.INFO,
+    ) -> None:
+        if not self._diagnostics_enabled:
+            return
+        logger.log(level, message, extra=extra)
+
+    def _log_storage_state(self, stage: str) -> None:
+        if not self._diagnostics_enabled:
+            return
+        storage_file = self.storage_state_file
+        metadata: dict[str, Any] = {
+            "storage_state": str(storage_file),
+            "storage_exists": storage_file.exists(),
+            "diagnostics_stage": stage,
+            "headed": not self.headless,
+        }
+        if storage_file.exists():
+            try:
+                stats = storage_file.stat()
+                metadata.update(
+                    {
+                        "storage_bytes": stats.st_size,
+                        "storage_mtime": int(stats.st_mtime),
+                    }
+                )
+            except OSError as exc:
+                metadata["storage_error"] = exc.__class__.__name__
+        self._log_diagnostic("Playwright storage state", extra=metadata)
+
+    def _log_stability_summary(
+        self,
+        context: dict[str, str],
+        *,
+        checks: int,
+        stabilized: bool,
+        max_checks: int,
+    ) -> None:
+        if not self._diagnostics_enabled:
+            return
+        self._log_diagnostic(
+            "Playwright stability summary",
+            extra=_augment_context(
+                context,
+                stability_checks=checks,
+                max_stability_checks=max_checks,
+                stability_converged=stabilized,
+                headed=not self.headless,
+                wait_for_stability=True,
+                user_interaction_timeout=self.user_interaction_timeout,
+            ),
+        )
 
     @property
     def network(self) -> NetworkOptions:
@@ -202,9 +265,7 @@ class PlaywrightFetcher:
             return Path(self._storage_state_override)
         if self._network.storage_state_path is not None:
             return Path(self._network.storage_state_path)
-        if self.STORAGE_STATE_FILE != self._INITIAL_STORAGE_STATE_FILE:
-            return Path(self.STORAGE_STATE_FILE)
-        return _detect_storage_state_file()
+        return DEFAULT_STORAGE_PATH
 
     async def __aenter__(self) -> PlaywrightFetcher:
         """Create browser instance for this fetcher."""
@@ -248,6 +309,7 @@ class PlaywrightFetcher:
         }
 
         storage_file = self.storage_state_file
+        self._log_storage_state("load")
         if storage_file.exists():
             context_options["storage_state"] = str(storage_file)
             logger.info("Loading storage state from %s", storage_file)
@@ -283,6 +345,7 @@ class PlaywrightFetcher:
                 storage_file.parent.mkdir(parents=True, exist_ok=True)
                 await self._context.storage_state(path=str(storage_file))
                 logger.info("Saved storage state to %s", storage_file)
+                self._log_storage_state("save")
             except Exception as e:
                 logger.warning(f"Failed to save storage state: {e}")
 
@@ -321,17 +384,20 @@ class PlaywrightFetcher:
         if not self._context or not self._semaphore:
             raise RuntimeError("PlaywrightFetcher not initialized (use 'async with')")
 
+        context = build_url_log_context(url)
         async with self._semaphore:
-            logger.info(f"Fetching {url} with Playwright...")
+            logger.info("Fetching with Playwright", extra=context)
 
             page = await self._context.new_page()
 
             try:
                 logger.debug(
-                    "Playwright navigating to %s (wait_for_selector=%s, wait_for_stability=%s)",
-                    url,
-                    wait_for_selector,
-                    wait_for_stability,
+                    "Playwright navigating to page",
+                    extra=_augment_context(
+                        context,
+                        wait_for_selector=wait_for_selector,
+                        wait_for_stability=wait_for_stability,
+                    ),
                 )
                 response = await page.goto(
                     url, wait_until="domcontentloaded", timeout=self.timeout
@@ -345,22 +411,38 @@ class PlaywrightFetcher:
 
                     if wait_for_stability:
                         previous_content = ""
+                        checks_performed = 0
+                        stabilized = False
                         for _ in range(max_stability_checks):
+                            checks_performed += 1
                             await asyncio.sleep(0.5)
                             current_content = await page.content()
                             if current_content == previous_content:
-                                logger.debug(f"Content stabilized for {url}")
+                                logger.debug("Content stabilized", extra=context)
+                                stabilized = True
                                 break
                             previous_content = current_content
                         else:
-                            logger.warning(f"Content never stabilized for {url}")
+                            logger.warning("Content never stabilized", extra=context)
+
+                        self._log_stability_summary(
+                            context,
+                            checks=checks_performed,
+                            stabilized=stabilized,
+                            max_checks=max_stability_checks,
+                        )
                         content = previous_content
                     else:
                         content = await page.content()
 
                     status_code = response.status if response else 200
                     logger.info(
-                        f"Fetched {url} (status: {status_code}, {len(content)} chars)"
+                        "Fetched with Playwright",
+                        extra=_augment_context(
+                            context,
+                            status_code=status_code,
+                            content_length=len(content),
+                        ),
                     )
                     return content, status_code
 
@@ -369,7 +451,11 @@ class PlaywrightFetcher:
                         f" '{wait_for_selector}'" if wait_for_selector else ""
                     )
                     logger.warning(
-                        f"Timed out waiting for selector{selector_msg} on {url}"
+                        f"Timed out waiting for selector{selector_msg}",
+                        extra=_augment_context(
+                            context,
+                            selector=wait_for_selector,
+                        ),
                     )
                     return await page.content(), 408
 
@@ -466,8 +552,11 @@ class HttpxFetcher:
         "Accept-Language": "en-US,en;q=0.9",
     }
 
+    MAX_ATTEMPTS = 3
+
     __slots__ = (
         "_client",
+        "_diagnostics_enabled",
         "_headers",
         "_network",
         "_proxy_client",
@@ -481,6 +570,7 @@ class HttpxFetcher:
         follow_redirects: bool = True,
         *,
         network: NetworkOptions | None = None,
+        diagnostics_enabled: bool = False,
     ) -> None:
         """Initialize httpx fetcher.
 
@@ -493,10 +583,32 @@ class HttpxFetcher:
         self._client = None
         self._proxy_client = None
         self._network = network or NetworkOptions()
+        self._diagnostics_enabled = diagnostics_enabled
         self._headers = dict(self.DEFAULT_HEADERS)
         self._headers["User-Agent"] = _select_user_agent(
             self._network, DEFAULT_DESKTOP_USER_AGENT
         )
+
+    def _log_diagnostic(
+        self,
+        message: str,
+        *,
+        extra: dict[str, Any] | None = None,
+        level: int = logging.INFO,
+    ) -> None:
+        if not self._diagnostics_enabled:
+            return
+        logger.log(level, message, extra=extra)
+
+    @staticmethod
+    def _should_retry_status(status_code: int) -> bool:
+        if status_code >= 500:
+            return True
+        return status_code in {408, 429}
+
+    @staticmethod
+    def _backoff_delay(attempt: int) -> float:
+        return min(0.3 * attempt, 1.5)
 
     async def __aenter__(self) -> HttpxFetcher:
         """Create httpx client."""
@@ -549,20 +661,93 @@ class HttpxFetcher:
         if not self._client:
             raise RuntimeError("HttpxFetcher not initialized (use 'async with')")
 
+        context = build_url_log_context(url)
         proxy = self._network.proxy
         host = urlparse(url).hostname
         client = self._client
+        routed_via_proxy = False
         if (
             proxy
             and self._proxy_client
             and not host_matches_no_proxy(host, self._network.proxy_bypass)
         ):
             client = self._proxy_client
-            logger.debug("Routing %s via proxy %s", url, proxy)
+            routed_via_proxy = True
+            logger.debug(
+                "Routing request via proxy",
+                extra=_augment_context(context, proxy=proxy),
+            )
         else:
-            logger.debug("Routing %s via direct connection", url)
+            logger.debug("Routing request via direct connection", extra=context)
 
-        response = await client.get(url)
+        attempt = 1
+        response = None
+        while True:
+            try:
+                response = await client.get(url)
+            except Exception as exc:
+                if attempt >= self.MAX_ATTEMPTS:
+                    logger.exception("httpx fetch failed", extra=context)
+                    raise
+                self._log_diagnostic(
+                    "httpx fetch exception",
+                    extra=_augment_context(
+                        context,
+                        attempt=attempt,
+                        max_attempts=self.MAX_ATTEMPTS,
+                        exception=exc.__class__.__name__,
+                        via_proxy=routed_via_proxy,
+                    ),
+                    level=logging.WARNING,
+                )
+                await asyncio.sleep(self._backoff_delay(attempt))
+                attempt += 1
+                continue
+
+            if (
+                response is not None
+                and self._should_retry_status(response.status_code)
+                and attempt < self.MAX_ATTEMPTS
+            ):
+                self._log_diagnostic(
+                    "httpx retryable response",
+                    extra=_augment_context(
+                        context,
+                        attempt=attempt,
+                        max_attempts=self.MAX_ATTEMPTS,
+                        status_code=response.status_code,
+                        via_proxy=routed_via_proxy,
+                    ),
+                )
+                await asyncio.sleep(self._backoff_delay(attempt))
+                attempt += 1
+                continue
+
+            break
+
+        if response is None:  # pragma: no cover - defensive safeguard
+            raise RuntimeError("httpx fetch produced no response")
+
+        self._log_diagnostic(
+            "httpx fetch summary",
+            extra=_augment_context(
+                context,
+                status_code=response.status_code,
+                attempts=attempt,
+                via_proxy=routed_via_proxy,
+            ),
+        )
+
+        logger.info(
+            "Fetched with httpx",
+            extra=_augment_context(
+                context,
+                status_code=response.status_code,
+                content_length=len(response.text),
+                via_proxy=routed_via_proxy,
+                attempts=attempt,
+            ),
+        )
         return response.text, response.status_code
 
 

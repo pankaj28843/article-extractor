@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -28,10 +29,31 @@ from pydantic import BaseModel, Field, HttpUrl
 
 from .extractor import extract_article_from_url
 from .network import resolve_network_options
+from .observability import (
+    build_metrics_emitter,
+    generate_request_id,
+    setup_logging,
+    strip_url,
+)
 from .settings import ServiceSettings, get_settings
 from .types import ExtractionOptions, NetworkOptions
 
 logger = logging.getLogger(__name__)
+
+
+def _configure_logging(settings: ServiceSettings | None = None) -> None:
+    """Initialize structured logging using the latest ServiceSettings."""
+
+    resolved = settings or get_settings()
+    setup_logging(
+        component="server",
+        level=resolved.log_level,
+        default_level="INFO",
+        log_format=resolved.log_format,
+    )
+
+
+_configure_logging()
 
 
 class ExtractionResponseCache:
@@ -82,6 +104,33 @@ def _read_prefer_playwright_env(_default: bool = True) -> bool:
     return get_settings().prefer_playwright
 
 
+def _emit_request_metrics(
+    state,
+    *,
+    method: str,
+    path: str,
+    status_code: int,
+    duration_ms: float,
+) -> None:
+    emitter = getattr(state, "metrics_emitter", None)
+    if emitter is None or not getattr(emitter, "enabled", False):
+        return
+    path_value = path or "/"
+    status_bucket = f"{int(status_code) // 100}xx"
+    tags = {
+        "method": method,
+        "status": str(status_code),
+        "path": path_value,
+        "status_group": status_bucket,
+    }
+    emitter.increment("server_http_requests_total", tags=tags)
+    emitter.observe(
+        "server_http_request_duration_ms",
+        value=duration_ms,
+        tags=tags,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
@@ -97,6 +146,15 @@ async def lifespan(app: FastAPI):
     app.state.cache = cache
     app.state.cache_lock = cache_lock
     app.state.threadpool = threadpool
+    app.state.log_diagnostics = settings.log_diagnostics
+    app.state.metrics_emitter = build_metrics_emitter(
+        component="server",
+        enabled=settings.metrics_enabled,
+        sink=settings.metrics_sink,
+        statsd_host=settings.metrics_statsd_host,
+        statsd_port=settings.metrics_statsd_port,
+        namespace=settings.metrics_namespace,
+    )
     _initialize_state_from_env(app.state)
 
     try:
@@ -115,6 +173,59 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def request_context_logging(request: Request, call_next):
+    request_id = generate_request_id(request.headers.get("x-request-id"))
+    request.state.request_id = request_id
+    start = time.perf_counter()
+    url_hint = strip_url(str(request.url))
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.exception(
+            "Request failed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "duration_ms": duration_ms,
+                "url": url_hint,
+            },
+        )
+        _emit_request_metrics(
+            request.app.state,
+            method=request.method,
+            path=request.url.path,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            duration_ms=duration_ms,
+        )
+        raise
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "Request complete",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "url": url_hint,
+        },
+    )
+    _emit_request_metrics(
+        request.app.state,
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+    )
+    return response
 
 
 # Request/Response models
@@ -244,7 +355,12 @@ async def extract_article_endpoint(
     """
     try:
         url = str(extraction_request.url)
-        logger.info(f"Extracting article from: {url}")
+        request_id = getattr(request.state, "request_id", None)
+        url_hint = strip_url(url)
+        logger.info(
+            "Extracting article",
+            extra={"url": url_hint, "request_id": request_id},
+        )
 
         options = ExtractionOptions(
             min_word_count=150,
@@ -257,7 +373,10 @@ async def extract_article_endpoint(
         cache_key = _build_cache_key(url, options)
         cached = await _lookup_cache(request, cache_key)
         if cached is not None:
-            logger.debug("Cache hit for %s", url)
+            logger.debug(
+                "Cache hit",
+                extra={"url": url_hint, "request_id": request_id},
+            )
             return cached
 
         # Extract article using default options
@@ -270,6 +389,9 @@ async def extract_article_endpoint(
             network=network_options,
             prefer_playwright=prefer_playwright,
             executor=getattr(request.app.state, "threadpool", None),
+            diagnostic_logging=bool(
+                getattr(request.app.state, "log_diagnostics", False)
+            ),
         )
 
         if not result.success:
@@ -298,7 +420,13 @@ async def extract_article_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Unexpected error extracting article from %s", url)
+        logger.exception(
+            "Unexpected error extracting article",
+            extra={
+                "url": url_hint,
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e!s}",
@@ -334,19 +462,32 @@ async def health_check(request: Request) -> dict:
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle HTTP exceptions."""
+    state = getattr(request, "state", None)
+    request_id = getattr(state, "request_id", None) if state else None
+    content = {"detail": exc.detail, "url": str(request.url)}
+    if request_id:
+        content["request_id"] = request_id
+    headers = {"X-Request-ID": request_id} if request_id else None
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "url": str(request.url)},
+        content=content,
+        headers=headers,
     )
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
-    logger.exception("Unexpected error")
+    state = getattr(request, "state", None)
+    request_id = getattr(state, "request_id", None) if state else None
+    content = {"detail": "Internal server error", "error": f"{exc!s}"}
+    if request_id:
+        content["request_id"] = request_id
+    headers = {"X-Request-ID": request_id} if request_id else None
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error", "error": f"{exc!s}"},
+        content=content,
+        headers=headers,
     )
 
 

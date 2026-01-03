@@ -3,12 +3,13 @@
 import asyncio
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+import article_extractor.server as server_module
 from article_extractor.server import (
     ExtractionRequest,
     ExtractionResponse,
@@ -70,6 +71,30 @@ def failed_result():
     )
 
 
+def test_server_setup_logging_uses_settings():
+    """Server should configure logging using ServiceSettings-derived values."""
+
+    settings = SimpleNamespace(
+        log_level="DEBUG",
+        log_format="text",
+        cache_size=256,
+        log_diagnostics=True,
+        prefer_playwright=False,
+        build_network_env=lambda: {},
+        determine_threadpool_size=lambda: 8,
+    )
+
+    with patch("article_extractor.server.setup_logging") as mock_setup:
+        server_module._configure_logging(settings)
+
+    mock_setup.assert_called_once_with(
+        component="server",
+        level="DEBUG",
+        default_level="INFO",
+        log_format="text",
+    )
+
+
 def test_root_endpoint(client):
     """Test root health check endpoint."""
     response = client.get("/")
@@ -108,6 +133,7 @@ def test_extract_article_success(client, mock_result):
         response = client.post("/", json={"url": "https://example.com/article"})
 
     assert response.status_code == 200
+    assert response.headers.get("X-Request-ID")
     mock_extract.assert_awaited_once()
     kwargs = mock_extract.await_args.kwargs
     assert kwargs["network"] is sentinel_network
@@ -121,6 +147,27 @@ def test_extract_article_success(client, mock_result):
     assert data["word_count"] == 5
     assert data["success"] is True
     assert data["dir"] == "ltr"
+
+
+def test_request_id_header_preserved(client, mock_result):
+    """Server should echo incoming X-Request-ID headers."""
+
+    with (
+        patch(
+            "article_extractor.server.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch("article_extractor.server.resolve_network_options"),
+    ):
+        response = client.post(
+            "/",
+            json={"url": "https://example.com/article"},
+            headers={"X-Request-ID": "abc123"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("X-Request-ID") == "abc123"
 
 
 def test_extract_article_failure(client, failed_result):
@@ -138,6 +185,7 @@ def test_extract_article_failure(client, failed_result):
     assert response.status_code == 422
     data = response.json()
     assert "Failed to extract article" in data["detail"]
+    assert response.headers.get("X-Request-ID") == data["request_id"]
 
 
 def test_extract_article_invalid_url(client):
@@ -161,6 +209,7 @@ def test_extract_article_exception(client):
     assert response.status_code == 500
     data = response.json()
     assert "Internal server error" in data["detail"]
+    assert response.headers.get("X-Request-ID") == data["request_id"]
 
 
 def test_openapi_docs_available(client):
@@ -326,6 +375,33 @@ def test_prefer_playwright_override(client, mock_result):
         )
 
     assert mock_extract.await_args.kwargs["prefer_playwright"] is False
+
+
+def test_request_metrics_emitted(mock_result):
+    emitter = MagicMock()
+    emitter.enabled = True
+
+    with (
+        patch("article_extractor.server.build_metrics_emitter", return_value=emitter),
+        patch("article_extractor.server.resolve_network_options"),
+        patch(
+            "article_extractor.server.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+    ):
+        with TestClient(app) as local_client:
+            response = local_client.post("/", json={"url": "https://example.com"})
+
+    assert response.status_code == 200
+    increment_call = emitter.increment.call_args
+    assert increment_call.args[0] == "server_http_requests_total"
+    assert increment_call.kwargs["tags"] == {
+        "method": "POST",
+        "status": "200",
+        "path": "/",
+        "status_group": "2xx",
+    }
 
 
 def test_configure_helpers_store_state(monkeypatch, tmp_path):
@@ -571,7 +647,7 @@ def test_resolve_request_network_options_merges_payload(tmp_path):
     )
     extraction_request = ExtractionRequest(
         url="https://example.com",
-        network=payload,
+        network=payload.model_dump(),
     )
 
     resolved = _resolve_request_network_options(extraction_request, request)

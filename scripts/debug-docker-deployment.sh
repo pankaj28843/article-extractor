@@ -16,6 +16,7 @@ SAMPLE_URL="https://en.wikipedia.org/wiki/Wikipedia"
 HEALTH_TIMEOUT=60
 LOGS_ALREADY_COLLECTED=0
 LOG_PREFIX="[docker-debug]"
+DIAGNOSTICS_FLAG="${ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS:-0}"
 
 log() {
     printf '%s %s\n' "${LOG_PREFIX}" "$*"
@@ -119,9 +120,14 @@ CONTAINER_ID="$(
         -e ARTICLE_EXTRACTOR_THREADPOOL_SIZE=12 \
         -e ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true \
         -e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE="${CONTAINER_STORAGE_FILE}" \
+        -e ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS="${DIAGNOSTICS_FLAG}" \
         "${IMAGE_TAG}"
 )"
 log "Container ID: ${CONTAINER_ID}"
+
+    if [ "${DIAGNOSTICS_FLAG}" != "0" ]; then
+        log "Diagnostics logging enabled for this run (ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=${DIAGNOSTICS_FLAG})."
+    fi
 
 wait_for_health() {
     local tries=0

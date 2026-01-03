@@ -410,6 +410,7 @@ async def extract_article_from_url(
     network: NetworkOptions | None = None,
     prefer_playwright: bool = True,
     executor: Executor | None = None,
+    diagnostic_logging: bool = False,
 ) -> ArticleResult:
     """Fetch URL and extract article content.
 
@@ -421,6 +422,7 @@ async def extract_article_from_url(
         options: Extraction options
         prefer_playwright: If auto-creating fetcher, prefer Playwright
         executor: Optional executor for CPU-bound parsing work
+        diagnostic_logging: Enable verbose fetch diagnostics (default: False)
 
     Returns:
         ArticleResult with extracted content
@@ -454,7 +456,9 @@ async def extract_article_from_url(
                 error=str(e),
             )
 
-        async with fetcher_class(network=network) as auto_fetcher:
+        async with fetcher_class(
+            network=network, diagnostics_enabled=diagnostic_logging
+        ) as auto_fetcher:
             return await _extract_with_fetcher(extractor, url, auto_fetcher, executor)
 
     return await _extract_with_fetcher(extractor, url, fetcher, executor)
