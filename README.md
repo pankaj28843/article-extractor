@@ -329,43 +329,38 @@ uv run ruff format . && uv run ruff check --fix .
 uv run pytest tests/ -v
 ```
 
-### Docker smoke harness
+### Docker smoke harness (How-To)
 
-Run the Python-based Docker harness whenever you touch the container image,
-Playwright storage, or queue defaults. It rebuilds the image (unless you pass
-`--skip-build`), mounts `tmp/docker-smoke-data/`, waits for `/health`, POSTs the
-curated URL list in parallel, and tails the container logs so you can inspect
-queue diagnostics and storage snapshots:
+**Goal**: Validate the Docker image plus Playwright storage queue end-to-end  
+**Prerequisites**: Docker 24+, uv, and the optional `httpx` extra for the harness  
+**Verification**: Harness exits 0 and logs `Docker validation harness completed successfully`
+
+1. Run the harness (skip the rebuild during local edits):
+
+        ```bash
+        uv run scripts/debug_docker_deployment.py --skip-build --tail-lines 120
+        ```
+
+2. Inspect the final log tail for HTTP 200s and queue statistics. If a URL fails,
+     rerun with `--retries 2` or point `--urls-file` at a custom corpus.
+
+3. Need to tweak published settings? Pass env vars (e.g.,
+     `ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1`) directly through `uv run` and recheck the
+     Playwright storage summary printed by the harness.
+
+For the full flag list, run `uv run scripts/debug_docker_deployment.py --help`
+and expect output similar to:
 
 ```text
 $ uv run scripts/debug_docker_deployment.py --help
-usage: debug_docker_deployment.py [-h] [--image-tag IMAGE_TAG] [--container-name CONTAINER_NAME] [--container-port CONTAINER_PORT] [--concurrency CONCURRENCY]
-                                                                    [--retries RETRIES] [--urls-file URLS_FILE] [--skip-build] [--keep-container] [--diagnostics-flag DIAGNOSTICS_FLAG]
-                                                                    [--tail-lines TAIL_LINES] [--health-timeout HEALTH_TIMEOUT]
-
+usage: debug_docker_deployment.py [-h] [--image-tag IMAGE_TAG] [...] [--health-timeout HEALTH_TIMEOUT]
 Rebuild the Docker image, start the FastAPI service, and fire parallel smoke requests to validate Playwright storage behavior.
-
 options:
     -h, --help            show this help message and exit
-    --image-tag IMAGE_TAG
-                                                Docker image tag to build/run.
+    --image-tag IMAGE_TAG Docker image tag to build/run.
     --container-name CONTAINER_NAME
-                                                Name of the temporary Docker container.
-    --container-port CONTAINER_PORT
-                                                Internal container port exposed by the FastAPI app.
-    --concurrency CONCURRENCY
-                                                Maximum concurrent POST requests to issue against the server.
-    --retries RETRIES     Number of additional attempts per URL when the first POST fails.
-    --urls-file URLS_FILE
-                                                Optional file containing newline-separated URLs (comments starting with # are ignored).
-    --skip-build          Skip rebuilding the Docker image and reuse the current tag.
-    --keep-container      Leave the smoke container running after the harness exits.
-    --diagnostics-flag DIAGNOSTICS_FLAG
-                                                Value for ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS passed into the container (defaults to env value).
-    --tail-lines TAIL_LINES
-                                                Number of log lines to stream from the container after the run completes.
-    --health-timeout HEALTH_TIMEOUT
-                                                Seconds to wait for /health to report ready before failing the harness.
+                                         Name of the temporary Docker container.
+    ... (run the command for the complete list)
 ```
 
 ## Contributing
