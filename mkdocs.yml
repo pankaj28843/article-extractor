@@ -11,31 +11,14 @@ copyright: "© {{ config.site_name }} contributors"
 use_directory_urls: true
 
 nav:
-  - Home: index.md
-  - Docs Coverage Map: coverage-map.md
-  - Tutorials:
-    - Overview: tutorials/index.md
-    - CLI in 2 Minutes: tutorials/cli.md
-    - Docker Server in 5 Minutes: tutorials/docker.md
-    - Python Library in 5 Minutes: tutorials/python.md
-  - How-To Guides:
-    - Overview: how-to/index.md
-    - Override Cache & Playwright Storage: how-to/cache-playwright.md
-    - Networking Controls: how-to/networking.md
-    - Diagnostics & Metrics: how-to/diagnostics.md
-  - Reference:
-    - Overview: reference/index.md
-    - Configuration Table: reference/configuration.md
-    - Runtime Interfaces: reference/runtime.md
-  - Explanations:
-    - Overview: explanations/index.md
-    - Why Teams Choose Article Extractor: explanations/why.md
+  - Overview:
+    - Home: index.md
     - How It Works: explanations/how-it-works.md
-  - Contributing:
-    - Docs Contribution Guide: contributing/index.md
-    - Development Workflow: contributing/development.md
-  - Release Engineering:
-    - Shipping Checklist: release-engineering/index.md
+    - Voice & Style: style-guide.md
+    - Content Inventory: content-inventory.md
+  - Tutorials: tutorials.md
+  - Operations: operations.md
+  - Reference: reference.md
 
 markdown_extensions:
   - admonition
