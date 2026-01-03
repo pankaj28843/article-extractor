@@ -6,29 +6,29 @@
 [![CI](https://github.com/pankaj28843/article-extractor/actions/workflows/ci.yml/badge.svg)](https://github.com/pankaj28843/article-extractor/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/pankaj28843/article-extractor/branch/main/graph/badge.svg)](https://codecov.io/gh/pankaj28843/article-extractor)
 
-High-fidelity article extraction in pure Python. Ship the same scoring engine as a library, CLI, or FastAPI service to turn messy web pages into clean Markdown or HTML for ingestion, archiving, and LLM pipelines.
+Article Extractor turns arbitrary HTML into deterministic Markdown ready for ingestion pipelines.
 
-> Requires Python 3.12+
+> **Problem**: brittle scrapers collapse when paywalls or inline scripts mutate markup.  \
+> **Why now**: one fetcher abstraction keeps Playwright and httpx output identical across the CLI, FastAPI server, and Python API.  \
+> **Outcome**: verified tutorials, a single operations runbook, and concise reference tables keep teams unblocked in production.
 
 ## Value At a Glance
 
 - Deterministic Readability-style scoring tuned for long-form docs, blogs, and knowledge bases.
-- Clean, GFM-compatible Markdown and sanitized HTML identical across CLI, server, and Python API.
-- Production-ready knobs: persistent Playwright storage, cache sizing, proxy & diagnostics controls, and StatsD metrics.
-- High-coverage test suite (>93%) and GitHub Pages docs with reality-checked commands.
+- GFM-compatible Markdown and sanitized HTML identical across the CLI, FastAPI server, and Python API.
+- Runtime knobs for Playwright storage, cache sizing, proxies, diagnostics, and StatsD metrics.
+- Test suite coverage above 93% plus documentation that records the exact commands and outputs.
 
-Learn why teams adopt the extractor in [Why Teams Choose Article Extractor](https://pankaj28843.github.io/article-extractor/explanations/why/) and how the heuristics work in [How It Works](https://pankaj28843.github.io/article-extractor/explanations/how-it-works/).
+See the [Docs Home](https://pankaj28843.github.io/article-extractor/) for the consolidated Tutorials, Operations, Reference, and Style sections.
 
 ## Choose Your Surface
 
 | Goal | Start Here | Time | Verified Commands |
 | --- | --- | --- | --- |
-| Run the CLI once | [Tutorial: CLI in 2 Minutes](https://pankaj28843.github.io/article-extractor/tutorials/cli/) | < 2 min | `uv pip install article-extractor`, `uv run article-extractor …` |
-| Ship the FastAPI server in Docker | [Tutorial: Docker in 5 Minutes](https://pankaj28843.github.io/article-extractor/tutorials/docker/) | ~5 min | `docker run ghcr.io/pankaj28843/article-extractor:latest`, `curl http://localhost:3000/` |
-| Embed the library | [Tutorial: Python in 5 Minutes](https://pankaj28843.github.io/article-extractor/tutorials/python/) | ~5 min | `uv run python demo.py` |
-| Tune caches, storage, proxies, diagnostics | [How-To Guides](https://pankaj28843.github.io/article-extractor/how-to/) | task-specific | Env vars & CLI/server overrides |
-
-See the [Documentation Coverage Map](https://pankaj28843.github.io/article-extractor/coverage-map/) for a MECE index of every page.
+| Run the CLI once | [CLI Fast Path](https://pankaj28843.github.io/article-extractor/tutorials/#cli-fast-path) | < 2 min | `uv pip install article-extractor`, `uv run article-extractor …`, `head ./tmp/article-extractor-cli.md` |
+| Ship the FastAPI server in Docker | [Docker Service](https://pankaj28843.github.io/article-extractor/tutorials/#docker-service) | ~5 min | `docker run ghcr.io/pankaj28843/article-extractor:latest`, `curl http://localhost:3000/health`, `curl -XPOST … | jq` |
+| Embed the library | [Python Embedding](https://pankaj28843.github.io/article-extractor/tutorials/#python-embedding) | ~5 min | `uv run python - <<'PY' …`, `asyncio.run(fetch_remote())` |
+| Tune caches, networking, diagnostics, releases | [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/) | task-specific | Env vars, Docker overrides, StatsD flags, `gh` CLI |
 
 ## Install (Any Environment)
 
@@ -43,16 +43,16 @@ Prefer uv? Run `uv pip install article-extractor` or add it to `pyproject.toml` 
 ## Observability & Operations
 
 - All runtimes honor diagnostics toggles (`ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS`, `ARTICLE_EXTRACTOR_METRICS_*`).
-- Docker image ships Chromium + Playwright state persistence. Follow [How-To: Cache & Playwright Storage](https://pankaj28843.github.io/article-extractor/how-to/cache-playwright/) for overrides.
-- Metrics and logging recipes live in [How-To: Diagnostics & Metrics](https://pankaj28843.github.io/article-extractor/how-to/diagnostics/).
+- Docker image ships Chromium + Playwright state persistence; the [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/#cache-and-playwright-storage) shows how to mount storage, warm caches, and inspect the queue.
+- Networking, diagnostics, StatsD, validation loops, and release automation live in a single [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/).
 
 ## Documentation
 
-The full MkDocs site (Tutorials, How-To, Reference, Explanations, Contributing, Release) lives at **https://pankaj28843.github.io/article-extractor/**. If the site is unavailable, read the Markdown sources in [`docs/`](docs/).
+The MkDocs site (Overview, Tutorials, Operations, Reference, Explanations) lives at **https://pankaj28843.github.io/article-extractor/**. If the site is unavailable, read the Markdown sources in [`docs/`](docs/) including `style-guide.md`, `operations.md`, and `content-inventory.md`.
 
 ## Contributing
 
-We welcome pull requests paired with docs. Start with the [Docs Contribution Guide](https://pankaj28843.github.io/article-extractor/contributing/), follow the [Development Workflow](https://pankaj28843.github.io/article-extractor/contributing/development/), and verify commands via the docsRealityCheck checklist before opening a PR.
+We welcome pull requests paired with docs. Follow the [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/#development-workflow-and-validation) for validation, skim the [Style Guide](https://pankaj28843.github.io/article-extractor/style-guide/) before editing prose, and document real command output via the DocsRealityCheck log in `notes.md`.
 
 ## License
 

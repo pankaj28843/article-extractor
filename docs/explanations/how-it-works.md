@@ -1,32 +1,24 @@
 # How It Works
 
-**Audience & Prereqs**: Engineers in the Explanation lane of the [Docs Coverage Map](../coverage-map.md#scenario-routing-table) who want heuristic/architecture details; expect comfort with Python async patterns and the modules in `.github/instructions/software-engineering-principles.instructions.md`.
+> **Problem**: Without a single explanation page, contributors guessed how scoring, fetchers, and observability fit together.  \
+> **Why**: A Philosophy of Software Design reminds us that obscurity (missing context) breeds fragility (#techdocs file:///home/pankaj/Personal/Code/docs-mcp-server/mcp-data/a-philosophy-of-software-design/06-2-the-nature-of-complexity.md).  \
+> **Outcome**: One deterministic pipeline overview covering scoring math, module boundaries, and observability hooks.
 
-Article Extractor keeps heuristics inside `src/article_extractor/extractor.py`, with supporting modules (`fetcher.py`, `scorer.py`, `server.py`) following the deep-module guardrails outlined in `.github/instructions/software-engineering-principles.instructions.md`.
+## Deterministic Pipeline
 
-## Pipeline
+1. **Parse HTML** with [JustHTML](https://github.com/EmilStenstrom/justhtml) inside `extractor.py`, stripping script/nav noise before candidate scoring.
+2. **Score blocks** using Readability-style signals (density, link ratio, heading boosts). Intuitively, $$density = \frac{text\_length}{node\_area}$$ favors long paragraphs inside narrow containers.
+3. **Select the winner**, normalize headings/links, and emit sanitized HTML + Markdown plus metadata (`title`, `excerpt`, `warnings`, `word_count`).
+4. **Reuse fetchers** by funneling every CLI/server/Python request through `FetchPreferences`, which picks Playwright or httpx deterministically based on installed extras and per-request overrides.
 
-1. **Parse HTML** with [JustHTML](https://github.com/EmilStenstrom/justhtml) to build a clean DOM-like tree.
-2. **Strip noise** (scripts, nav, ads) before scoring candidates.
-3. **Score blocks** using Readability-inspired signals (density, link ratio, structural hints). Density can be summarized as $density = text\_length / node\_area$ for intuition.
-4. **Pick the winner** after normalizing headings and resolving relative links.
-5. **Emit HTML and Markdown**, sanitizing output for downstream systems.
-6. **Return metadata** (title, excerpt, warnings, author, timestamps) so clients can quickly inspect quality.
+## Boundaries & Storage
 
-## Determinism
+- `extractor.py` owns candidate scoring; `fetcher.py` and `network.py` own HTTP/Playwright orchestration; `server.py` stays thin and only parses environment variables into typed settings (see `.github/instructions/software-engineering-principles.instructions.md`).
+- Headed Playwright sessions persist cookies to `storage_state.json` and queue deltas beside the file so multiple workers share authenticated sessions without race conditions. Tune the queue thresholds listed in the [Reference](../reference.md#configuration) when logs warn about pending entries or stale snapshots.
 
-- Scoring has no randomness; identical HTML produces identical Markdown.
-- Fetch preferences flow through `FetchPreferences` so CLI, server, and library stay in sync.
-- Environment parsing lives in `server.py` to keep call sites typed and deterministic.
+## Observability
 
-## Storage & Queueing
+- Structured logs expose `request_id`, latency, fetcher choice, cache hits, and queue depth; enable them via `ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=1` and the log level/format env vars documented in the [Operations Runbook](../operations.md#diagnostics-and-metrics).
+- Optional StatsD metrics (`article_extractor.cli_extractions.success`, `article_extractor.server.latency_ms`) stream when `ARTICLE_EXTRACTOR_METRICS_ENABLED=1` with `metrics_sink=statsd`.
 
-- Headed Playwright sessions write cookies to `storage_state.json` and queue deltas beside the file so multiple workers reuse authenticated sessions safely.
-- Queue thresholds are configurable via env vars documented in the [Configuration Reference](../reference/configuration.md#playwright-storage-queue).
-
-## Observability Hooks
-
-- Structured logs surface request IDs, latency, cache hits, and queue metrics.
-- Optional StatsD metrics report CLI/server throughput; see [Diagnostics & Metrics](../how-to/diagnostics.md).
-
-For tutorials and configuration walkthroughs, jump to the [Tutorials landing page](../tutorials/index.md) or the [Reference section](../reference/index.md).
+When you need runnable instructions, jump back to the [Tutorials](../tutorials.md) and [Operations](../operations.md) pages—the pipeline above explains why those commands behave the way they do.
