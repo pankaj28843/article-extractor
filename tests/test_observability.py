@@ -261,6 +261,7 @@ def test_metrics_emitter_log_sink_copies_tags():
 
 def test_metrics_emitter_statsd_sink_handles_timer(monkeypatch):
     client = MagicMock()
+
     def _client_factory(*_args, **_kwargs):
         return client
 
