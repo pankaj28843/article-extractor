@@ -34,7 +34,7 @@ uv run ruff check --fix .
 # 2. Check for type errors (use get_errors tool on changed files)
 # Fix ALL errors before proceeding
 
-# 3. Run tests with coverage (fail if total coverage < 93%)
+# 3. Run the full unit test suite (single command, keep coverage ≥ 93%)
 PYTHONPATH=src uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
 ```
 
@@ -51,18 +51,28 @@ uv run article-extractor --help
 uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia
 ```
 
-### Phase 3: Server Testing
+### Phase 3: Docs Build
 
 ```bash
-# 6. Test server startup (optional, manual verification)
+# 6. Build docs in strict mode to catch nav/anchor drift early
+uv run mkdocs build --strict
+
+# 7. Rebuild docs after nav/theme changes to clear cached assets
+uv run mkdocs build --strict --clean
+```
+
+### Phase 4: Server Testing
+
+```bash
+# 8. Test server startup (optional, manual verification)
 uv run uvicorn article_extractor.server:app --port 3000 &
 curl http://localhost:3000/health
 ```
 
-### Phase 4: Docker Validation
+### Phase 5: Docker Validation
 
 ```bash
-# 7. Run the Python Docker harness (rebuilds image, resets storage, fires parallel smoke requests)
+# 9. Run the Python Docker harness (rebuilds image, resets storage, fires parallel smoke requests)
 uv run scripts/debug_docker_deployment.py
 ```
 
@@ -74,6 +84,7 @@ For small changes, at minimum run:
 uv run ruff format . && uv run ruff check --fix .
 uv run pytest tests/ -v
 uv run article-extractor --help
+uv run mkdocs build --strict
 ```
 
 ## Anti-Patterns to Avoid
