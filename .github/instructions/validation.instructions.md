@@ -16,10 +16,12 @@ These validation steps MUST run after ANY code change (addition, edit, or deleti
 
 Run these in order after EVERY code change:
 
+> **Heads-up:** `uv run` executes commands inside the project-managed `.venv`, so Python tooling only sees the installed `article_extractor` package when invoked through `uv run` ([uv docs](https://docs.astral.sh/uv/concepts/projects/run/)).
+
 ### Phase 0: Environment Refresh
 
 ```bash
-uv sync --extra all --upgrade
+uv sync --upgrade --all-groups
 uv lock --upgrade
 uv run playwright install
 ```
@@ -35,7 +37,7 @@ uv run ruff check --fix .
 # Fix ALL errors before proceeding
 
 # 3. Run the full unit test suite (single command, keep coverage ≥ 93%)
-PYTHONPATH=src uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
+uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
 ```
 
 > Coverage expectation: if the reported total drops below **93%**, treat the run as failed and address gaps before proceeding.

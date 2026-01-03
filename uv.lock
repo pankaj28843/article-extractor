@@ -51,17 +51,6 @@ all = [
     { name = "playwright" },
     { name = "uvicorn", extra = ["standard"] },
 ]
-dev = [
-    { name = "fake-useragent" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "mkdocs" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "uvicorn", extra = ["standard"] },
-]
 docs = [
     { name = "mkdocs" },
 ]
@@ -81,35 +70,54 @@ ua = [
     { name = "fake-useragent" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "fake-useragent" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "mkdocs" },
+    { name = "playwright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fake-useragent", marker = "extra == 'all'", specifier = ">=1.5.1" },
-    { name = "fake-useragent", marker = "extra == 'dev'", specifier = ">=1.5.1" },
     { name = "fake-useragent", marker = "extra == 'server'", specifier = ">=1.5.1" },
     { name = "fake-useragent", marker = "extra == 'ua'", specifier = ">=1.5.1" },
     { name = "fastapi", marker = "extra == 'all'", specifier = ">=0.115.0" },
-    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115.0" },
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
     { name = "httpx", marker = "extra == 'httpx'", specifier = ">=0.28.0" },
     { name = "httpx", marker = "extra == 'server'", specifier = ">=0.28.0" },
     { name = "justhtml", specifier = ">=0.20.0" },
-    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.0" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.0" },
     { name = "playwright", marker = "extra == 'all'", specifier = ">=1.49.0" },
     { name = "playwright", marker = "extra == 'playwright'", specifier = ">=1.49.0" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'all'", specifier = ">=0.32.0" },
-    { name = "uvicorn", extras = ["standard"], marker = "extra == 'dev'", specifier = ">=0.32.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.32.0" },
 ]
-provides-extras = ["playwright", "httpx", "server", "ua", "docs", "all", "dev"]
+provides-extras = ["playwright", "httpx", "server", "ua", "docs", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "fake-useragent", specifier = ">=1.5.1" },
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "playwright", specifier = ">=1.49.0" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0" },
+    { name = "pytest-cov", specifier = ">=7.0" },
+    { name = "ruff", specifier = ">=0.14" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
+]
 
 [[package]]
 name = "certifi"
@@ -388,11 +396,11 @@ wheels = [
 
 [[package]]
 name = "justhtml"
-version = "0.27.0"
+version = "0.30.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dd/8a/736827046aa0042952c622ca51e67fd68e412837da543ed44f987006749c/justhtml-0.27.0.tar.gz", hash = "sha256:2207e65129c83a1db811afce82293cca60f319c3e02c94ac9ffa7addf37ff804", size = 257386, upload-time = "2026-01-03T00:46:36.62Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e2/74/845ff11b5b3d5093e0d460c38f8d52e7e0b55690aab89a6fab99fb31c522/justhtml-0.30.0.tar.gz", hash = "sha256:7a7c82bcac46686ca80678038c5939b0dfd54de1db08a6f599997aa50a16ce6e", size = 265626, upload-time = "2026-01-03T20:59:15.172Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/4d/0756ef501917669fd8337dad19ce29d121ec61c410ae9e5c8b64a234b852/justhtml-0.27.0-py3-none-any.whl", hash = "sha256:d14150ada92d28745501683ab78515d665a06f101de3b98df27295dab409ef64", size = 93025, upload-time = "2026-01-03T00:46:35.335Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/b1/6123f7dbcdca2e16bdd35664c85e11741c92315f207f7f2a5e302571c245/justhtml-0.30.0-py3-none-any.whl", hash = "sha256:87a8202a6d1155890cd7348ed1f2653a70339a468e00e7b499e88259a1f3179e", size = 94380, upload-time = "2026-01-03T20:59:13.462Z" },
 ]
 
 [[package]]

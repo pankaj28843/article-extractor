@@ -42,6 +42,8 @@ all = [
     "uvicorn[standard]>=0.32.0",
     "fake-useragent>=1.5.1",
 ]
+
+[dependency-groups]
 dev = [
     "pytest>=9.0",
     "pytest-asyncio>=1.0",
@@ -52,7 +54,11 @@ dev = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "fake-useragent>=1.5.1",
+    "playwright>=1.49.0",
 ]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [project.urls]
 Homepage = "https://github.com/pankaj28843/article-extractor"
