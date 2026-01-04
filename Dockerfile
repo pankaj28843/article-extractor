@@ -3,7 +3,7 @@
 # Single-stage Dockerfile using the official uv Debian image
 # Keeps dependency installs cached while letting source/docs change freely
 
-ARG UV_VERSION=0.9.17-debian
+ARG UV_VERSION=0.9.21-debian
 ARG APP_USER=appuser
 ARG APP_GROUP=appgroup
 ARG APP_UID=1000

@@ -64,7 +64,7 @@ Use `replace_string_in_file` (or `apply_patch`) with enough surrounding context 
 replace_string_in_file(
     filePath="README.md",
     oldString="## Installation\n\nYou can install the dependencies using uv.",
-    newString="## Installation\n\nInstall dependencies with uv:\n\n```bash\nuv sync --upgrade --all-groups\nuv lock --upgrade\n```\n\nThis refreshes every dependency group from pyproject.toml."
+    newString="## Installation\n\nInstall dependencies with uv:\n\n```bash\nuv sync --locked --all-extras --dev\n```\n\nThis installs all extras and dev dependencies from pyproject.toml."
 )
 ```
 
