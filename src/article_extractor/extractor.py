@@ -402,6 +402,21 @@ def extract_article(
     return extractor.extract(html, url)
 
 
+# HTTP status codes where we attempt extraction if HTML looks usable
+_TRANSIENT_CLIENT_STATUSES = frozenset({404, 410})
+
+# Minimum HTML length to consider attempting extraction on transient errors
+_MIN_HTML_LENGTH_FOR_TRANSIENT = 500
+
+
+def _html_looks_extractable(html: str) -> bool:
+    """Quick heuristic: does this HTML likely contain article content?"""
+    if len(html) < _MIN_HTML_LENGTH_FOR_TRANSIENT:
+        return False
+    html_lower = html.lower()
+    return "<article" in html_lower or "<main" in html_lower or "</p>" in html_lower
+
+
 async def extract_article_from_url(
     url: str,
     fetcher: Fetcher | None = None,
@@ -415,6 +430,8 @@ async def extract_article_from_url(
     """Fetch URL and extract article content.
 
     If no fetcher is provided, auto-creates one based on available packages.
+    When httpx returns a transient 404/410 and Playwright is available,
+    automatically retries with Playwright before failing.
 
     Args:
         url: URL to fetch
@@ -438,30 +455,49 @@ async def extract_article_from_url(
     extractor = ArticleExtractor(options)
     network = network or NetworkOptions()
 
-    # Auto-create fetcher if not provided
-    if fetcher is None:
-        from .fetcher import get_default_fetcher
+    # User-provided fetcher: no fallback, honor their choice
+    if fetcher is not None:
+        return await _extract_with_fetcher(extractor, url, fetcher, executor)
 
-        try:
-            fetcher_class = get_default_fetcher(prefer_playwright=prefer_playwright)
-        except ImportError as e:
-            return ArticleResult(
-                url=url,
-                title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
-                error=str(e),
-            )
+    from .fetcher import get_default_fetcher
 
-        async with fetcher_class(
-            network=network, diagnostics_enabled=diagnostic_logging
-        ) as auto_fetcher:
-            return await _extract_with_fetcher(extractor, url, auto_fetcher, executor)
+    try:
+        fetcher_class = get_default_fetcher(prefer_playwright=prefer_playwright)
+    except ImportError as e:
+        return ArticleResult(
+            url=url,
+            title="",
+            content="",
+            markdown="",
+            excerpt="",
+            word_count=0,
+            success=False,
+            error=str(e),
+        )
 
-    return await _extract_with_fetcher(extractor, url, fetcher, executor)
+    async with fetcher_class(
+        network=network, diagnostics_enabled=diagnostic_logging
+    ) as auto_fetcher:
+        result = await _extract_with_fetcher(extractor, url, auto_fetcher, executor)
+
+        # Fallback: if httpx hit a transient 404 and Playwright is available, retry
+        if (
+            not result.success
+            and not prefer_playwright
+            and result.error
+            and any(str(code) in result.error for code in _TRANSIENT_CLIENT_STATUSES)
+        ):
+            from .fetcher import PlaywrightFetcher, _check_playwright
+
+            if _check_playwright():
+                async with PlaywrightFetcher(
+                    network=network, diagnostics_enabled=diagnostic_logging
+                ) as pw_fetcher:
+                    result = await _extract_with_fetcher(
+                        extractor, url, pw_fetcher, executor
+                    )
+
+        return result
 
 
 async def _extract_with_fetcher(
@@ -470,10 +506,36 @@ async def _extract_with_fetcher(
     fetcher: Fetcher,
     executor: Executor | None,
 ) -> ArticleResult:
-    """Internal helper to extract with a fetcher."""
+    """Internal helper to extract with a fetcher.
+
+    For transient client errors (404, 410), attempts extraction if the HTML
+    looks substantial. Appends a warning to successful results.
+    """
     try:
         html, status_code = await fetcher.fetch(url)
 
+        # Transient client errors: try extraction if HTML looks usable
+        if status_code in _TRANSIENT_CLIENT_STATUSES:
+            if _html_looks_extractable(html):
+                result = await _run_extraction(extractor, html, url, executor)
+                if result.success:
+                    result.warnings.append(
+                        f"Extracted after HTTP {status_code} (SPA/client-rendered)"
+                    )
+                    return result
+            # Extraction failed or HTML too sparse
+            return ArticleResult(
+                url=url,
+                title="",
+                content="",
+                markdown="",
+                excerpt="",
+                word_count=0,
+                success=False,
+                error=f"HTTP {status_code}",
+            )
+
+        # Other 4xx/5xx errors: fail immediately
         if status_code >= 400:
             return ArticleResult(
                 url=url,

@@ -164,3 +164,46 @@ def navigation_heavy_html() -> str:
     </footer>
 </body>
 </html>"""
+
+
+@pytest.fixture
+def spa_404_html() -> str:
+    """HTML representing SPA content rendered after an initial 404 response.
+
+    This fixture mimics client-rendered pages where the server sends 404
+    but JavaScript still renders meaningful article content.
+    """
+    return """<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic Article | SPA Site</title>
+    <meta property="og:title" content="Dynamic Article Title">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <nav><a href="/">Home</a></nav>
+        </header>
+        <main>
+            <article class="spa-content">
+                <h1>Dynamic Article Title</h1>
+                <p>This article was rendered client-side by the single-page
+                application framework. Even though the server returned a 404
+                status code, the JavaScript bundle successfully fetched and
+                displayed the article content.</p>
+                <p>The extraction algorithm should recognize this as valid
+                content despite the HTTP error status. Modern SPAs often
+                return 404 from the origin server while the client router
+                handles the actual page rendering.</p>
+                <p>Additional paragraphs ensure we exceed the minimum word
+                count thresholds. This content demonstrates that useful
+                articles can exist even when HTTP status codes suggest
+                otherwise.</p>
+                <p>Final paragraph wrapping up the dynamically loaded content
+                with enough substance to pass extraction quality checks.</p>
+            </article>
+        </main>
+        <footer><p>SPA Footer</p></footer>
+    </div>
+</body>
+</html>"""
