@@ -784,6 +784,179 @@ class TestOgTitle:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+class TestTransient404Extraction:
+    """Test extraction from pages returning HTTP 404 with real content."""
+
+    async def test_transient_404_extracts_content(self, spa_404_html: str):
+        """Should extract content from 404 response with substantial DOM."""
+        from article_extractor import extract_article_from_url
+
+        class SPA404Fetcher:
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return spa_404_html, 404
+
+        fetcher = SPA404Fetcher()
+        result = await extract_article_from_url(
+            "https://example.com/spa-page", fetcher=fetcher
+        )
+
+        assert result.success is True
+        assert "Dynamic Article Title" in result.title
+        assert result.word_count > 50
+        assert any("404" in w for w in result.warnings)
+
+    async def test_transient_410_extracts_content(self, spa_404_html: str):
+        """Should also handle HTTP 410 Gone with usable content."""
+        from article_extractor import extract_article_from_url
+
+        class SPA410Fetcher:
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return spa_404_html, 410
+
+        fetcher = SPA410Fetcher()
+        result = await extract_article_from_url(
+            "https://example.com/gone-page", fetcher=fetcher
+        )
+
+        assert result.success is True
+        assert result.word_count > 50
+        assert any("410" in w for w in result.warnings)
+
+    async def test_empty_404_still_fails(self):
+        """Should fail when 404 response has no usable content."""
+        from article_extractor import extract_article_from_url
+
+        class Empty404Fetcher:
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return "<html><body><p>Page not found.</p></body></html>", 404
+
+        fetcher = Empty404Fetcher()
+        result = await extract_article_from_url(
+            "https://example.com/missing", fetcher=fetcher
+        )
+
+        assert result.success is False
+        assert "404" in result.error
+
+    async def test_500_error_still_fails(self, spa_404_html: str):
+        """Server errors (5xx) should not attempt extraction."""
+        from article_extractor import extract_article_from_url
+
+        class Server500Fetcher:
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return spa_404_html, 500
+
+        fetcher = Server500Fetcher()
+        result = await extract_article_from_url(
+            "https://example.com/error", fetcher=fetcher
+        )
+
+        assert result.success is False
+        assert "500" in result.error
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestHttpxToPlaywrightFallback:
+    """Test automatic fallback from httpx to Playwright on transient 404."""
+
+    async def test_fallback_to_playwright_on_404(self, spa_404_html: str, monkeypatch):
+        """Should retry with Playwright when httpx returns 404."""
+        from article_extractor import extract_article_from_url
+        from article_extractor import fetcher as fetcher_module
+
+        call_order = []
+
+        class FakeHttpxFetcher:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                pass
+
+            async def fetch(self, url: str) -> tuple[str, int]:
+                call_order.append("httpx")
+                return "", 404
+
+        class FakePlaywrightFetcher:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                pass
+
+            async def fetch(self, url: str) -> tuple[str, int]:
+                call_order.append("playwright")
+                return spa_404_html, 200
+
+        monkeypatch.setattr(fetcher_module, "_playwright_available", True)
+        monkeypatch.setattr(fetcher_module, "_httpx_available", True)
+
+        with (
+            patch.object(fetcher_module, "HttpxFetcher", FakeHttpxFetcher),
+            patch.object(fetcher_module, "PlaywrightFetcher", FakePlaywrightFetcher),
+        ):
+            result = await extract_article_from_url(
+                "https://example.com/spa", prefer_playwright=False
+            )
+
+        assert result.success is True
+        assert call_order == ["httpx", "playwright"]
+
+    async def test_no_fallback_when_playwright_unavailable(self, monkeypatch):
+        """Should not attempt fallback when Playwright is not installed."""
+        from article_extractor import extract_article_from_url
+        from article_extractor import fetcher as fetcher_module
+
+        class FakeHttpxFetcher:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                pass
+
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return "", 404
+
+        monkeypatch.setattr(fetcher_module, "_playwright_available", False)
+        monkeypatch.setattr(fetcher_module, "_httpx_available", True)
+
+        with patch.object(fetcher_module, "HttpxFetcher", FakeHttpxFetcher):
+            result = await extract_article_from_url(
+                "https://example.com/spa", prefer_playwright=False
+            )
+
+        assert result.success is False
+        assert "404" in result.error
+
+    async def test_no_fallback_with_user_provided_fetcher(self):
+        """Should not fallback when caller provides explicit fetcher."""
+        from article_extractor import extract_article_from_url
+
+        class UserFetcher:
+            async def fetch(self, url: str) -> tuple[str, int]:
+                return "", 404
+
+        result = await extract_article_from_url(
+            "https://example.com/spa", fetcher=UserFetcher()
+        )
+
+        # User-provided fetcher should not trigger fallback
+        assert result.success is False
+        assert "404" in result.error
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 class TestExtractArticleFromUrlAutoFetcher:
     """Test auto-fetcher selection."""
 

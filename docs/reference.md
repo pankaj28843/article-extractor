@@ -98,6 +98,16 @@ print(result.title, result.word_count)
 
 Use `await extract_article_from_url("https://example.com")` (or the helper shown in the tutorials) inside async frameworks. Pass `network=NetworkOptions(...)` to keep proxies, storage state, and headed mode consistent with CLI/server behavior.
 
+## Transient 404 Handling
+
+Modern SPAs sometimes return HTTP 404 from the origin server while JavaScript renders real article content client-side. The extractor handles this automatically:
+
+1. **Transient status detection** — When a fetch returns 404 or 410, the extractor inspects the HTML before failing. If the response contains `<article>`, `<main>`, or paragraph tags and exceeds 500 bytes, extraction proceeds.
+2. **Warning annotation** — Successful extraction from a 404 response appends a warning like `"Extracted after HTTP 404 (SPA/client-rendered)"` to `ArticleResult.warnings`.
+3. **httpx → Playwright fallback** — When `--prefer-httpx` is active and httpx returns a transient 404, the extractor automatically retries with Playwright (if installed) before giving up. This captures pages that need JavaScript execution.
+
+Check `result.warnings` for transparency; the warning signals that the HTTP status was non-2xx but content was still usable.
+
 ## Observability quick reference
 
 - Diagnostics toggles: `ARTICLE_EXTRACTOR_LOG_LEVEL`, `ARTICLE_EXTRACTOR_LOG_FORMAT`, `ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS`.
