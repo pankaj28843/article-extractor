@@ -22,6 +22,7 @@ Run these in order after EVERY code change:
 
 ```bash
 uv sync --locked --all-extras --dev
+uv sync --upgrade --all-extras --dev
 uv run playwright install
 ```
 
