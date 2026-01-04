@@ -21,8 +21,7 @@ Run these in order after EVERY code change:
 ### Phase 0: Environment Refresh
 
 ```bash
-uv sync --upgrade --all-groups
-uv lock --upgrade
+uv sync --locked --all-extras --dev
 uv run playwright install
 ```
 
