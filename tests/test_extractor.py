@@ -281,6 +281,50 @@ class TestEdgeCases:
             # Unicode should be preserved
             assert "日本語" in result.title or "日本語" in result.content
 
+        def test_absolutizes_relative_links_and_media(self):
+            """Extractor should rewrite relative URLs in anchors and media tags."""
+            html = """
+            <html>
+            <body>
+                <article>
+                    <h1>Relative Assets</h1>
+                    <p>This article references local assets and links to prove that
+                    URL rewriting converts them into absolute destinations for the final
+                    markdown output that readers view offline.</p>
+                    <p>Read more on <a href="/docs/getting-started">our docs</a> to keep learning.</p>
+                    <figure>
+                        <img src="images/photo.jpg" srcset="/img/photo-1x.jpg 1x, img/photo-2x.jpg 2x" alt="Photo">
+                    </figure>
+                    <video controls poster="media/thumb.jpg" src="../media/trailer.mp4"></video>
+                </article>
+            </body>
+            </html>
+            """
+
+            options = ExtractionOptions(min_word_count=10, min_char_threshold=10)
+            result = extract_article(
+                html,
+                url="https://example.com/blog/post-one/index.html",
+                options=options,
+            )
+
+            assert result.success is True
+            assert "https://example.com/docs/getting-started" in result.content
+            assert (
+                "https://example.com/blog/post-one/images/photo.jpg" in result.content
+            )
+            assert (
+                "https://example.com/img/photo-1x.jpg 1x" in result.content
+                and "https://example.com/blog/post-one/img/photo-2x.jpg 2x"
+                in result.content
+            )
+            assert "https://example.com/blog/post-one/media/thumb.jpg" in result.content
+            assert "https://example.com/blog/media/trailer.mp4" in result.content
+            assert (
+                "[our docs](https://example.com/docs/getting-started)"
+                in result.markdown
+            )
+
     def test_deeply_nested_content(self):
         """Should handle deeply nested content."""
         # Create deeply nested structure

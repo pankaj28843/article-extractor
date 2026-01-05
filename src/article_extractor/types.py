@@ -90,6 +90,7 @@ class CrawlConfig:
     max_pages: int = 100
     max_depth: int = 3
     concurrency: int = 5
+    worker_count: int = 1
     rate_limit_delay: float = 1.0
     follow_links: bool = True
 

@@ -72,6 +72,39 @@ docker build -t article-extractor:test .
 - Async tests use `pytest.mark.asyncio`; keep them deterministic by mocking network layers instead of sleeping.
 - See `.github/instructions/tests.instructions.md` for all pytest conventions.
 
+## URL Hygiene (CRITICAL)
+
+**Never leak user-specific URLs into code, tests, or documentation.**
+
+When debugging with real URLs (e.g., internal wikis, company Confluence spaces):
+
+1. **Use editable install for local debugging**:
+   ```bash
+   uv tool install --editable --force --refresh --reinstall ".[all]"
+   article-extractor https://internal.company.com/real/page
+   ```
+
+2. **Before committing, sanitize all URLs**:
+   - Replace internal hostnames with `example.com`, `wiki.example.com`, etc.
+   - Replace identifiable path segments (project codes, page IDs, names) with generic placeholders
+   - Use patterns like: `DOCS`, `12345678`, `GettingStarted`, `post-1`
+
+3. **Forbidden patterns in committed code**:
+   - ❌ Real company domains (e.g., `*.corp.com`, `*.internal.net`)
+   - ❌ Internal project codes (e.g., `PROJ-123`, `TEAM-456`)
+   - ❌ Identifiable page names or IDs from real systems
+   - ❌ Any URL you wouldn't want public
+
+4. **Allowed patterns**:
+   - ✅ `example.com`, `wiki.example.com`, `docs.example.com`
+   - ✅ `en.wikipedia.org` (public, stable)
+   - ✅ Generic placeholders: `DOCS`, `12345678`, `GettingStarted`
+
+5. **Pre-commit check**: Before staging, run:
+   ```bash
+   git diff --cached | grep -iE "(confluence|internal|corp\.|\.net/)" && echo "⚠️  Check for leaked URLs"
+   ```
+
 ## Documentation & Verification
 
 - Run every documented CLI/server command before editing README/notes. Paste real output blocks.

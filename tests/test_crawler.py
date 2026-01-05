@@ -648,6 +648,10 @@ def test_crawler_url_to_filepath_deterministic(tmp_path: Path) -> None:
     assert path1 == path2
     assert path1 != path3
     assert path1.suffix == ".md"
+    # Verify flat structure: file directly in output_dir, no nested dirs
+    assert path1.parent == tmp_path
+    # Verify __ separator between hostname and path components
+    assert path1.name == "example.com__blog__post-1.md"
 
 
 def test_crawler_url_to_filepath_handles_query_strings(tmp_path: Path) -> None:
@@ -656,8 +660,12 @@ def test_crawler_url_to_filepath_handles_query_strings(tmp_path: Path) -> None:
 
     path = crawler._url_to_filepath("https://example.com/search?q=test&page=1")
 
-    assert "q_test" in str(path) or "search" in str(path)
     assert path.suffix == ".md"
+    # Verify flat structure
+    assert path.parent == tmp_path
+    # Query string is appended and sanitized
+    assert "search" in path.name
+    assert "q_test" in path.name or "page_1" in path.name
 
 
 def test_crawler_url_to_filepath_handles_root_url(tmp_path: Path) -> None:
@@ -666,8 +674,28 @@ def test_crawler_url_to_filepath_handles_root_url(tmp_path: Path) -> None:
 
     path = crawler._url_to_filepath("https://example.com/")
 
-    assert "index" in str(path)
     assert path.suffix == ".md"
+    # Verify flat structure
+    assert path.parent == tmp_path
+    # Root URL becomes hostname__index.md
+    assert path.name == "example.com__index.md"
+
+
+def test_crawler_url_to_filepath_flattens_deep_paths(tmp_path: Path) -> None:
+    """Verify deeply nested paths are flattened with __ separators."""
+    config = CrawlConfig(output_dir=tmp_path)
+    crawler = Crawler(config)
+
+    path = crawler._url_to_filepath(
+        "https://wiki.example.com/spaces/DOCS/pages/12345678/GettingStarted"
+    )
+
+    assert path.suffix == ".md"
+    # Verify flat structure: no nested directories
+    assert path.parent == tmp_path
+    # All path separators replaced with __
+    expected_name = "wiki.example.com__spaces__DOCS__pages__12345678__GettingStarted.md"
+    assert path.name == expected_name
 
 
 # ----------------------------------------------------------------------
@@ -980,7 +1008,7 @@ async def test_run_crawl_writes_markdown_files(tmp_path: Path) -> None:
         patch.object(Crawler, "fetch_with_retry", new_callable=AsyncMock) as mock_fetch,
     ):
         mock_sitemaps.return_value = 0
-        mock_fetch.return_value = SAMPLE_HTML
+        mock_fetch.return_value = (SAMPLE_HTML, 200)
         manifest = await run_crawl(config)
 
     # Check that a markdown file was created
@@ -1016,10 +1044,71 @@ async def test_run_crawl_skips_empty_content(tmp_path: Path) -> None:
     ):
         mock_sitemaps.return_value = 0
         # Return HTML with no meaningful content
-        mock_fetch.return_value = "<html><body><nav>Menu</nav></body></html>"
+        mock_fetch.return_value = ("<html><body><nav>Menu</nav></body></html>", 200)
         manifest = await run_crawl(config)
 
     assert manifest.skipped >= 1
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_honors_worker_count(tmp_path: Path) -> None:
+    """run_crawl should schedule as many concurrent workers as requested."""
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=[
+            "https://example.com/a",
+            "https://example.com/b",
+        ],
+        max_pages=2,
+        follow_links=False,
+        concurrency=2,
+        worker_count=2,
+        rate_limit_delay=0.0,
+    )
+
+    in_progress = 0
+    max_in_progress = 0
+
+    async def fake_fetch(self, url, fetcher, *, max_attempts: int = 3):
+        nonlocal in_progress, max_in_progress
+        in_progress += 1
+        max_in_progress = max(max_in_progress, in_progress)
+        await asyncio.sleep(0.01)
+        in_progress -= 1
+        return ("<html><body><article><p>text content</p></article></body></html>", 200)
+
+    def fake_extract(self, html, url):
+        return CrawlResult(
+            url=url,
+            file_path=None,
+            status="success",
+            word_count=50,
+            title="Test",
+            extracted_at="now",
+            markdown="# Test\n\nBody",
+        )
+
+    @asynccontextmanager
+    async def fake_open_fetcher(*args, **kwargs):
+        class DummyFetcher:
+            async def fetch(self, url):
+                return "", 200
+
+        yield DummyFetcher()
+
+    with (
+        patch.object(Crawler, "open_fetcher", fake_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+        patch.object(Crawler, "fetch_with_retry", new=fake_fetch),
+        patch.object(Crawler, "extract_page", new=fake_extract),
+    ):
+        mock_sitemaps.return_value = 0
+        manifest = await run_crawl(config)
+
+    assert manifest.successful == 2
+    assert max_in_progress >= config.worker_count
 
 
 def test_crawl_progress_dataclass() -> None:

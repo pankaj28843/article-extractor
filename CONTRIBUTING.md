@@ -21,7 +21,25 @@ uv sync --all-extras --dev
 uv run playwright install chromium
 ```
 
-### 2. Before Making Changes
+### 2. Install CLI as Editable Tool (Recommended for Active Development)
+
+For rapid iteration where you want the `article-extractor` command to reflect your local changes immediately:
+
+```bash
+# Install as editable tool (changes to src/ are reflected immediately)
+uv tool install --editable --force --refresh --reinstall ".[all]"
+
+# Now you can run without `uv run` prefix:
+article-extractor --help
+article-extractor https://example.com
+article-extractor crawl --seed https://example.com --output-dir ./output
+```
+
+This is especially useful when debugging extraction issues with real URLs. The `--force --refresh --reinstall` flags ensure a clean install that picks up all your local changes.
+
+> **Note**: When done debugging, remember that any URL-specific test cases should use `example.com` or other generic domains—never leak real internal URLs into tests or documentation.
+
+### 3. Before Making Changes
 
 ```bash
 # Create a new branch
@@ -31,7 +49,7 @@ git checkout -b feature/your-feature-name
 uv run pytest -v
 ```
 
-### 3. Development Cycle
+### 4. Development Cycle
 
 ```bash
 # Make your changes to code
@@ -49,7 +67,7 @@ uv run pytest --cov=src/article_extractor --cov-report=term-missing -v
 uv run pytest tests/test_extractor.py -v
 ```
 
-### 4. Pre-Commit Checklist
+### 5. Pre-Commit Checklist
 
 Run the pre-commit check script:
 ```bash
@@ -71,7 +89,7 @@ uv run pytest --cov=src/article_extractor --cov-report=term-missing -v
 uv run coverage report
 ```
 
-### 5. Docker Smoke Validation
+### 6. Docker Smoke Validation
 
 Run the automated Docker debug harness whenever you need to validate the container image and Playwright storage wiring end-to-end:
 
@@ -91,7 +109,7 @@ The shell entrypoint now delegates to `scripts/debug_docker_deployment.py`, whic
 
 You can pass any harness flag through the wrapper, for example `uv run scripts/debug_docker_deployment.py --concurrency 8 --urls-file urls.txt`. The underlying Python script also exposes `--keep-container` if you want to inspect the running container manually.
 
-### 6. Commit and Push
+### 7. Commit and Push
 
 ```bash
 # Stage your changes

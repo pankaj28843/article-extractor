@@ -1,15 +1,26 @@
 """Tests for CLI module."""
 
 import argparse
+import asyncio
 import json
 from collections.abc import Mapping
 from io import StringIO
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from article_extractor.cli import _describe_source, _metrics_source_label, main
-from article_extractor.types import ArticleResult
+from article_extractor.cli import (
+    _describe_source,
+    _metrics_source_label,
+    _print_crawl_progress,
+    _prompt_output_dir,
+    _run_crawl_command,
+    main,
+)
+from article_extractor.crawler import CrawlProgress
+from article_extractor.types import ArticleResult, NetworkOptions
 
 
 @pytest.fixture
@@ -351,7 +362,7 @@ def test_main_network_flag_passthrough(mock_result, tmp_path):
     assert kwargs["randomize_user_agent"] is True
     assert kwargs["proxy"] == "http://proxy:9000"
     assert kwargs["headed"] is True
-    assert kwargs["user_interaction_timeout"] == 7.5
+    assert kwargs["user_interaction_timeout"] == pytest.approx(7.5)
     assert kwargs["storage_state_path"] == storage_file
     assert isinstance(env_mapping, Mapping)
 
@@ -404,6 +415,29 @@ def _settings_stub(
             return {}
 
     return _Settings()
+
+
+def test_prompt_output_dir_reads_user_input(monkeypatch, tmp_path):
+    mock_stdin = MagicMock()
+    mock_stdin.isatty.return_value = True
+    monkeypatch.setattr("sys.stdin", mock_stdin)
+    monkeypatch.setattr("builtins.input", lambda: str(tmp_path))
+
+    result = _prompt_output_dir()
+
+    assert result == tmp_path.resolve()
+
+
+def test_prompt_output_dir_rejects_blank_input(monkeypatch):
+    mock_stdin = MagicMock()
+    mock_stdin.isatty.return_value = True
+    monkeypatch.setattr("sys.stdin", mock_stdin)
+    monkeypatch.setattr("builtins.input", lambda: "")
+
+    with pytest.raises(SystemExit) as exc_info:
+        _prompt_output_dir()
+
+    assert exc_info.value.code == 1
 
 
 def test_main_passes_log_diagnostics_flag(mock_result):
@@ -602,6 +636,43 @@ def test_server_mode_records_metrics_when_enabled():
 # ----------------------------------------------------------------------
 
 
+def _crawl_args(tmp_path: Path, **overrides) -> argparse.Namespace:
+    base = {
+        "output_dir": str(tmp_path),
+        "seed": ["https://example.com/start"],
+        "sitemap": None,
+        "allow_prefix": None,
+        "deny_prefix": None,
+        "max_pages": 5,
+        "max_depth": 2,
+        "concurrency": 3,
+        "workers": 2,
+        "rate_limit": 0.1,
+        "follow_links": True,
+    }
+    base.update(overrides)
+    return argparse.Namespace(**base)
+
+
+def test_print_crawl_progress_truncates_url(capsys):
+    long_url = "https://example.com/" + "a" * 100
+    progress = CrawlProgress(
+        url=long_url,
+        status="success",
+        fetched=5,
+        successful=5,
+        failed=0,
+        skipped=0,
+        remaining=0,
+    )
+
+    _print_crawl_progress(progress)
+
+    captured = capsys.readouterr()
+    assert long_url[:57] in captured.err
+    assert captured.err.strip().startswith("✓ [5/5]")
+
+
 def test_crawl_help_works(capsys):
     """Test crawl --help displays help text."""
     with (
@@ -644,16 +715,6 @@ def test_crawl_prompts_for_output_dir_when_missing(capsys, tmp_path, monkeypatch
 
     # Mock stdin to provide the output directory
     monkeypatch.setattr("sys.stdin", StringIO(str(tmp_path) + "\n"))
-
-    # Mock the actual crawl to avoid network calls
-    mock_manifest = MagicMock()
-    mock_manifest.total_pages = 1
-    mock_manifest.successful = 1
-    mock_manifest.failed = 0
-    mock_manifest.skipped = 0
-
-    async def mock_run_crawl(*args, **kwargs):
-        return mock_manifest
 
     with (
         patch("article_extractor.cli.get_settings", return_value=settings),
@@ -699,6 +760,7 @@ def test_crawl_validates_output_dir_exists(capsys, tmp_path):
     mock_manifest.skipped = 0
 
     async def mock_run_crawl(*args, **kwargs):
+        await asyncio.sleep(0)
         return mock_manifest
 
     with (
@@ -734,11 +796,11 @@ def test_crawl_parses_all_arguments(tmp_path):
     mock_manifest.failed = 0
     mock_manifest.skipped = 0
 
-    captured_config = None
+    captured_configs = []
 
     async def mock_run_crawl(config, **kwargs):
-        nonlocal captured_config
-        captured_config = config
+        await asyncio.sleep(0)
+        captured_configs.append(config)
         return mock_manifest
 
     with (
@@ -771,6 +833,8 @@ def test_crawl_parses_all_arguments(tmp_path):
                 "10",
                 "--rate-limit",
                 "0.5",
+                "--workers",
+                "4",
                 "--no-follow-links",
             ],
         ),
@@ -778,7 +842,8 @@ def test_crawl_parses_all_arguments(tmp_path):
         result = main()
 
     assert result == 0
-    assert captured_config is not None
+    assert captured_configs
+    captured_config = captured_configs[0]
     assert len(captured_config.seeds) == 2
     assert "https://example.com/page1" in captured_config.seeds
     assert "https://example.com/page2" in captured_config.seeds
@@ -786,7 +851,8 @@ def test_crawl_parses_all_arguments(tmp_path):
     assert captured_config.max_pages == 50
     assert captured_config.max_depth == 5
     assert captured_config.concurrency == 10
-    assert captured_config.rate_limit_delay == 0.5
+    assert captured_config.worker_count == 4
+    assert captured_config.rate_limit_delay == pytest.approx(0.5)
     assert captured_config.follow_links is False
     assert "https://example.com/" in captured_config.allow_prefixes
     assert "https://example.com/admin" in captured_config.deny_prefixes
@@ -803,6 +869,7 @@ def test_crawl_returns_nonzero_on_failures(tmp_path):
     mock_manifest.skipped = 0
 
     async def mock_run_crawl(*args, **kwargs):
+        await asyncio.sleep(0)
         return mock_manifest
 
     with (
@@ -825,3 +892,90 @@ def test_crawl_returns_nonzero_on_failures(tmp_path):
         result = main()
 
     assert result == 1  # Non-zero due to failures
+
+
+def test_crawl_rejects_invalid_worker_count(tmp_path, capsys):
+    """Crawl should reject worker counts below 1."""
+    settings = _settings_stub(diagnostics=False, metrics_enabled=False)
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch("article_extractor.crawler.run_crawl"),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "crawl",
+                "--seed",
+                "https://example.com/",
+                "--output-dir",
+                str(tmp_path),
+                "--workers",
+                "0",
+            ],
+        ),
+    ):
+        result = main()
+
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "--workers must be at least 1" in captured.err
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_command_success(monkeypatch, tmp_path, capsys):
+    args = _crawl_args(tmp_path)
+    sentinel_network = NetworkOptions()
+
+    async def fake_run_crawl(config, *, network=None, on_progress=None):
+        await asyncio.sleep(0)
+        assert network is sentinel_network
+        assert config.worker_count == args.workers
+        if on_progress:
+            on_progress(
+                CrawlProgress(
+                    url="https://example.com/deep/path" + "a" * 80,
+                    status="success",
+                    fetched=1,
+                    successful=1,
+                    failed=0,
+                    skipped=0,
+                    remaining=0,
+                )
+            )
+        return SimpleNamespace(total_pages=1, successful=1, failed=0, skipped=0)
+
+    monkeypatch.setattr(
+        "article_extractor.crawler.run_crawl",
+        fake_run_crawl,
+    )
+
+    result = await _run_crawl_command(args, sentinel_network)
+
+    assert result == 0
+    assert "Crawl complete" in capsys.readouterr().err
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_command_handles_exception(monkeypatch, tmp_path, capsys):
+    args = _crawl_args(tmp_path)
+
+    async def failing_crawl(*args, **kwargs):
+        await asyncio.sleep(0)
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "article_extractor.crawler.run_crawl",
+        failing_crawl,
+    )
+    mock_logger = MagicMock()
+    monkeypatch.setattr("article_extractor.cli.logger", mock_logger)
+
+    result = await _run_crawl_command(args, NetworkOptions())
+
+    assert result == 1
+    err = capsys.readouterr().err
+    assert "Error: boom" in err
+    mock_logger.exception.assert_called_once()

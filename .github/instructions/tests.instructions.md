@@ -76,3 +76,17 @@ timeout 60 uv run pytest tests/ -k "test_extract" -v
 - **No mocking framework internals** - Only mock true external dependencies
 - **No tests requiring network calls** in unit tests - Mock HTTP clients
 - **No tests with side effects** - Each test should be independent
+- **No leaked internal URLs** - Use `example.com`, `wiki.example.com` for test URLs; never commit real company domains, project codes, or internal page IDs
+
+## URL Hygiene in Tests
+
+When writing tests with URLs, always use generic placeholders:
+
+```python
+# GOOD: Generic example domains
+url = "https://wiki.example.com/spaces/DOCS/pages/12345678/GettingStarted"
+url = "https://example.com/blog/post-1"
+
+# BAD: Leaked internal URLs
+url = "https://confluence.company.net/spaces/PROJ/pages/123456/RealPage"  # ❌
+```
