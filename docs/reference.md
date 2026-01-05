@@ -25,6 +25,9 @@ One lookup table consolidates the runtime settings plus canonical CLI, FastAPI, 
 | `ARTICLE_EXTRACTOR_METRICS_STATSD_HOST` | `127.0.0.1` | StatsD | Destination host. |
 | `ARTICLE_EXTRACTOR_METRICS_STATSD_PORT` | `8125` | StatsD | Destination port. |
 | `ARTICLE_EXTRACTOR_METRICS_NAMESPACE` | `article_extractor` | StatsD | Metric prefix used in counters/timers. |
+| `ARTICLE_EXTRACTOR_CRAWLER_CONCURRENCY` | `5` | Crawler | Default concurrent requests for crawl jobs. |
+| `ARTICLE_EXTRACTOR_CRAWLER_RATE_LIMIT` | `1.0` | Crawler | Default seconds between requests to same host. |
+| `ARTICLE_EXTRACTOR_CRAWLER_MAX_PAGES` | `100` | Crawler | Default page limit for crawl jobs. |
 
 ## `.env` and precedence
 
@@ -77,10 +80,13 @@ uv run uvicorn article_extractor.server:app --host 0.0.0.0 --port 3000
 
 Endpoints:
 - `POST /` — `{"url": "…", "prefer_playwright": false, "network": {…}}`
+- `POST /crawl` — Submit crawl job `{"output_dir": "…", "seeds": […], "max_pages": 100}`
+- `GET /crawl/{job_id}` — Poll crawl job status
+- `GET /crawl/{job_id}/manifest` — Download manifest.json when complete
 - `GET /health` — readiness probe used in tutorials and Docker harnesses
 - `GET /docs` — interactive OpenAPI UI (served by FastAPI)
 
-Every JSON field maps to `FetchPreferences` / `NetworkOptions`; see the [Networking Controls](operations.md#networking-controls) recipe for a runnable example.
+Every JSON field maps to `FetchPreferences` / `NetworkOptions`; see the [Crawling](crawling.md) guide for batch extraction or the [Networking Controls](operations.md#networking-controls) recipe for a runnable example.
 
 ### Python API
 

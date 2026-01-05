@@ -20,7 +20,7 @@ Use `#techdocs` to verify correct API usage for the buggy component. Key tenants
    - Respect module boundaries: extraction heuristics stay in `extractor.py`, fetch orchestration inside `fetcher.py`, env parsing inside `server.py`.
    - Use guard clauses and descriptive errors; never swallow exceptions unless we already log them upstream.
 4. **Verify**:
-   - `uv run pytest tests/ -v -k <test_name>` (targeted) followed by the full suite if behavior changed widely.
+   - `timeout 60 uv run pytest tests/ -v -k <test_name>` (targeted) followed by the full suite if behavior changed widely.
    - Re-run the original repro command (CLI, HTTP request, or Docker smoke). For container bugs execute `./scripts/docker-playwright-smoke.sh <tag> <url>` after rebuilding.
    - `uv run ruff check <edited files>`.
 5. **Report**: Summarize root cause, fix, validation commands, and whether Playwright/httpx parity was affected.

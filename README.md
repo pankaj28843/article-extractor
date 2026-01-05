@@ -40,6 +40,23 @@ pip install article-extractor[all]      # Playwright, httpx, FastAPI, fake-usera
 
 Prefer uv? Run `uv pip install article-extractor` or add it to `pyproject.toml` via `uv add article-extractor[all]`.
 
+## Crawl an Entire Site
+
+Extract every page under a domain in one command:
+
+```bash
+# CLI: crawl up to 50 pages, output to ./output/
+uv run article-extractor crawl https://example.com --max-pages 50 --output ./output
+
+# Server: start a background crawl job
+curl -X POST http://localhost:3000/crawl \
+  -H "Content-Type: application/json" \
+  -d '{"start_url": "https://example.com", "max_pages": 50}'
+# Returns {"job_id": "abc123", "status": "running", ...}
+```
+
+The crawler follows internal links via BFS, respects `robots.txt` and sitemaps, and writes one Markdown file per page. See the [Crawling Guide](https://pankaj28843.github.io/article-extractor/crawling/) for rate limiting, headed mode, and output structure.
+
 ## Observability & Operations
 
 - All runtimes honor diagnostics toggles (`ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS`, `ARTICLE_EXTRACTOR_METRICS_*`).

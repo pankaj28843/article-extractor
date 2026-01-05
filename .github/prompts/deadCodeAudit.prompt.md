@@ -12,7 +12,7 @@ Identify, document, and eliminate dead code in the target area with proof that t
 ## Critical Commands (NEVER SKIP)
 - `uv run ruff format .`
 - `uv run ruff check --fix .`
-- `uv run pytest tests/ -v`
+- `timeout 60 uv run pytest tests/ -v`
 - `uv run article-extractor --help`
 - `uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia`
 - `docker build -t article-extractor:test .`
@@ -52,7 +52,7 @@ Identify, document, and eliminate dead code in the target area with proof that t
 1. `uv run ruff format .`
 2. `uv run ruff check --fix .`
 3. `get_errors` on touched Python files
-4. `uv run pytest tests/ -v`
+4. `timeout 60 uv run pytest tests/ -v`
 5. `uv run article-extractor --help`
 6. `uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia`
 7. `docker build -t article-extractor:test .`

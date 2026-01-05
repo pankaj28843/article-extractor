@@ -54,7 +54,7 @@ Follow the mandatory loop from `.github/instructions/validation.instructions.md`
 ```bash
 uv run ruff format .
 uv run ruff check --fix .
-uv run pytest tests/ -v
+timeout 60 uv run pytest tests/ -v
 uv run article-extractor --help
 ```
 

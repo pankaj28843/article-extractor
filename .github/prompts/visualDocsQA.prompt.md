@@ -67,7 +67,7 @@ docker run --rm --init --ipc=host \
 uv run mkdocs build --strict --clean
 rm -rf tmp/screenshots && mkdir -p tmp/screenshots
 # rerun screenshot command
-uv run pytest tests/ -m unit --no-cov -q  # optional quick sanity check
+timeout 60 uv run pytest tests/ -m unit --no-cov -q  # optional quick sanity check
 ```
 
 ## Visual Inspection Checklist

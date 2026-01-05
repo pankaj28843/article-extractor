@@ -595,3 +595,233 @@ def test_server_mode_records_metrics_when_enabled():
         "cli_server_start_total",
         tags={"host": "127.0.0.1", "port": "4000"},
     )
+
+
+# ----------------------------------------------------------------------
+# Crawl subcommand tests (Phase 3.3)
+# ----------------------------------------------------------------------
+
+
+def test_crawl_help_works(capsys):
+    """Test crawl --help displays help text."""
+    with (
+        patch("sys.argv", ["article-extractor", "crawl", "--help"]),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        main()
+
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "Crawl multiple pages" in captured.out
+    assert "--seed" in captured.out
+    assert "--sitemap" in captured.out
+    assert "--output-dir" in captured.out
+
+
+def test_crawl_requires_seed_or_sitemap(capsys, tmp_path):
+    """Test crawl fails when no seed or sitemap provided."""
+    settings = _settings_stub(diagnostics=False, metrics_enabled=False)
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "sys.argv",
+            ["article-extractor", "crawl", "--output-dir", str(tmp_path)],
+        ),
+    ):
+        result = main()
+
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "At least one --seed or --sitemap is required" in captured.err
+
+
+def test_crawl_prompts_for_output_dir_when_missing(capsys, tmp_path, monkeypatch):
+    """Test crawl prompts interactively when --output-dir not provided."""
+    settings = _settings_stub(diagnostics=False, metrics_enabled=False)
+
+    # Mock stdin to provide the output directory
+    monkeypatch.setattr("sys.stdin", StringIO(str(tmp_path) + "\n"))
+
+    # Mock the actual crawl to avoid network calls
+    mock_manifest = MagicMock()
+    mock_manifest.total_pages = 1
+    mock_manifest.successful = 1
+    mock_manifest.failed = 0
+    mock_manifest.skipped = 0
+
+    async def mock_run_crawl(*args, **kwargs):
+        return mock_manifest
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch("article_extractor.cli._run_crawl_command") as mock_cmd,
+        patch(
+            "sys.argv",
+            ["article-extractor", "crawl", "--seed", "https://example.com/"],
+        ),
+    ):
+        mock_cmd.return_value = 0
+        main()
+
+    # Note: since we're mocking _run_crawl_command, we just verify it was called
+    mock_cmd.assert_called_once()
+
+
+def test_crawl_rejects_missing_output_dir_in_non_tty(capsys, monkeypatch):
+    """Test crawl fails in non-interactive mode when --output-dir missing."""
+    from article_extractor.cli import _prompt_output_dir
+
+    # Simulate non-TTY stdin
+    mock_stdin = MagicMock()
+    mock_stdin.isatty.return_value = False
+    monkeypatch.setattr("sys.stdin", mock_stdin)
+
+    with pytest.raises(SystemExit) as exc_info:
+        _prompt_output_dir()
+
+    assert exc_info.value.code == 1
+
+
+def test_crawl_validates_output_dir_exists(capsys, tmp_path):
+    """Test crawl validates output directory path."""
+    settings = _settings_stub(diagnostics=False, metrics_enabled=False)
+    invalid_path = tmp_path / "nonexistent" / "deep" / "path"
+
+    mock_manifest = MagicMock()
+    mock_manifest.total_pages = 1
+    mock_manifest.successful = 1
+    mock_manifest.failed = 0
+    mock_manifest.skipped = 0
+
+    async def mock_run_crawl(*args, **kwargs):
+        return mock_manifest
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch("article_extractor.crawler.run_crawl", mock_run_crawl),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "crawl",
+                "--seed",
+                "https://example.com/",
+                "--output-dir",
+                str(invalid_path),
+            ],
+        ),
+    ):
+        result = main()
+
+    # Should succeed because validate_output_dir creates the directory
+    assert result == 0
+
+
+def test_crawl_parses_all_arguments(tmp_path):
+    """Test crawl command parses all flags correctly."""
+    settings = _settings_stub(diagnostics=False, metrics_enabled=False)
+
+    mock_manifest = MagicMock()
+    mock_manifest.total_pages = 2
+    mock_manifest.successful = 2
+    mock_manifest.failed = 0
+    mock_manifest.skipped = 0
+
+    captured_config = None
+
+    async def mock_run_crawl(config, **kwargs):
+        nonlocal captured_config
+        captured_config = config
+        return mock_manifest
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch("article_extractor.crawler.run_crawl", mock_run_crawl),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "crawl",
+                "--seed",
+                "https://example.com/page1",
+                "--seed",
+                "https://example.com/page2",
+                "--sitemap",
+                "https://example.com/sitemap.xml",
+                "--output-dir",
+                str(tmp_path),
+                "--allow-prefix",
+                "https://example.com/",
+                "--deny-prefix",
+                "https://example.com/admin",
+                "--max-pages",
+                "50",
+                "--max-depth",
+                "5",
+                "--concurrency",
+                "10",
+                "--rate-limit",
+                "0.5",
+                "--no-follow-links",
+            ],
+        ),
+    ):
+        result = main()
+
+    assert result == 0
+    assert captured_config is not None
+    assert len(captured_config.seeds) == 2
+    assert "https://example.com/page1" in captured_config.seeds
+    assert "https://example.com/page2" in captured_config.seeds
+    assert len(captured_config.sitemaps) == 1
+    assert captured_config.max_pages == 50
+    assert captured_config.max_depth == 5
+    assert captured_config.concurrency == 10
+    assert captured_config.rate_limit_delay == 0.5
+    assert captured_config.follow_links is False
+    assert "https://example.com/" in captured_config.allow_prefixes
+    assert "https://example.com/admin" in captured_config.deny_prefixes
+
+
+def test_crawl_returns_nonzero_on_failures(tmp_path):
+    """Test crawl returns non-zero exit code when there are failures."""
+    settings = _settings_stub(diagnostics=False, metrics_enabled=False)
+
+    mock_manifest = MagicMock()
+    mock_manifest.total_pages = 2
+    mock_manifest.successful = 1
+    mock_manifest.failed = 1  # One failure
+    mock_manifest.skipped = 0
+
+    async def mock_run_crawl(*args, **kwargs):
+        return mock_manifest
+
+    with (
+        patch("article_extractor.cli.get_settings", return_value=settings),
+        patch("article_extractor.cli.setup_logging"),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch("article_extractor.crawler.run_crawl", mock_run_crawl),
+        patch(
+            "sys.argv",
+            [
+                "article-extractor",
+                "crawl",
+                "--seed",
+                "https://example.com/",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        ),
+    ):
+        result = main()
+
+    assert result == 1  # Non-zero due to failures

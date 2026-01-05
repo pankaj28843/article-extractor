@@ -37,7 +37,7 @@ uv run ruff check --fix .
 # Fix ALL errors before proceeding
 
 # 3. Run the full unit test suite (single command, keep coverage ≥ 93%)
-uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
+timeout 60 uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
 ```
 
 > Coverage expectation: if the reported total drops below **93%**, treat the run as failed and address gaps before proceeding.
@@ -84,7 +84,7 @@ For small changes, at minimum run:
 
 ```bash
 uv run ruff format . && uv run ruff check --fix .
-uv run pytest tests/ -v
+timeout 60 uv run pytest tests/ -v
 uv run article-extractor --help
 uv run mkdocs build --strict
 ```
@@ -102,6 +102,6 @@ A change is NOT complete until:
 
 1. ✅ `uv run ruff format . && uv run ruff check --fix .` passes
 2. ✅ No type errors in changed files
-3. ✅ `uv run pytest tests/ -v` passes
+3. ✅ `timeout 60 uv run pytest tests/ -v` passes
 4. ✅ `uv run article-extractor --help` works
 5. ✅ Docker build succeeds (if Dockerfile changed)

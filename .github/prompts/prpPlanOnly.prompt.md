@@ -16,7 +16,7 @@ Use `#techdocs` to ground every assertion. Prioritize `python`/`pytest` (best pr
 2. **Current State** – cite concrete files/lines (README env vars, Dockerfile install steps, failing tests, etc.).
 3. **Implementation Blueprint** – phased work packages mapped to files/scripts with TechDocs evidence.
 4. **Context & Anti-Patterns** – highlight guardrails from `.github/instructions/software-engineering-principles.instructions.md` and `.github/copilot-instructions.md`.
-5. **Validation Loop** – commands per phase: `uv run ruff format .`, `uv run ruff check --fix .`, `uv run pytest tests/ -v`, `uv run article-extractor --help`, optional Docker smoke.
+5. **Validation Loop** – commands per phase: `uv run ruff format .`, `uv run ruff check --fix .`, `timeout 60 uv run pytest tests/ -v`, `uv run article-extractor --help`, optional Docker smoke.
 6. **Open Questions & Risks** – blockers, missing data, approvals needed.
 
 ## Process

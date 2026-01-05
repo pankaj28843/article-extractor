@@ -1,5 +1,7 @@
 """Tests for FastAPI server module."""
 
+# ruff: noqa: S108  # /tmp usage in tests is expected
+
 import asyncio
 import json
 from pathlib import Path
@@ -762,3 +764,214 @@ async def test_general_exception_handler_includes_request_id():
     body = json.loads(response.body.decode())
     assert body["request_id"] == "abc123"
     assert response.headers["X-Request-ID"] == "abc123"
+
+
+# --- Crawl API Tests ---
+
+
+class TestCrawlJobStore:
+    @pytest.mark.asyncio
+    async def test_create_job_assigns_id(self):
+        from article_extractor.server import CrawlJobStore
+        from article_extractor.types import CrawlConfig
+
+        store = CrawlJobStore()
+        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        job = await store.create_job(config)
+
+        assert job.job_id is not None
+        assert job.status == "queued"
+        assert job.config == config
+
+    @pytest.mark.asyncio
+    async def test_get_job_returns_created_job(self):
+        from article_extractor.server import CrawlJobStore
+        from article_extractor.types import CrawlConfig
+
+        store = CrawlJobStore()
+        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        created = await store.create_job(config)
+
+        fetched = await store.get_job(created.job_id)
+
+        assert fetched is not None
+        assert fetched.job_id == created.job_id
+
+    @pytest.mark.asyncio
+    async def test_get_job_returns_none_for_missing(self):
+        from article_extractor.server import CrawlJobStore
+
+        store = CrawlJobStore()
+
+        assert await store.get_job("nonexistent") is None
+
+    @pytest.mark.asyncio
+    async def test_update_job_updates_fields(self):
+        from article_extractor.server import CrawlJobStore
+        from article_extractor.types import CrawlConfig
+
+        store = CrawlJobStore()
+        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        job = await store.create_job(config)
+
+        await store.update_job(job.job_id, status="running", progress=5, total=10)
+
+        updated = await store.get_job(job.job_id)
+        assert updated.status == "running"
+        assert updated.progress == 5
+        assert updated.total == 10
+
+    @pytest.mark.asyncio
+    async def test_can_start_respects_limit(self):
+        from article_extractor.server import CrawlJobStore
+        from article_extractor.types import CrawlConfig
+
+        store = CrawlJobStore(max_concurrent=1)
+        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+
+        # Initially can start
+        assert await store.can_start() is True
+
+        # Create and mark running
+        job = await store.create_job(config)
+        await store.update_job(job.job_id, status="running")
+
+        # Now cannot start
+        assert await store.can_start() is False
+
+    @pytest.mark.asyncio
+    async def test_store_and_get_manifest(self):
+        from article_extractor.server import CrawlJobStore
+        from article_extractor.types import CrawlConfig, CrawlManifest
+
+        store = CrawlJobStore()
+        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        job = await store.create_job(config)
+
+        manifest = CrawlManifest(
+            job_id=job.job_id,
+            started_at="2026-01-05T00:00:00Z",
+            completed_at="2026-01-05T00:01:00Z",
+            config=config,
+            total_pages=5,
+            successful=4,
+            failed=1,
+        )
+        await store.store_manifest(job.job_id, manifest)
+
+        fetched = await store.get_manifest(job.job_id)
+        assert fetched is not None
+        assert fetched.total_pages == 5
+
+
+class TestCrawlEndpoints:
+    def test_submit_crawl_requires_seeds_or_sitemaps(self, client):
+        response = client.post(
+            "/crawl",
+            json={"output_dir": "/tmp/crawl-test"},
+        )
+
+        assert response.status_code == 400
+        assert "seed URL or sitemap" in response.json()["detail"]
+
+    def test_submit_crawl_validates_output_dir(self, client):
+        response = client.post(
+            "/crawl",
+            json={
+                "output_dir": "/nonexistent/path/that/cannot/be/created/deeply/nested",
+                "seeds": ["https://example.com"],
+            },
+        )
+
+        assert response.status_code == 400
+        assert "output_dir" in response.json()["detail"]
+
+    def test_submit_crawl_returns_job_id(self, client, tmp_path):
+        with patch(
+            "article_extractor.crawler.run_crawl", new_callable=AsyncMock
+        ) as mock_run:
+            mock_run.return_value = MagicMock(
+                total_pages=1, successful=1, failed=0, skipped=0, duration_seconds=1.0
+            )
+
+            response = client.post(
+                "/crawl",
+                json={
+                    "output_dir": str(tmp_path),
+                    "seeds": ["https://example.com"],
+                },
+            )
+
+            assert response.status_code == 202
+            data = response.json()
+            assert "job_id" in data
+            assert data["status"] == "queued"
+
+    def test_get_job_status_returns_404_for_missing(self, client):
+        response = client.get("/crawl/nonexistent-job-id")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    def test_get_manifest_returns_404_for_missing_job(self, client):
+        response = client.get("/crawl/nonexistent-job-id/manifest")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+
+class TestCrawlRequestValidation:
+    def test_crawl_request_defaults(self):
+        from article_extractor.server import CrawlRequest
+
+        request = CrawlRequest(
+            output_dir="/tmp/crawl",
+            seeds=["https://example.com"],
+        )
+
+        assert request.max_pages == 100
+        assert request.max_depth == 3
+        assert request.concurrency == 5
+        assert request.rate_limit_delay == 1.0
+        assert request.follow_links is True
+
+    def test_crawl_request_custom_values(self):
+        from article_extractor.server import CrawlRequest
+
+        request = CrawlRequest(
+            output_dir="/tmp/crawl",
+            seeds=["https://example.com"],
+            max_pages=50,
+            max_depth=5,
+            concurrency=10,
+            rate_limit_delay=2.0,
+            follow_links=False,
+            allow_prefixes=["https://example.com/blog"],
+            deny_prefixes=["https://example.com/admin"],
+        )
+
+        assert request.max_pages == 50
+        assert request.max_depth == 5
+        assert request.concurrency == 10
+        assert request.rate_limit_delay == 2.0
+        assert request.follow_links is False
+        assert request.allow_prefixes == ["https://example.com/blog"]
+        assert request.deny_prefixes == ["https://example.com/admin"]
+
+    def test_crawl_job_response_model(self):
+        from article_extractor.server import CrawlJobResponse
+
+        response = CrawlJobResponse(
+            job_id="test-123",
+            status="running",
+            progress=10,
+            total=100,
+            successful=8,
+            failed=2,
+            skipped=0,
+        )
+
+        assert response.job_id == "test-123"
+        assert response.status == "running"
+        assert response.progress == 10
+        assert response.successful == 8

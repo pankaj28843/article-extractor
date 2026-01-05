@@ -39,6 +39,10 @@ STORAGE_QUEUE_DIR_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR"
 STORAGE_QUEUE_MAX_ENTRIES_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES"
 STORAGE_QUEUE_MAX_AGE_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS"
 STORAGE_QUEUE_RETENTION_ENV = "ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS"
+CRAWLER_CONCURRENCY_ENV = "ARTICLE_EXTRACTOR_CRAWLER_CONCURRENCY"
+CRAWLER_RATE_LIMIT_ENV = "ARTICLE_EXTRACTOR_CRAWLER_RATE_LIMIT"
+CRAWLER_MAX_PAGES_ENV = "ARTICLE_EXTRACTOR_CRAWLER_MAX_PAGES"
+CRAWLER_MAX_DEPTH_ENV = "ARTICLE_EXTRACTOR_CRAWLER_MAX_DEPTH"
 TRUE_VALUES = {"1", "true", "yes", "on"}
 FALSE_VALUES = {"0", "false", "no", "off"}
 VALID_LOG_FORMATS = {"json", "text"}
@@ -46,6 +50,10 @@ VALID_METRICS_SINKS = {"log", "statsd"}
 DEFAULT_QUEUE_MAX_ENTRIES = 20
 DEFAULT_QUEUE_MAX_AGE_SECONDS = 60.0
 DEFAULT_QUEUE_RETENTION_SECONDS = 300.0
+DEFAULT_CRAWLER_CONCURRENCY = 5
+DEFAULT_CRAWLER_RATE_LIMIT = 1.0
+DEFAULT_CRAWLER_MAX_PAGES = 100
+DEFAULT_CRAWLER_MAX_DEPTH = 3
 
 
 class ServiceSettings(BaseSettings):
@@ -69,6 +77,12 @@ class ServiceSettings(BaseSettings):
     metrics_statsd_host: str | None = Field(default=None)
     metrics_statsd_port: int | None = Field(default=None)
     metrics_namespace: str | None = Field(default=None)
+
+    # Crawler settings
+    crawler_concurrency: int = Field(default=DEFAULT_CRAWLER_CONCURRENCY, ge=1)
+    crawler_rate_limit: float = Field(default=DEFAULT_CRAWLER_RATE_LIMIT, ge=0.0)
+    crawler_max_pages: int = Field(default=DEFAULT_CRAWLER_MAX_PAGES, ge=1)
+    crawler_max_depth: int = Field(default=DEFAULT_CRAWLER_MAX_DEPTH, ge=1)
 
     model_config = SettingsConfigDict(
         env_prefix="ARTICLE_EXTRACTOR_",
@@ -180,6 +194,37 @@ class ServiceSettings(BaseSettings):
     @classmethod
     def _coerce_metrics_namespace(cls, value: Any):
         return _coerce_metrics_namespace(value)
+
+    @field_validator("crawler_concurrency", mode="before")
+    @classmethod
+    def _coerce_crawler_concurrency(cls, value: Any):
+        result = _coerce_positive_int(
+            value, CRAWLER_CONCURRENCY_ENV, fallback=DEFAULT_CRAWLER_CONCURRENCY
+        )
+        return result if result is not None else DEFAULT_CRAWLER_CONCURRENCY
+
+    @field_validator("crawler_rate_limit", mode="before")
+    @classmethod
+    def _coerce_crawler_rate_limit(cls, value: Any):
+        return _coerce_non_negative_float(
+            value, CRAWLER_RATE_LIMIT_ENV, fallback=DEFAULT_CRAWLER_RATE_LIMIT
+        )
+
+    @field_validator("crawler_max_pages", mode="before")
+    @classmethod
+    def _coerce_crawler_max_pages(cls, value: Any):
+        result = _coerce_positive_int(
+            value, CRAWLER_MAX_PAGES_ENV, fallback=DEFAULT_CRAWLER_MAX_PAGES
+        )
+        return result if result is not None else DEFAULT_CRAWLER_MAX_PAGES
+
+    @field_validator("crawler_max_depth", mode="before")
+    @classmethod
+    def _coerce_crawler_max_depth(cls, value: Any):
+        result = _coerce_positive_int(
+            value, CRAWLER_MAX_DEPTH_ENV, fallback=DEFAULT_CRAWLER_MAX_DEPTH
+        )
+        return result if result is not None else DEFAULT_CRAWLER_MAX_DEPTH
 
     def determine_threadpool_size(self) -> int:
         default_workers = max(4, (os.cpu_count() or 1) * 2)

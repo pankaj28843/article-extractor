@@ -12,7 +12,7 @@ applyTo:
 - No docstrings in test classes/methods—clear method names suffice
 - Avoid verbose comments; test code should be self-documenting
 - Use fixtures over ad-hoc setup to reduce duplication
-- Coverage check: `uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing`, minimum 90% overall and close to 100% for new code.
+- Coverage check: `timeout 60 uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing`, minimum 90% overall and close to 100% for new code.
 ## Test Behavior, Not Implementation
 
 ```python
@@ -58,16 +58,16 @@ tests/
 
 ```bash
 # Run all tests
-uv run pytest tests/ -v
+timeout 60 uv run pytest tests/ -v
 
 # Run with coverage
-uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
+timeout 60 uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
 
 # Run specific test file
-uv run pytest tests/test_extractor.py -v
+timeout 60 uv run pytest tests/test_extractor.py -v
 
 # Run tests matching pattern
-uv run pytest tests/ -k "test_extract" -v
+timeout 60 uv run pytest tests/ -k "test_extract" -v
 ```
 
 ## Anti-Patterns
