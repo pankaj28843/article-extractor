@@ -30,7 +30,7 @@ Use `#techdocs` for naming conventions, refactoring patterns, and architecture g
    - Update all imports/call sites via `list_code_usages` or `grep_search`.
    - Keep public signatures stable unless the user approved a breaking change.
 5. **Validation**:
-   - `uv run pytest tests/ -v` for changed code paths.
+   - `timeout 60 uv run pytest tests/ -v` for changed code paths.
    - `uv run ruff check <path>` (plus `uv run ruff format <path>` if whitespace moved).
 
 ## Output

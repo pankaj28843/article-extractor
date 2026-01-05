@@ -28,7 +28,7 @@ Use `#techdocs` to validate patterns before implementation. Key tenants: `python
 5. **Validation** – Minimum commands:
    - `uv run ruff format .`
    - `uv run ruff check --fix .`
-   - `uv run pytest tests/ -v`
+   - `timeout 60 uv run pytest tests/ -v`
    - `uv run article-extractor --help`
    - Run any new CLI/server flows end-to-end
    - If Docker-impacting: `docker build -t article-extractor:test .` and `./scripts/docker-playwright-smoke.sh article-extractor:test https://example.com/demo`

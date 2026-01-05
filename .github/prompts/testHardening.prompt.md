@@ -20,8 +20,8 @@ Use `#techdocs` for testing patterns, fixtures, and mocking strategies. Key tena
    - Use fixtures from `tests/conftest.py`; create new ones only when reuse is impossible.
    - Mock Playwright/httpx clients only at network boundaries; never stub scoring helpers.
 4. **Validation**:
-   - `uv run pytest tests/ -v -k <target>` for fast feedback.
-   - `uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing` (aim for ≥90% overall, ~100% for new code).
+   - `timeout 60 uv run pytest tests/ -v -k <target>` for fast feedback.
+   - `timeout 60 uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing` (aim for ≥90% overall, ~100% for new code).
    - `uv run ruff check <touched files>` when helper modules change.
 5. **Report** – Capture coverage deltas, flaky cases, and any blind spots that remain.
 

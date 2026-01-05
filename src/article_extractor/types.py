@@ -69,3 +69,71 @@ class ScoredCandidate:
     def __lt__(self, other: ScoredCandidate) -> bool:
         """Allow sorting by score (descending)."""
         return self.score > other.score  # Higher score = better
+
+
+# --- Crawler Types ---
+
+
+@dataclass
+class CrawlConfig:
+    """Configuration for a crawl job.
+
+    Defines seed URLs, sitemaps, filtering rules, and crawl behavior.
+    The output_dir is required and must be explicitly provided.
+    """
+
+    output_dir: Path
+    seeds: list[str] = field(default_factory=list)
+    sitemaps: list[str] = field(default_factory=list)
+    allow_prefixes: list[str] = field(default_factory=list)
+    deny_prefixes: list[str] = field(default_factory=list)
+    max_pages: int = 100
+    max_depth: int = 3
+    concurrency: int = 5
+    rate_limit_delay: float = 1.0
+    follow_links: bool = True
+
+
+@dataclass
+class CrawlResult:
+    """Result for a single crawled page."""
+
+    url: str
+    file_path: Path | None
+    status: str  # "success", "failed", "skipped"
+    error: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    word_count: int = 0
+    title: str = ""
+    extracted_at: str = ""
+    markdown: str = ""
+
+
+@dataclass
+class CrawlManifest:
+    """Manifest summarizing a completed crawl job."""
+
+    job_id: str
+    started_at: str
+    completed_at: str
+    config: CrawlConfig
+    total_pages: int = 0
+    successful: int = 0
+    failed: int = 0
+    skipped: int = 0
+    duration_seconds: float = 0.0
+    results: list[CrawlResult] = field(default_factory=list)
+
+
+@dataclass
+class CrawlJob:
+    """Represents a crawl job with its configuration and current state."""
+
+    job_id: str
+    config: CrawlConfig
+    status: str = "queued"  # "queued", "running", "completed", "failed"
+    progress: int = 0
+    total: int = 0
+    error: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
