@@ -130,7 +130,11 @@ async def _run_crawl_command(
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    # Build CrawlConfig
+    worker_count = args.workers if getattr(args, "workers", None) is not None else 1
+    if worker_count < 1:
+        print("Error: --workers must be at least 1", file=sys.stderr)
+        return 1
+
     config = CrawlConfig(
         output_dir=output_dir,
         seeds=list(args.seed) if args.seed else [],
@@ -140,6 +144,7 @@ async def _run_crawl_command(
         max_pages=args.max_pages,
         max_depth=args.max_depth,
         concurrency=args.concurrency,
+        worker_count=worker_count,
         rate_limit_delay=args.rate_limit,
         follow_links=args.follow_links,
     )
@@ -156,6 +161,10 @@ async def _run_crawl_command(
     print(
         f"Seeds: {len(config.seeds)}, Sitemaps: {len(config.sitemaps)}, "
         f"Max pages: {config.max_pages}",
+        file=sys.stderr,
+    )
+    print(
+        f"Concurrency: {config.concurrency}, Workers: {config.worker_count}",
         file=sys.stderr,
     )
     print("-" * 60, file=sys.stderr)
@@ -349,6 +358,12 @@ def _crawl_main() -> int:
         type=float,
         default=1.0,
         help="Seconds between requests to same host (default: 1.0)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of concurrent crawl workers (default: 1)",
     )
 
     # Link following

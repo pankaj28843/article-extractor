@@ -40,6 +40,22 @@ pip install article-extractor[all]      # Playwright, httpx, FastAPI, fake-usera
 
 Prefer uv? Run `uv pip install article-extractor` or add it to `pyproject.toml` via `uv add article-extractor[all]`.
 
+### Developer / Active Development Install
+
+When contributing or debugging locally, install as an editable tool so changes to `src/` take effect immediately:
+
+```bash
+# Clone and install editable
+git clone https://github.com/pankaj28843/article-extractor.git
+cd article-extractor
+uv tool install --editable --force --refresh --reinstall ".[all]"
+
+# Now `article-extractor` CLI reflects local changes instantly
+article-extractor https://example.com
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development workflow.
+
 ## Crawl an Entire Site
 
 Extract every page under a domain in one command:
@@ -55,7 +71,7 @@ curl -X POST http://localhost:3000/crawl \
 # Returns {"job_id": "abc123", "status": "running", ...}
 ```
 
-The crawler follows internal links via BFS, respects `robots.txt` and sitemaps, and writes one Markdown file per page. See the [Crawling Guide](https://pankaj28843.github.io/article-extractor/crawling/) for rate limiting, headed mode, and output structure.
+The crawler follows internal links via BFS, respects `robots.txt` and sitemaps, and writes one Markdown file per page. Use `--workers 3` (default is 1) to dispatch three concurrent crawl workers while `--concurrency` continues to cap simultaneous fetch slots. See the [Crawling Guide](https://pankaj28843.github.io/article-extractor/crawling/) for rate limiting, headed mode, and output structure.
 
 ## Observability & Operations
 

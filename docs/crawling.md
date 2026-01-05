@@ -78,15 +78,22 @@ Network options (`--headed`, `--storage-state`, `--prefer-playwright`, etc.) wor
 
 ## Output Structure
 
+All extracted pages are saved as flat Markdown files in the output directory. Path separators (`/`) in URLs are replaced with double underscores (`__`) to create a flat structure:
+
 ```
 output-dir/
-├── manifest.json           # Crawl metadata and results
-├── example.com/
-│   ├── blog.md
-│   ├── blog-post-1.md
-│   └── blog-post-2.md
-└── docs.example.com/
-    └── getting-started.md
+├── manifest.json                           # Crawl metadata and results
+├── example.com__blog.md
+├── example.com__blog__post-1.md
+├── example.com__blog__post-2.md
+└── docs.example.com__getting-started.md
+```
+
+For deeply nested URLs (like wiki pages), the flat structure avoids excessive directory nesting:
+
+```
+# URL: https://wiki.example.com/spaces/DOCS/pages/12345678/GettingStarted
+# File: wiki.example.com__spaces__DOCS__pages__12345678__GettingStarted.md
 ```
 
 ### Markdown Format
@@ -126,7 +133,7 @@ Article content in Markdown format...
   "results": [
     {
       "url": "https://example.com/blog/post-1",
-      "file_path": "example.com/blog-post-1.md",
+      "file_path": "example.com__blog__post-1.md",
       "status": "success",
       "word_count": 1500,
       "title": "My First Blog Post"

@@ -12,9 +12,9 @@ import logging
 import os
 import re
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -365,7 +365,8 @@ class Crawler:
     ) -> Path:
         """Write extracted content to a Markdown file.
 
-        Creates directory structure: {output_dir}/{hostname}/{path-slug}.md
+        Creates flat structure: {output_dir}/{hostname}__{path-slug}.md
+        Path separators (/) are replaced with double underscores (__).
 
         Args:
             url: Original page URL.
@@ -393,23 +394,37 @@ word_count: {word_count}
         return file_path
 
     def _url_to_filepath(self, url: str) -> Path:
-        """Generate a deterministic file path from a URL."""
+        """Generate a deterministic flat file path from a URL.
+
+        Path separators (/) are replaced with double underscores (__) to create
+        a flat output structure. The hostname is prepended to ensure uniqueness
+        across different domains.
+
+        Example:
+            https://example.com/blog/post-1 -> example.com__blog__post-1.md
+        """
         parsed = urlsplit(url)
         hostname = parsed.netloc.lower().replace(":", "_")
         path = parsed.path.strip("/") or "index"
         if parsed.query:
             path = f"{path}_{parsed.query}"
 
-        # Sanitize path components
-        slug = re.sub(r"[^\w\-./]", "_", path)
-        slug = re.sub(r"_+", "_", slug)
-        slug = slug.strip("_")
+        # Split path into components and sanitize each individually
+        components = path.split("/")
+        sanitized_components = []
+        for component in components:
+            # Sanitize each component: keep alphanumeric, hyphens
+            slug = re.sub(r"[^\w\-]", "_", component)
+            slug = re.sub(r"_+", "_", slug)
+            slug = slug.strip("_")
+            if slug:
+                sanitized_components.append(slug)
 
-        # Ensure .md extension
-        if not slug.endswith(".md"):
-            slug = f"{slug}.md"
+        # Join components with __ and prepend hostname
+        path_slug = "__".join(sanitized_components) if sanitized_components else "index"
+        flat_name = f"{hostname}__{path_slug}.md"
 
-        return self.config.output_dir / hostname / slug
+        return self.config.output_dir / flat_name
 
     # ------------------------------------------------------------------
     # Normalization helpers
@@ -515,6 +530,7 @@ def _config_to_dict(config: CrawlConfig) -> dict[str, Any]:
         "max_pages": config.max_pages,
         "max_depth": config.max_depth,
         "concurrency": config.concurrency,
+        "worker_count": config.worker_count,
         "rate_limit_delay": config.rate_limit_delay,
         "follow_links": config.follow_links,
     }
@@ -581,6 +597,7 @@ def load_manifest(path: Path) -> CrawlManifest | None:
             max_pages=data["config"].get("max_pages", 100),
             max_depth=data["config"].get("max_depth", 3),
             concurrency=data["config"].get("concurrency", 5),
+            worker_count=data["config"].get("worker_count", 1),
             rate_limit_delay=data["config"].get("rate_limit_delay", 1.0),
             follow_links=data["config"].get("follow_links", True),
         )
@@ -789,30 +806,14 @@ class CrawlProgress:
     remaining: int
 
 
-async def run_crawl(  # noqa: PLR0912, PLR0915 - orchestrator function intentionally complex
+async def run_crawl(  # noqa: PLR0915
     config: CrawlConfig,
     *,
     network: NetworkOptions | None = None,
-    on_progress: None
-    | (type[None] | (type[None] | (type[None] | type[CrawlProgress]))) = None,
+    on_progress: Callable[[CrawlProgress], None] | None = None,
 ) -> CrawlManifest:
-    """Run a complete crawl job.
+    """Run a complete crawl job using a configurable pool of workers."""
 
-    This is the high-level orchestrator that:
-    1. Validates output directory
-    2. Loads sitemaps (if any)
-    3. Iterates through the BFS queue
-    4. Fetches, extracts, and writes Markdown for each page
-    5. Generates and writes the manifest
-
-    Args:
-        config: Crawl configuration.
-        network: Network options for fetching.
-        on_progress: Optional callback for progress updates.
-
-    Returns:
-        CrawlManifest with complete results.
-    """
     import uuid
 
     job_id = str(uuid.uuid4())
@@ -821,145 +822,134 @@ async def run_crawl(  # noqa: PLR0912, PLR0915 - orchestrator function intention
     successful = 0
     failed = 0
     skipped = 0
+    worker_count = max(1, config.worker_count)
 
-    # Validate output directory
     validate_output_dir(config.output_dir, create=True)
     if not check_disk_space(config.output_dir):
         logger.warning("Low disk space in output directory: %s", config.output_dir)
 
     crawler = Crawler(config)
+    progress_lock = asyncio.Lock()
+    active_lock = asyncio.Lock()
+    active_workers = 0
 
-    # Open fetcher and load sitemaps
+    async def emit_progress(status: str, url: str) -> None:
+        if on_progress is None:
+            return
+        async with progress_lock:
+            on_progress(
+                CrawlProgress(
+                    url=url,
+                    status=status,
+                    fetched=successful + failed + skipped,
+                    successful=successful,
+                    failed=failed,
+                    skipped=skipped,
+                    remaining=crawler.queue_size(),
+                )
+            )
+
+    async def mark_worker_start() -> None:
+        nonlocal active_workers
+        async with active_lock:
+            active_workers += 1
+
+    async def mark_worker_end() -> None:
+        nonlocal active_workers
+        async with active_lock:
+            active_workers -= 1
+            if crawler.queue_size() == 0 and active_workers == 0:
+                crawler.close()
+
     async with crawler.open_fetcher(network=network) as fetcher:
         sitemap_count = await crawler.load_sitemaps(fetcher)
         if sitemap_count > 0:
             logger.info("Loaded %d URLs from sitemaps", sitemap_count)
 
-        # Process queue
-        async for target in crawler.iter_targets():
-            url = target.url
+        if crawler.queue_size() == 0:
+            crawler.close()
 
-            # Progress callback: fetching
-            if on_progress:
-                on_progress(
-                    CrawlProgress(
-                        url=url,
-                        status="fetching",
-                        fetched=successful + failed,
-                        successful=successful,
-                        failed=failed,
-                        skipped=skipped,
-                        remaining=crawler.queue_size(),
-                    )
-                )
-
-            # Fetch the page
-            try:
-                async with crawler.acquire_slot(url):
-                    html = await crawler.fetch_with_retry(url, fetcher=fetcher)
-            except Exception as exc:
-                logger.warning("Fetch failed for %s: %s", url, exc)
-                result = CrawlResult(
-                    url=url,
-                    file_path=None,
-                    status="failed",
-                    error=str(exc),
-                    extracted_at=datetime.now(UTC).isoformat(),
-                )
-                results.append(result)
-                failed += 1
-                crawler.task_done()
-
-                if on_progress:
-                    on_progress(
-                        CrawlProgress(
-                            url=url,
-                            status="failed",
-                            fetched=successful + failed,
-                            successful=successful,
-                            failed=failed,
-                            skipped=skipped,
-                            remaining=crawler.queue_size(),
-                        )
-                    )
-
-                # Check if we should stop after failure
-                if crawler.queue_size() == 0:
-                    crawler.close()
-                continue
-
-            # Discover links for BFS expansion
-            if config.follow_links:
-                crawler.discover_links(html, url, target.depth)
-
-            # Extract content
-            result = crawler.extract_page(html, url)
-
-            # Write markdown if extraction succeeded
-            if result.status == "success" and result.word_count > 0:
+        async def worker() -> None:
+            nonlocal successful, failed, skipped
+            async for target in crawler.iter_targets():
+                await mark_worker_start()
                 try:
-                    file_path = crawler.write_markdown(
-                        url=url,
-                        title=result.title or "",
-                        markdown=result.markdown or "",
-                        word_count=result.word_count,
-                        extracted_at=result.extracted_at,
-                    )
-                    result = CrawlResult(
-                        url=result.url,
-                        file_path=file_path,
-                        status=result.status,
-                        error=result.error,
-                        warnings=result.warnings,
-                        word_count=result.word_count,
-                        title=result.title,
-                        extracted_at=result.extracted_at,
-                        markdown=result.markdown,
-                    )
-                    successful += 1
-                except Exception as exc:
-                    logger.warning("Failed to write markdown for %s: %s", url, exc)
-                    result = CrawlResult(
-                        url=url,
-                        file_path=None,
-                        status="failed",
-                        error=f"Write failed: {exc}",
-                        extracted_at=result.extracted_at,
-                    )
-                    failed += 1
-            elif result.status == "success" and result.word_count == 0:
-                # Extraction succeeded but no content - skip writing
-                result = CrawlResult(
-                    url=url,
-                    file_path=None,
-                    status="skipped",
-                    error="No content extracted",
-                    extracted_at=result.extracted_at,
-                )
-                skipped += 1
-            else:
-                failed += 1
+                    await emit_progress("fetching", target.url)
+                    try:
+                        async with crawler.acquire_slot(target.url):
+                            html, _status = await crawler.fetch_with_retry(
+                                target.url,
+                                fetcher=fetcher,
+                            )
+                    except Exception as exc:
+                        logger.warning("Fetch failed for %s: %s", target.url, exc)
+                        failure = CrawlResult(
+                            url=target.url,
+                            file_path=None,
+                            status="failed",
+                            error=str(exc),
+                            extracted_at=datetime.now(UTC).isoformat(),
+                        )
+                        results.append(failure)
+                        failed += 1
+                        await emit_progress("failed", target.url)
+                        continue
 
-            results.append(result)
-            crawler.task_done()
+                    if config.follow_links:
+                        crawler.discover_links(html, target.url, target.depth)
 
-            # Progress callback: result
-            if on_progress:
-                on_progress(
-                    CrawlProgress(
-                        url=url,
-                        status=result.status,
-                        fetched=successful + failed + skipped,
-                        successful=successful,
-                        failed=failed,
-                        skipped=skipped,
-                        remaining=crawler.queue_size(),
-                    )
-                )
+                    page_result = crawler.extract_page(html, target.url)
 
-            # Check if we should stop (no more items and not following links)
-            if crawler.queue_size() == 0:
-                crawler.close()
+                    if page_result.status == "success" and page_result.word_count > 0:
+                        try:
+                            file_path = crawler.write_markdown(
+                                url=page_result.url,
+                                title=page_result.title or "",
+                                markdown=page_result.markdown or "",
+                                word_count=page_result.word_count,
+                                extracted_at=page_result.extracted_at,
+                            )
+                            page_result = replace(page_result, file_path=file_path)
+                            successful += 1
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to write markdown for %s: %s",
+                                page_result.url,
+                                exc,
+                            )
+                            page_result = CrawlResult(
+                                url=page_result.url,
+                                file_path=None,
+                                status="failed",
+                                error=f"Write failed: {exc}",
+                                extracted_at=page_result.extracted_at,
+                            )
+                            failed += 1
+                    elif page_result.status == "success":
+                        page_result = CrawlResult(
+                            url=page_result.url,
+                            file_path=None,
+                            status="skipped",
+                            error="No content extracted",
+                            extracted_at=page_result.extracted_at,
+                            markdown=page_result.markdown,
+                            warnings=page_result.warnings,
+                            word_count=page_result.word_count,
+                            title=page_result.title,
+                        )
+                        skipped += 1
+                    else:
+                        failed += 1
+
+                    results.append(page_result)
+                    await emit_progress(page_result.status, target.url)
+                finally:
+                    crawler.task_done()
+                    await mark_worker_end()
+
+        async with asyncio.TaskGroup() as tg:
+            for _ in range(worker_count):
+                tg.create_task(worker())
 
     completed_at = datetime.now(UTC).isoformat()
     duration = (
@@ -979,7 +969,6 @@ async def run_crawl(  # noqa: PLR0912, PLR0915 - orchestrator function intention
         results=results,
     )
 
-    # Write manifest
     manifest_path = config.output_dir / "manifest.json"
     write_manifest(manifest, manifest_path)
     logger.info(
