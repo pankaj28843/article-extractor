@@ -367,6 +367,24 @@ def test_main_network_flag_passthrough(mock_result, tmp_path):
     assert isinstance(env_mapping, Mapping)
 
 
+def test_main_storage_state_disabled_by_default(mock_result):
+    """CLI should leave storage persistence disabled unless flag provided."""
+
+    with (
+        patch("article_extractor.cli.resolve_network_options") as mock_network,
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 0
+
+    kwargs = mock_network.call_args.kwargs
+    assert kwargs["storage_state_path"] is None
+
+
 def test_main_prefer_httpx_flag(mock_result):
     """CLI should respect --prefer-httpx when hitting URLs."""
 

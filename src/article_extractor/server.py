@@ -292,7 +292,10 @@ class NetworkRequest(BaseModel):
     )
     storage_state: str | None = Field(
         default=None,
-        description="Filesystem path for Playwright storage_state.json",
+        description=(
+            "Optional filesystem path to persist Playwright storage_state.json; "
+            "omit for the default ephemeral context"
+        ),
     )
 
 

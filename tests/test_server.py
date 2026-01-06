@@ -386,6 +386,28 @@ def test_network_payload_overrides(client, mock_result, tmp_path):
     assert kwargs["storage_state_path"] == str(storage_path)
 
 
+def test_network_payload_defaults_disable_storage(client, mock_result):
+    """Server should leave storage_state unset when payload omits it."""
+
+    with (
+        patch("article_extractor.server.resolve_network_options") as mock_network,
+        patch(
+            "article_extractor.server.extract_article_from_url",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+    ):
+        client.post(
+            "/",
+            json={
+                "url": "https://example.com/article",
+            },
+        )
+
+    kwargs = mock_network.call_args.kwargs
+    assert kwargs["storage_state_path"] is None
+
+
 def test_prefer_playwright_override(client, mock_result):
     """Request-level preference should override server default."""
 

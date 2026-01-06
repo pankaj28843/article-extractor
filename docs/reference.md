@@ -12,8 +12,8 @@ One lookup table consolidates the runtime settings plus canonical CLI, FastAPI, 
 | `ARTICLE_EXTRACTOR_CACHE_SIZE` | `1000` | All | LRU entries for rendered articles; raise for reuse-heavy corpora. |
 | `ARTICLE_EXTRACTOR_THREADPOOL_SIZE` | `0` | All | Worker threads for CPU-heavy steps; `0` lets Python choose. |
 | `ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT` | `true` when Playwright exists | All | Force Playwright over httpx when both are available. Mirrors CLI flags. |
-| `ARTICLE_EXTRACTOR_STORAGE_STATE_FILE` | unset | All | Path to persistent Chromium cookies (`/data/storage_state.json` in Docker examples). |
-| `ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR` | `<storage_state>.changes` | Playwright | Directory for queued deltas; keep it on the same mount as the storage file. |
+| `ARTICLE_EXTRACTOR_STORAGE_STATE_FILE` | unset | All | Optional path to persist Chromium cookies (`/data/storage_state.json` in Docker examples). Leave unset for the default ephemeral session. |
+| `ARTICLE_EXTRACTOR_STORAGE_QUEUE_DIR` | `<storage_state>.changes` | Playwright | Directory for queued deltas when persistence is enabled; keep it on the same mount as the storage file. |
 | `ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_ENTRIES` | `20` | Playwright | Warn when pending deltas exceed this count. |
 | `ARTICLE_EXTRACTOR_STORAGE_QUEUE_MAX_AGE_SECONDS` | `60` | Playwright | Warn when the oldest pending delta lives longer than this age. |
 | `ARTICLE_EXTRACTOR_STORAGE_QUEUE_RETENTION_SECONDS` | `300` | Playwright | Retain processed deltas for this many seconds before pruning. |
@@ -38,7 +38,8 @@ Both the CLI and FastAPI server load settings via `pydantic-settings`. Drop a `.
 ARTICLE_EXTRACTOR_CACHE_SIZE=2000
 ARTICLE_EXTRACTOR_THREADPOOL_SIZE=8
 ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=false
-ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=$HOME/.article-extractor/storage_state.json
+# Uncomment when you intentionally persist Playwright storage
+# ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=$HOME/.article-extractor/storage_state.json
 ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS=0
 ARTICLE_EXTRACTOR_METRICS_ENABLED=1
 ARTICLE_EXTRACTOR_METRICS_SINK=statsd

@@ -12,7 +12,7 @@ This page summarizes how parsing, scoring, fetchers, and observability fit toget
 ## Boundaries & Storage
 
 - `extractor.py` owns candidate scoring; `fetcher.py` and `network.py` own HTTP/Playwright orchestration; `server.py` stays thin and only parses environment variables into typed settings (see `.github/instructions/software-engineering-principles.instructions.md`).
-- Headed Playwright sessions persist cookies to `storage_state.json` and queue deltas beside the file so multiple workers share authenticated sessions without race conditions. Tune the queue thresholds listed in the [Reference](../reference.md#configuration) when logs warn about pending entries or stale snapshots.
+- When you opt in via `--storage-state`/`ARTICLE_EXTRACTOR_STORAGE_STATE_FILE`, headed Playwright sessions persist cookies to `storage_state.json` and queue deltas beside the file so multiple workers share authenticated sessions without race conditions. Leave the setting unset for the default ephemeral behavior, and tune the queue thresholds listed in the [Reference](../reference.md#configuration) when logs warn about pending entries or stale snapshots.
 
 ## Observability
 

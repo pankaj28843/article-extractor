@@ -66,6 +66,18 @@ def test_storage_state_alias_env(monkeypatch, tmp_path):
     monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
 
 
+def test_storage_state_path_defaults_to_none(monkeypatch):
+    for key in (
+        "ARTICLE_EXTRACTOR_STORAGE_STATE_FILE",
+        "PLAYWRIGHT_STORAGE_STATE_FILE",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    options = resolve_network_options()
+
+    assert options.storage_state_path is None
+
+
 def test_storage_state_alias_wins_over_legacy_env(monkeypatch, tmp_path):
     """Alias env vars should take precedence over legacy Playwright env names."""
 

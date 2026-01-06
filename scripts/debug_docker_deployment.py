@@ -67,6 +67,7 @@ class HarnessArgs:
     diagnostics_flag: str
     tail_lines: int
     health_timeout: int
+    disable_storage: bool
 
 
 @dataclass
@@ -149,6 +150,11 @@ def parse_args() -> HarnessArgs:
         default=60,
         help="Seconds to wait for /health to report ready before failing the harness.",
     )
+    parser.add_argument(
+        "--disable-storage",
+        action="store_true",
+        help="Skip mounting Playwright storage so the harness mimics the default ephemeral runtime (persistence remains the default)",
+    )
     args = parser.parse_args()
     if args.concurrency <= 0:
         parser.error("--concurrency must be a positive integer")
@@ -172,6 +178,7 @@ def parse_args() -> HarnessArgs:
         diagnostics_flag=str(args.diagnostics_flag),
         tail_lines=args.tail_lines,
         health_timeout=args.health_timeout,
+        disable_storage=bool(args.disable_storage),
     )
 
 
@@ -235,7 +242,7 @@ def start_container(
     container_name: str,
     container_port: int,
     host_port: int,
-    data_dir: Path,
+    storage_dir: Path | None,
     diagnostics_flag: str,
 ) -> str:
     log(
@@ -249,26 +256,41 @@ def start_container(
         container_name,
         "--publish",
         f"{host_port}:{container_port}",
-        "--volume",
-        f"{data_dir}:{MOUNT_TARGET}",
-        "-e",
-        "TZ=UTC",
-        "-e",
-        "HOST=0.0.0.0",
-        "-e",
-        f"PORT={container_port}",
-        "-e",
-        "ARTICLE_EXTRACTOR_CACHE_SIZE=512",
-        "-e",
-        "ARTICLE_EXTRACTOR_THREADPOOL_SIZE=12",
-        "-e",
-        "ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true",
-        "-e",
-        f"ARTICLE_EXTRACTOR_STORAGE_STATE_FILE={MOUNT_TARGET}/storage_state.json",
-        "-e",
-        f"ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS={diagnostics_flag}",
-        image_tag,
     ]
+    if storage_dir is not None:
+        cmd.extend(["--volume", f"{storage_dir}:{MOUNT_TARGET}"])
+    else:
+        log("Starting container without persistent storage; contexts remain ephemeral")
+    cmd.extend(
+        [
+            "-e",
+            "TZ=UTC",
+            "-e",
+            "HOST=0.0.0.0",
+            "-e",
+            f"PORT={container_port}",
+            "-e",
+            "ARTICLE_EXTRACTOR_CACHE_SIZE=512",
+            "-e",
+            "ARTICLE_EXTRACTOR_THREADPOOL_SIZE=12",
+            "-e",
+            "ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true",
+        ]
+    )
+    if storage_dir is not None:
+        cmd.extend(
+            [
+                "-e",
+                f"ARTICLE_EXTRACTOR_STORAGE_STATE_FILE={MOUNT_TARGET}/storage_state.json",
+            ]
+        )
+    cmd.extend(
+        [
+            "-e",
+            f"ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS={diagnostics_flag}",
+            image_tag,
+        ]
+    )
     try:
         result = run_cmd(cmd, capture_output=True)
     except subprocess.CalledProcessError as exc:
@@ -441,7 +463,15 @@ def main() -> None:
     ensure_command("docker")
     project_root = Path(__file__).resolve().parent.parent
     data_dir = project_root / "tmp" / "docker-smoke-data"
-    storage_file = reset_storage(data_dir)
+    storage_dir: Path | None = None
+    storage_file: Path | None = None
+    if args.disable_storage:
+        log(
+            "Disable-storage flag set; harness will mimic the default ephemeral behavior"
+        )
+    else:
+        storage_dir = data_dir
+        storage_file = reset_storage(data_dir)
     urls = load_urls(args.urls_file)
     log(
         f"Running Docker harness with {len(urls)} URLs, concurrency {args.concurrency}, "
@@ -460,7 +490,7 @@ def main() -> None:
         args.container_name,
         args.container_port,
         host_port,
-        data_dir,
+        storage_dir,
         args.diagnostics_flag,
     )
     logs_dumped = False
@@ -471,7 +501,8 @@ def main() -> None:
             fire_requests(base_url, urls, args.concurrency, args.retries)
         )
         summarize_results(results)
-        validate_storage(storage_file)
+        if storage_file is not None:
+            validate_storage(storage_file)
         print_container_logs(args.container_name, args.tail_lines)
         logs_dumped = True
         ready_curl_snippet(base_url, urls[0])

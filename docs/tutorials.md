@@ -62,7 +62,7 @@ INFO:     Uvicorn running on http://0.0.0.0:3000 (Press CTRL+C to quit)
 - Container stays in `running` per `docker ps` and logs the uvicorn banner.
 - `/health` responds with HTTP 200 JSON.
 - POST returns a title + positive word count before you stop the container.
-- Add `-v $HOME/.article-extractor:/data` and `-e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage_state.json` to persist cookies.
+- Default containers stay ephemeral; add `-v $HOME/.article-extractor:/data` plus `-e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage_state.json` only when you want to persist cookies.
 
 ## Python Embedding
 

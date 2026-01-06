@@ -76,7 +76,8 @@ The crawler follows internal links via BFS, respects `robots.txt` and sitemaps, 
 ## Observability & Operations
 
 - All runtimes honor diagnostics toggles (`ARTICLE_EXTRACTOR_LOG_DIAGNOSTICS`, `ARTICLE_EXTRACTOR_METRICS_*`).
-- Docker image ships Chromium + Playwright state persistence; the [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/#cache-and-playwright-storage) shows how to mount storage, warm caches, and inspect the queue.
+- Playwright storage is opt-in: CLI/server runs stay ephemeral unless you pass `--storage-state /path/to/storage_state.json` or set `ARTICLE_EXTRACTOR_STORAGE_STATE_FILE` plus a bind-mounted volume. The [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/#cache-and-playwright-storage) walks through mounting, warming caches, and inspecting the queue.
+- The Docker debug harness still exercises persistent storage for regression coverage; add `--disable-storage` when you want the smoke to mirror the default ephemeral behavior.
 - Networking, diagnostics, StatsD, validation loops, and release automation live in a single [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/).
 
 ## Documentation

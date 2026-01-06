@@ -27,11 +27,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
-from .network import (
-    DEFAULT_STORAGE_PATH,
-    host_matches_no_proxy,
-    resolve_network_options,
-)
+from .network import host_matches_no_proxy, resolve_network_options
 from .observability import build_url_log_context
 from .storage_queue import (
     QueueStats,
@@ -207,7 +203,7 @@ class PlaywrightFetcher:
         self._storage_state_override = (
             Path(storage_state_file).expanduser()
             if storage_state_file is not None
-            else self._network.storage_state_path
+            else None
         )
         self._diagnostics_enabled = diagnostics_enabled
         self._storage_queue = self._initialize_storage_queue()
@@ -241,13 +237,17 @@ class PlaywrightFetcher:
                 "max_age_seconds": settings.storage_queue_max_age_seconds,
                 "processed_retention_seconds": settings.storage_queue_retention_seconds,
             }
+        storage_file = self.storage_state_file
+        if storage_file is None:
+            return None
+
         try:
-            return StorageQueue(self.storage_state_file, **queue_kwargs)
+            return StorageQueue(storage_file, **queue_kwargs)
         except Exception as exc:  # pragma: no cover - best-effort fallback
             logger.warning(
                 "Storage queue unavailable; falling back to direct writes",
                 extra={
-                    "storage_state": str(self.storage_state_file),
+                    "storage_state": str(storage_file),
                     "error": exc.__class__.__name__,
                 },
             )
@@ -257,6 +257,16 @@ class PlaywrightFetcher:
         if not self._diagnostics_enabled:
             return
         storage_file = self.storage_state_file
+        if storage_file is None:
+            self._log_diagnostic(
+                "Playwright storage disabled",
+                extra={
+                    "diagnostics_stage": stage,
+                    "storage_enabled": False,
+                    "headed": not self.headless,
+                },
+            )
+            return
         metadata: dict[str, Any] = {
             "storage_state": str(storage_file),
             "storage_exists": storage_file.exists(),
@@ -312,6 +322,14 @@ class PlaywrightFetcher:
         )
 
     async def _persist_storage_payload(self, payload: bytes) -> None:
+        storage_file = self.storage_state_file
+        if storage_file is None:
+            self._log_diagnostic(
+                "Skipped Playwright storage persistence (disabled)",
+                extra={"storage_enabled": False},
+            )
+            return
+
         fingerprint = compute_fingerprint(payload)
         snapshot: StorageSnapshot | None = self._storage_snapshot
         if snapshot and snapshot.fingerprint == fingerprint:
@@ -325,7 +343,6 @@ class PlaywrightFetcher:
             return
 
         queue = self._storage_queue
-        storage_file = self.storage_state_file
         if queue is None or self._storage_lock is None:
             self._write_storage_direct(payload)
             self._storage_snapshot = StorageSnapshot(
@@ -370,6 +387,12 @@ class PlaywrightFetcher:
 
     def _write_storage_direct(self, payload: bytes) -> None:
         storage_file = self.storage_state_file
+        if storage_file is None:
+            self._log_diagnostic(
+                "Skipped direct storage write (disabled)",
+                extra={"storage_enabled": False},
+            )
+            return
         storage_file.parent.mkdir(parents=True, exist_ok=True)
         with storage_file.open("wb") as handle:
             handle.write(payload)
@@ -383,12 +406,12 @@ class PlaywrightFetcher:
         return self._network
 
     @property
-    def storage_state_file(self) -> Path:
+    def storage_state_file(self) -> Path | None:
         if self._storage_state_override is not None:
             return Path(self._storage_state_override)
         if self._network.storage_state_path is not None:
             return Path(self._network.storage_state_path)
-        return DEFAULT_STORAGE_PATH
+        return None
 
     async def __aenter__(self) -> PlaywrightFetcher:
         """Create browser instance for this fetcher."""
@@ -432,16 +455,27 @@ class PlaywrightFetcher:
         }
 
         storage_file = self.storage_state_file
-        self._storage_snapshot = capture_snapshot(storage_file)
-        self._storage_lock = asyncio.Lock()
-        self._log_storage_state("load")
-        if storage_file.exists():
-            context_options["storage_state"] = str(storage_file)
-            logger.info("Loading storage state from %s", storage_file)
-        else:
+        storage_label: str
+        if storage_file is None:
+            self._storage_snapshot = None
+            self._storage_lock = None
+            self._log_storage_state("load")
+            storage_label = "disabled"
             logger.info(
-                "No storage state file found at %s; starting fresh", storage_file
+                "Playwright storage persistence disabled; starting with fresh context"
             )
+        else:
+            self._storage_snapshot = capture_snapshot(storage_file)
+            self._storage_lock = asyncio.Lock()
+            self._log_storage_state("load")
+            if storage_file.exists():
+                context_options["storage_state"] = str(storage_file)
+                logger.info("Loading storage state from %s", storage_file)
+            else:
+                logger.info(
+                    "No storage state file found at %s; starting fresh", storage_file
+                )
+            storage_label = str(storage_file)
 
         self._context = await self._browser.new_context(**context_options)
         self._semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_PAGES)
@@ -451,7 +485,7 @@ class PlaywrightFetcher:
             self.headless,
             selected_user_agent,
             self._network.proxy or "disabled",
-            storage_file,
+            storage_label,
         )
 
         logger.info(
@@ -463,13 +497,21 @@ class PlaywrightFetcher:
         """Close browser and save state."""
         logger.info("Closing Playwright browser...")
 
+        storage_configured = self.storage_state_file is not None
+
         # Save storage state before closing
         if self._context:
-            try:
-                payload = await self._context.storage_state()
-                await self._persist_storage_payload(normalize_payload(payload))
-            except Exception as e:
-                logger.warning(f"Failed to save storage state: {e}")
+            if storage_configured:
+                try:
+                    payload = await self._context.storage_state()
+                    await self._persist_storage_payload(normalize_payload(payload))
+                except Exception as e:
+                    logger.warning(f"Failed to save storage state: {e}")
+            else:
+                self._log_diagnostic(
+                    "Skipping storage persistence on shutdown (disabled)",
+                    extra={"storage_enabled": False},
+                )
 
             await self._context.close()
             self._context = None
@@ -605,7 +647,7 @@ class PlaywrightFetcher:
             )
 
         storage_file = self.storage_state_file
-        if storage_file.exists():
+        if storage_file and storage_file.exists():
             storage_file.unlink()
             logger.warning("Deleted persistent storage state file")
 
@@ -616,7 +658,7 @@ class PlaywrightFetcher:
             logger.info("Cleared all cookies")
 
         storage_file = self.storage_state_file
-        if storage_file.exists():
+        if storage_file and storage_file.exists():
             storage_file.unlink()
             logger.info("Deleted persistent storage state file")
 

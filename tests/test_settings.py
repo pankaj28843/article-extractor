@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from article_extractor.network import DEFAULT_STORAGE_PATH
 from article_extractor.settings import (
     _coerce_bool,
     get_settings,
@@ -64,11 +63,35 @@ def test_build_network_env_sets_storage_alias(tmp_path):
     reload_settings()
 
 
+def test_build_network_env_skips_storage_when_unset(monkeypatch):
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+    monkeypatch.delenv("PLAYWRIGHT_STORAGE_STATE_FILE", raising=False)
+    reload_settings(storage_state_file=None)
+
+    env_mapping = get_settings().build_network_env()
+
+    assert "ARTICLE_EXTRACTOR_STORAGE_STATE_FILE" not in env_mapping
+    assert "PLAYWRIGHT_STORAGE_STATE_FILE" not in env_mapping
+
+    reload_settings()
+
+
 def test_storage_state_env_defaults_when_blank(monkeypatch):
     monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", "")
     reload_settings()
 
-    assert get_settings().storage_state_file == DEFAULT_STORAGE_PATH
+    assert get_settings().storage_state_file is None
+
+    monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
+    reload_settings()
+
+
+def test_storage_state_env_sets_path(monkeypatch, tmp_path):
+    storage_file = tmp_path / "env-state.json"
+    monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(storage_file))
+    reload_settings()
+
+    assert get_settings().storage_state_file == storage_file
 
     monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
     reload_settings()

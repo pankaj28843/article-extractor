@@ -6,21 +6,25 @@ Five Arrange/Act/Assert recipes keep cache tuning, networking, diagnostics, vali
 
 **Arrange**
 - Running CLI or Docker deployment.
-- Host directory for storage state, e.g., `$HOME/.article-extractor`.
+- Optional host directory when you want persistence (default runs remain ephemeral), e.g., `$HOME/.article-extractor`.
 
 **Act**
 
 ```bash
 mkdir -p $HOME/.article-extractor
+export AE_STORAGE=$HOME/.article-extractor/storage_state.json
+
 ARTICLE_EXTRACTOR_CACHE_SIZE=2000 \
 ARTICLE_EXTRACTOR_THREADPOOL_SIZE=8 \
-uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia --output text | head -n 5
+uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia \
+  --output text \
+  --storage-state "$AE_STORAGE" | head -n 5
 
 docker run --rm -d -p 3001:3000 --name article-extractor-tuned \
   -e ARTICLE_EXTRACTOR_CACHE_SIZE=2000 \
   -e ARTICLE_EXTRACTOR_THREADPOOL_SIZE=8 \
-  -e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage_state.json \
   -e ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT=true \
+  -e ARTICLE_EXTRACTOR_STORAGE_STATE_FILE=/data/storage_state.json \
   -v $HOME/.article-extractor:/data \
   ghcr.io/pankaj28843/article-extractor:latest
 
@@ -31,11 +35,14 @@ ls -R $HOME/.article-extractor | head
 docker stop article-extractor-tuned
 ```
 
+> Skip `--storage-state`, `ARTICLE_EXTRACTOR_STORAGE_STATE_FILE`, and the `--volume` flag when you prefer the default ephemeral Playwright session. See the [Docker CLI reference](https://docs.docker.com/reference/cli/docker/container/run/#options) for volume/env semantics.
+
 **Assert**
 - CLI logs show the increased cache size; Docker logs show Playwright fetching with persisted storage.
 - POST response returns the same title/word count as the CLI tutorial.
 - `storage_state.json` plus a `storage_state.json.changes/processed/` tree exist under the mounted directory.
 - Adjust queue thresholds via `ARTICLE_EXTRACTOR_STORAGE_QUEUE_*` when logs warn about backlog; values are listed in the [Reference](reference.md#configuration).
+- `uv run scripts/debug_docker_deployment.py --disable-storage --skip-build` mimics the default ephemeral behavior, while the default harness run continues to verify persistence.
 
 ## Networking Controls
 

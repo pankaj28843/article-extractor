@@ -18,8 +18,6 @@ from typing import Any
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .network import DEFAULT_STORAGE_PATH
-
 logger = logging.getLogger(__name__)
 
 CACHE_ENV = "ARTICLE_EXTRACTOR_CACHE_SIZE"
@@ -62,7 +60,7 @@ class ServiceSettings(BaseSettings):
     cache_size: int = Field(default=1000, ge=1)
     threadpool_size: int | None = Field(default=None)
     prefer_playwright: bool = Field(default=True)
-    storage_state_file: Path = Field(default=DEFAULT_STORAGE_PATH)
+    storage_state_file: Path | None = Field(default=None)
     storage_queue_dir: Path | None = Field(default=None)
     storage_queue_max_entries: int = Field(default=DEFAULT_QUEUE_MAX_ENTRIES)
     storage_queue_max_age_seconds: float = Field(default=DEFAULT_QUEUE_MAX_AGE_SECONDS)
@@ -118,7 +116,7 @@ class ServiceSettings(BaseSettings):
     @classmethod
     def _expand_storage(cls, value: Any):
         if value in (None, ""):
-            return DEFAULT_STORAGE_PATH
+            return None
         return Path(value).expanduser()
 
     @field_validator("storage_queue_dir", mode="before")
@@ -232,9 +230,10 @@ class ServiceSettings(BaseSettings):
 
     def build_network_env(self) -> Mapping[str, str]:
         env = dict(os.environ)
-        storage = str(self.storage_state_file)
-        env.setdefault(ALIAS_STORAGE_ENV, storage)
-        env.setdefault(LEGACY_STORAGE_ENV, storage)
+        if self.storage_state_file is not None:
+            storage = str(self.storage_state_file)
+            env.setdefault(ALIAS_STORAGE_ENV, storage)
+            env.setdefault(LEGACY_STORAGE_ENV, storage)
         return MappingProxyType(env)
 
 

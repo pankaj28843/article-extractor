@@ -14,6 +14,53 @@ import pytest
 from article_extractor.types import NetworkOptions
 
 
+def _install_dummy_playwright(monkeypatch):
+    class DummyContext:
+        def __init__(self):
+            self.closed = False
+
+        async def close(self):
+            self.closed = True
+
+        async def storage_state(self, *_, **__):  # pragma: no cover - helper API
+            return None
+
+        @property
+        def pages(self):  # pragma: no cover - API parity
+            return []
+
+    class DummyBrowser:
+        def __init__(self):
+            self.context_options = None
+
+        async def new_context(self, **kwargs):
+            self.context_options = kwargs
+            return DummyContext()
+
+        async def close(self):
+            return None
+
+    class DummyPlaywright:
+        def __init__(self):
+            self.browser = DummyBrowser()
+            self.chromium = SimpleNamespace(launch=self._launch)
+            self.stopped = False
+
+        async def _launch(self, **_kwargs):
+            self.launch_kwargs = _kwargs
+            return self.browser
+
+        async def stop(self):
+            self.stopped = True
+
+    class DummyAsyncPlaywright:
+        async def start(self):
+            return DummyPlaywright()
+
+    dummy_module = SimpleNamespace(async_playwright=lambda: DummyAsyncPlaywright())
+    monkeypatch.setitem(sys.modules, "playwright.async_api", dummy_module)
+
+
 def test_augment_context_merges_without_none():
     from article_extractor import fetcher as fetcher_module
 
@@ -543,54 +590,7 @@ class TestPlaywrightFetcherContextManager:
 
         monkeypatch.setattr(fetcher_module, "_check_playwright", lambda: True)
 
-        class DummyContext:
-            def __init__(self):
-                self.closed = False
-
-            async def close(self):
-                self.closed = True
-
-            async def storage_state(
-                self, *args, **kwargs
-            ):  # pragma: no cover - used in __aexit__
-                return None
-
-            @property
-            def pages(
-                self,
-            ):  # pragma: no cover - not used but maintained for API parity
-                return []
-
-        class DummyBrowser:
-            def __init__(self):
-                self.context_options = None
-
-            async def new_context(self, **kwargs):
-                self.context_options = kwargs
-                return DummyContext()
-
-            async def close(self):
-                return None
-
-        class DummyPlaywright:
-            def __init__(self):
-                self.browser = DummyBrowser()
-                self.chromium = SimpleNamespace(launch=self._launch)
-                self.stopped = False
-
-            async def _launch(self, **_kwargs):
-                self.launch_kwargs = _kwargs
-                return self.browser
-
-            async def stop(self):
-                self.stopped = True
-
-        class DummyAsyncPlaywright:
-            async def start(self):
-                return DummyPlaywright()
-
-        dummy_module = SimpleNamespace(async_playwright=lambda: DummyAsyncPlaywright())
-        monkeypatch.setitem(sys.modules, "playwright.async_api", dummy_module)
+        _install_dummy_playwright(monkeypatch)
 
         storage_file = tmp_path / "state.json"
         storage_file.write_text("{}", encoding="utf-8")
@@ -606,6 +606,23 @@ class TestPlaywrightFetcherContextManager:
         assert fetcher._context is not None
         assert fetcher._semaphore is not None
         assert fetcher._browser.context_options["storage_state"] == str(storage_file)
+
+        await fetcher.__aexit__(None, None, None)
+
+    async def test_aenter_skips_storage_when_disabled(self, monkeypatch):
+        """__aenter__ should skip storage wiring when no path configured."""
+        from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_check_playwright", lambda: True)
+        _install_dummy_playwright(monkeypatch)
+
+        fetcher = PlaywrightFetcher(diagnostics_enabled=True)
+
+        await fetcher.__aenter__()
+
+        assert "storage_state" not in fetcher._browser.context_options
+        assert fetcher._storage_lock is None
 
         await fetcher.__aexit__(None, None, None)
 
@@ -633,6 +650,28 @@ class TestPlaywrightFetcherContextManager:
         assert storage_file.exists()
         assert "session" in storage_file.read_text(encoding="utf-8")
 
+    async def test_aexit_skips_storage_when_disabled(self):
+        """__aexit__ should not attempt persistence when storage disabled."""
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher()
+        mock_context = AsyncMock()
+        mock_context.storage_state = AsyncMock()
+        mock_context.close = AsyncMock()
+        mock_browser = AsyncMock()
+        mock_playwright = AsyncMock()
+
+        fetcher._context = mock_context
+        fetcher._browser = mock_browser
+        fetcher._playwright = mock_playwright
+
+        await fetcher.__aexit__(None, None, None)
+
+        mock_context.storage_state.assert_not_called()
+        assert mock_context.close.await_count == 1
+        assert mock_browser.close.await_count == 1
+        assert mock_playwright.stop.await_count == 1
+
     async def test_persist_storage_payload_writes_via_queue(self, tmp_path):
         """_persist_storage_payload should leverage the storage queue."""
         from article_extractor import PlaywrightFetcher
@@ -647,6 +686,22 @@ class TestPlaywrightFetcherContextManager:
 
         assert storage_file.exists()
         assert "queued" in storage_file.read_text(encoding="utf-8")
+
+    async def test_persist_storage_payload_skips_when_disabled(self, caplog):
+        """_persist_storage_payload should no-op when persistence disabled."""
+        from article_extractor import PlaywrightFetcher
+        from article_extractor.storage_queue import normalize_payload
+
+        fetcher = PlaywrightFetcher(diagnostics_enabled=True)
+        caplog.set_level("INFO")
+
+        payload = normalize_payload({"cookies": ["noop"]})
+        await fetcher._persist_storage_payload(payload)
+
+        assert any(
+            "Skipped Playwright storage persistence" in record.message
+            for record in caplog.records
+        )
 
     async def test_aexit_handles_storage_save_failure(self, tmp_path, caplog):
         """__aexit__ should handle storage save failure gracefully."""
@@ -696,6 +751,18 @@ class TestPlaywrightDiagnostics:
         record = matching[0]
         assert getattr(record, "storage_state", "") == str(storage_file)
         assert getattr(record, "storage_bytes", 0) == storage_file.stat().st_size
+
+    def test_storage_state_logging_reports_disabled_when_unset(self, caplog):
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher(diagnostics_enabled=True)
+
+        caplog.set_level("INFO")
+        fetcher._log_storage_state("load")
+
+        assert any(
+            record.message == "Playwright storage disabled" for record in caplog.records
+        )
 
     def test_storage_state_logging_disabled_by_default(self, tmp_path, caplog):
         from article_extractor import PlaywrightFetcher

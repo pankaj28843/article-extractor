@@ -263,7 +263,7 @@ def _add_network_args(parser: argparse.ArgumentParser) -> None:
         "--storage-state",
         type=Path,
         default=None,
-        help="Path for persistent Playwright storage_state.json",
+        help="Path to persist Playwright storage_state.json between runs (default: disabled)",
     )
 
 
@@ -523,7 +523,7 @@ def _extract_main() -> int:  # noqa: PLR0912, PLR0915 - CLI parser intentionally
         "--storage-state",
         type=Path,
         default=None,
-        help="Path for persistent Playwright storage_state.json",
+        help="Path to persist Playwright storage_state.json between runs (default: disabled)",
     )
 
     # Server mode

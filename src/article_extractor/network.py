@@ -119,7 +119,7 @@ def _resolve_storage_state_path(
     explicit: str | Path | None,
     base: Path | None,
     env: Mapping[str, str],
-) -> Path:
+) -> Path | None:
     if explicit is not None:
         return Path(explicit).expanduser()
     if base is not None:
@@ -127,7 +127,7 @@ def _resolve_storage_state_path(
     env_value = _lookup_storage_env(env)
     if env_value:
         return Path(env_value).expanduser()
-    return DEFAULT_STORAGE_PATH
+    return None
 
 
 def _lookup_storage_env(env: Mapping[str, str]) -> str | None:
