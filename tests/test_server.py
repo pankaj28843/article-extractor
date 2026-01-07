@@ -1001,7 +1001,9 @@ class TestCrawlRequestValidation:
 
 class TestCrawlJobRunner:
     @pytest.mark.asyncio
-    async def test_run_crawl_job_records_metrics_and_manifest(self, monkeypatch, tmp_path):
+    async def test_run_crawl_job_records_metrics_and_manifest(
+        self, monkeypatch, tmp_path
+    ):
         from article_extractor.crawler import CrawlProgress
         from article_extractor.server import CrawlJobStore, _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
@@ -1086,7 +1088,9 @@ class TestCrawlJobRunner:
         manifest = await job_store.get_manifest(job.job_id)
         assert manifest is not None
         assert metrics.observations
-        assert any((tags or {}).get("status") == "failed" for _, tags in metrics.increments)
+        assert any(
+            (tags or {}).get("status") == "failed" for _, tags in metrics.increments
+        )
 
     @pytest.mark.asyncio
     async def test_run_crawl_job_handles_failure(self, monkeypatch, tmp_path):

@@ -1,5 +1,6 @@
 import asyncio
 import secrets
+
 import httpx
 import pytest
 
@@ -36,7 +37,6 @@ def test_initialize_frontier_filters_and_dedupes():
     crawler = EfficientCrawler(
         {
             "https://example.com/keep",
-            "https://example.com/keep",
             "https://example.com/skip",
             "ftp://example.com/ignore",
         },
@@ -63,7 +63,10 @@ def test_convert_to_markdown_url_handles_suffixes():
     crawler = EfficientCrawler({"https://example.com"}, config)
 
     html_url = "https://example.com/docs/page.html?x=1"
-    assert crawler._convert_to_markdown_url(html_url, is_seed=False) == "https://example.com/docs/page.md"
+    assert (
+        crawler._convert_to_markdown_url(html_url, is_seed=False)
+        == "https://example.com/docs/page.md"
+    )
 
     image_url = "https://example.com/assets/image.png"
     assert crawler._convert_to_markdown_url(image_url, is_seed=False) == image_url
@@ -152,12 +155,12 @@ async def test_fetch_httpx_with_retries_handles_rate_limits(monkeypatch):
 
     monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", _noop_sleep)
 
-    content, rate_limited = await crawler._fetch_httpx_with_retries(
+    content, _rate_limited = await crawler._fetch_httpx_with_retries(
         "https://example.com", headers={}
     )
 
     assert content == "ok"
-    assert rate_limited is True
+    assert _rate_limited is True
 
 
 @pytest.mark.asyncio
@@ -221,10 +224,12 @@ async def test_fetch_playwright_handles_fd_exhaustion(monkeypatch):
 
     monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", _noop_sleep)
 
-    content, rate_limited, fallback = await crawler._fetch_playwright("https://example.com")
+    content, _rate_limited, fallback = await crawler._fetch_playwright(
+        "https://example.com"
+    )
 
     assert content is None
-    assert rate_limited is False
+    assert _rate_limited is False
     assert fallback is False
 
 
@@ -414,12 +419,12 @@ async def test_fetch_httpx_with_retries_connect_error(monkeypatch):
 
     monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", _noop_sleep)
 
-    content, rate_limited = await crawler._fetch_httpx_with_retries(
+    content, _rate_limited = await crawler._fetch_httpx_with_retries(
         "https://example.com", headers={}
     )
 
     assert content is None
-    assert rate_limited is False
+    assert _rate_limited is False
 
 
 def test_supports_markdown_suffix_flag():
@@ -444,7 +449,9 @@ def test_get_cookie_file_path_defaults(tmp_path, monkeypatch):
     config = CrawlConfig(cookie_storage_dir=None)
     crawler = EfficientCrawler({"https://example.com"}, config)
 
-    monkeypatch.setattr("article_extractor.discovery.tempfile.gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        "article_extractor.discovery.tempfile.gettempdir", lambda: str(tmp_path)
+    )
 
     cookie_path = crawler._get_cookie_file_path()
 
@@ -566,8 +573,14 @@ def test_convert_to_markdown_url_passthrough_cases():
     config = CrawlConfig(markdown_url_suffix=".md")
     crawler = EfficientCrawler({"https://example.com"}, config)
 
-    assert crawler._convert_to_markdown_url("https://example.com/", is_seed=False) == "https://example.com/"
-    assert crawler._convert_to_markdown_url("https://example.com/doc.md", is_seed=False) == "https://example.com/doc.md"
+    assert (
+        crawler._convert_to_markdown_url("https://example.com/", is_seed=False)
+        == "https://example.com/"
+    )
+    assert (
+        crawler._convert_to_markdown_url("https://example.com/doc.md", is_seed=False)
+        == "https://example.com/doc.md"
+    )
 
 
 def test_normalize_url_keeps_querystrings():
@@ -643,10 +656,12 @@ async def test_fetch_playwright_handles_429(monkeypatch):
     monkeypatch.setattr(crawler._rate_limiter, "get_delay", lambda _url: 0)
     monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", _noop_sleep)
 
-    content, rate_limited, fallback = await crawler._fetch_playwright("https://example.com")
+    content, _rate_limited, fallback = await crawler._fetch_playwright(
+        "https://example.com"
+    )
 
     assert content is None
-    assert rate_limited is True
+    assert _rate_limited is True
     assert fallback is False
 
 
@@ -802,7 +817,9 @@ def test_coerce_fetch_result_passthrough():
 
 @pytest.mark.asyncio
 async def test_process_page_uses_referer_and_filters_links(monkeypatch):
-    config = CrawlConfig(prefer_playwright=True, should_process_url=lambda url: "keep" in url)
+    config = CrawlConfig(
+        prefer_playwright=True, should_process_url=lambda url: "keep" in url
+    )
     crawler = EfficientCrawler({"https://example.com"}, config)
     crawler.client = object()
     crawler._normalized_seed_urls = {"https://example.com"}
@@ -913,10 +930,12 @@ async def test_fetch_playwright_success(monkeypatch):
 
     monkeypatch.setattr(fetcher_module, "PlaywrightFetcher", _FetchOk)
 
-    content, rate_limited, fallback = await crawler._fetch_playwright("https://example.com")
+    content, _rate_limited, fallback = await crawler._fetch_playwright(
+        "https://example.com"
+    )
 
     assert content == "<html></html>"
-    assert rate_limited is False
+    assert _rate_limited is False
     assert fallback is False
 
 
@@ -938,7 +957,9 @@ async def test_fetch_playwright_handles_non_fd_oserror(monkeypatch):
 
     monkeypatch.setattr(fetcher_module, "PlaywrightFetcher", _FailingFetcher)
 
-    content, rate_limited, fallback = await crawler._fetch_playwright("https://example.com")
+    content, _rate_limited, fallback = await crawler._fetch_playwright(
+        "https://example.com"
+    )
 
     assert content is None
     assert fallback is True
@@ -1007,17 +1028,28 @@ def test_extract_links_handles_list_href(monkeypatch):
 
 
 def test_convert_to_markdown_url_handles_exception(monkeypatch):
-    crawler = EfficientCrawler({"https://example.com"}, CrawlConfig(markdown_url_suffix=".md"))
+    crawler = EfficientCrawler(
+        {"https://example.com"}, CrawlConfig(markdown_url_suffix=".md")
+    )
 
-    monkeypatch.setattr("article_extractor.discovery.urlparse", lambda _url: (_ for _ in ()).throw(ValueError("boom")))
+    monkeypatch.setattr(
+        "article_extractor.discovery.urlparse",
+        lambda _url: (_ for _ in ()).throw(ValueError("boom")),
+    )
 
-    assert crawler._convert_to_markdown_url("https://example.com/docs", is_seed=False) == "https://example.com/docs"
+    assert (
+        crawler._convert_to_markdown_url("https://example.com/docs", is_seed=False)
+        == "https://example.com/docs"
+    )
 
 
 def test_normalize_url_handles_exception(monkeypatch):
     crawler = EfficientCrawler({"https://example.com"})
 
-    monkeypatch.setattr("article_extractor.discovery.urldefrag", lambda _url: (_ for _ in ()).throw(ValueError("boom")))
+    monkeypatch.setattr(
+        "article_extractor.discovery.urldefrag",
+        lambda _url: (_ for _ in ()).throw(ValueError("boom")),
+    )
 
     assert crawler._normalize_url("https://example.com") is None
 
@@ -1074,7 +1106,9 @@ def test_remove_from_frontier_noop_when_empty():
 
 @pytest.mark.asyncio
 async def test_process_page_filters_links_by_should_process(monkeypatch):
-    config = CrawlConfig(prefer_playwright=False, should_process_url=lambda url: "allow" in url)
+    config = CrawlConfig(
+        prefer_playwright=False, should_process_url=lambda url: "allow" in url
+    )
     crawler = EfficientCrawler({"https://example.com"}, config)
     crawler.client = object()
     crawler._url_queue = asyncio.Queue()
@@ -1115,7 +1149,9 @@ async def test_fetch_playwright_handles_generic_exception(monkeypatch):
 
     monkeypatch.setattr(fetcher_module, "PlaywrightFetcher", _FailingFetcher)
 
-    content, rate_limited, fallback = await crawler._fetch_playwright("https://example.com")
+    content, _rate_limited, fallback = await crawler._fetch_playwright(
+        "https://example.com"
+    )
 
     assert content is None
     assert fallback is True
