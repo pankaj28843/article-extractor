@@ -608,8 +608,8 @@ class EfficientCrawler:
     async def _crawl_worker(
         self, start_time: float, progress_state: dict, progress_lock: asyncio.Lock
     ) -> None:
-        assert self._url_queue is not None
-        assert self._concurrency is not None
+        if self._url_queue is None or self._concurrency is None:
+            raise RuntimeError("Crawler queue not initialized")
 
         while True:
             url = await self._url_queue.get()
@@ -701,10 +701,9 @@ class EfficientCrawler:
             return content, bool(rate_limited)
         return result, False
 
-    async def _process_page(self, url: str) -> PageProcessResult:
-        assert self.client is not None, (
-            "Crawler must be used within async context manager"
-        )
+    async def _process_page(self, url: str) -> PageProcessResult:  # noqa: PLR0912
+        if self.client is None:
+            raise RuntimeError("Crawler must be used within async context manager")
 
         await self._apply_rate_limit(url)
 
@@ -783,7 +782,8 @@ class EfficientCrawler:
         *,
         include_rate_limit: bool = False,
     ) -> str | None | tuple[str | None, bool]:
-        assert self.client is not None, "Client must be initialized"
+        if self.client is None:
+            raise RuntimeError("Client must be initialized")
         import httpx
 
         content, rate_limited, fallback = await self._fetch_playwright(url)
@@ -817,7 +817,8 @@ class EfficientCrawler:
         *,
         include_rate_limit: bool = False,
     ) -> str | None | tuple[str | None, bool]:
-        assert self.client is not None, "Client must be initialized"
+        if self.client is None:
+            raise RuntimeError("Client must be initialized")
         content, rate_limited = await self._fetch_httpx_with_retries(url, headers)
         if content is not None or rate_limited:
             return self._format_fetch_result(content, rate_limited, include_rate_limit)
