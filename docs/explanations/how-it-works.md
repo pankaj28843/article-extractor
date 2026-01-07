@@ -2,6 +2,11 @@
 
 This page summarizes how parsing, scoring, fetchers, and observability fit together so contributors can reason about the system before editing code or docs.
 
+**Audience**: Contributors and operators who want the architecture overview.  
+**Prerequisites**: Basic familiarity with HTML parsing and async I/O.  
+**Time**: ~10 minutes.  
+**What you'll learn**: How parsing, scoring, fetchers, and observability connect.
+
 ## Deterministic Pipeline
 
 1. **Parse HTML** with [JustHTML](https://github.com/EmilStenstrom/justhtml) inside `extractor.py`, stripping script/nav noise before candidate scoring.

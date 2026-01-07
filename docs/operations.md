@@ -2,6 +2,11 @@
 
 Five Arrange/Act/Assert recipes keep cache tuning, networking, diagnostics, validation, and release automation in one place so you can work through incidents without hopping across multiple files.
 
+**Audience**: Operators and contributors maintaining production deployments.  
+**Prerequisites**: Working CLI or Docker deployment and access to logs.  
+**Time**: ~15-30 minutes for a single workflow.  
+**What you'll learn**: How to tune caches, manage storage, and validate releases.
+
 ## Cache and Playwright Storage
 
 **Arrange**

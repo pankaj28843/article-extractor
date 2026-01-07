@@ -2,6 +2,11 @@
 
 One lookup table consolidates the runtime settings plus canonical CLI, FastAPI, and library entrypoints so you can grab the exact knob that matters mid-incident.
 
+**Audience**: Operators and developers needing exact settings or command syntax.  
+**Prerequisites**: Familiarity with CLI flags or server env vars.  
+**Time**: ~5 minutes to find a specific setting.  
+**What you'll learn**: Defaults, overrides, and the canonical entrypoints.
+
 ## Configuration
 
 | Setting | Default | Applies To | Description |

@@ -2,6 +2,11 @@
 
 Each tutorial embeds the exact commands and trimmed output captured on 2026-01-03. Swap URLs as needed, but keep the verification steps so you know when to trust the scorer.
 
+**Audience**: Developers running the CLI, Docker service, or Python API for the first time.  
+**Prerequisites**: Python 3.12+, outbound HTTPS, and `uv` on PATH (Docker optional).  
+**Time**: ~10-20 minutes depending on the path you pick.  
+**What you'll learn**: How to run the CLI, start the server, and validate results.
+
 ## CLI Fast Path
 
 **Arrange**

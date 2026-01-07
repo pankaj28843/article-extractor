@@ -2,6 +2,11 @@
 
 Batch-extract articles from multiple pages using the integrated crawler. The crawler supports BFS traversal from seed URLs, sitemap ingestion, URL filtering, and automatic Markdown output with manifest tracking.
 
+**Audience**: Developers running multi-page extraction workflows.  
+**Prerequisites**: CLI installed and write access to the output directory.  
+**Time**: ~10-20 minutes for the first crawl run.  
+**What you'll learn**: How to seed, configure, and verify crawler output.
+
 ## Quick Start
 
 ### CLI

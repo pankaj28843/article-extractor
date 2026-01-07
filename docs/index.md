@@ -2,6 +2,11 @@
 
 This site groups every public-facing detail for the CLI, FastAPI server, and Python API into four sections. Pick the page that matches your current task and copy the commands directly—each block was captured from a real session.
 
+**Audience**: Engineers shipping ingestion pipelines, search, or automation that needs stable Markdown from HTML.  
+**Prerequisites**: Python 3.12+ and a shell; Docker optional for server workflows.  
+**Time**: ~5 minutes to find the right workflow.  
+**What you'll get**: The fastest path to CLI, server, or library usage with verified commands.
+
 ## Pick a Job
 
 - **Tutorials** ([tutorials.md](tutorials.md)) — CLI, Docker, and Python walkthroughs with command blocks and verification steps.
