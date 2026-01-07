@@ -997,3 +997,129 @@ class TestCrawlRequestValidation:
         assert response.status == "running"
         assert response.progress == 10
         assert response.successful == 8
+
+
+class TestCrawlJobRunner:
+    @pytest.mark.asyncio
+    async def test_run_crawl_job_records_metrics_and_manifest(self, monkeypatch, tmp_path):
+        from article_extractor.crawler import CrawlProgress
+        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
+
+        class _Metrics:
+            def __init__(self):
+                self.enabled = True
+                self.increments = []
+                self.observations = []
+
+            def increment(self, name, tags=None):
+                self.increments.append((name, tags))
+
+            def observe(self, name, value=None, tags=None):
+                self.observations.append((name, value, tags))
+
+        async def _fake_run_crawl(config, network=None, on_progress=None):
+            assert network is not None
+            if on_progress:
+                on_progress(
+                    CrawlProgress(
+                        url="https://example.com/a",
+                        status="success",
+                        fetched=1,
+                        successful=1,
+                        failed=0,
+                        skipped=0,
+                        remaining=1,
+                    )
+                )
+                on_progress(
+                    CrawlProgress(
+                        url="https://example.com/b",
+                        status="failed",
+                        fetched=2,
+                        successful=1,
+                        failed=1,
+                        skipped=0,
+                        remaining=0,
+                    )
+                )
+                on_progress(
+                    CrawlProgress(
+                        url="https://example.com/c",
+                        status="skipped",
+                        fetched=2,
+                        successful=1,
+                        failed=1,
+                        skipped=1,
+                        remaining=0,
+                    )
+                )
+            return CrawlManifest(
+                job_id="job-1",
+                started_at="start",
+                completed_at="end",
+                config=config,
+                total_pages=2,
+                successful=1,
+                failed=1,
+                skipped=1,
+                duration_seconds=1.5,
+            )
+
+        monkeypatch.setattr("article_extractor.crawler.run_crawl", _fake_run_crawl)
+
+        job_store = CrawlJobStore()
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com/"])
+        job = await job_store.create_job(config)
+        metrics = _Metrics()
+
+        await _run_crawl_job(
+            job.job_id,
+            config,
+            NetworkOptions(),
+            job_store,
+            metrics,
+        )
+
+        updated = await job_store.get_job(job.job_id)
+        assert updated.status == "completed"
+        manifest = await job_store.get_manifest(job.job_id)
+        assert manifest is not None
+        assert metrics.observations
+        assert any((tags or {}).get("status") == "failed" for _, tags in metrics.increments)
+
+    @pytest.mark.asyncio
+    async def test_run_crawl_job_handles_failure(self, monkeypatch, tmp_path):
+        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.types import CrawlConfig, NetworkOptions
+
+        class _Metrics:
+            def __init__(self):
+                self.enabled = True
+                self.increments = []
+
+            def increment(self, name, tags=None):
+                self.increments.append((name, tags))
+
+        async def _boom(*_args, **_kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr("article_extractor.crawler.run_crawl", _boom)
+
+        job_store = CrawlJobStore()
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com/"])
+        job = await job_store.create_job(config)
+        metrics = _Metrics()
+
+        await _run_crawl_job(
+            job.job_id,
+            config,
+            NetworkOptions(),
+            job_store,
+            metrics,
+        )
+
+        updated = await job_store.get_job(job.job_id)
+        assert updated.status == "failed"
+        assert updated.error == "boom"
+        assert metrics.increments
