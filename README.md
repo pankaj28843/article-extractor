@@ -12,6 +12,14 @@ Article Extractor turns arbitrary HTML into deterministic Markdown ready for ing
 > **Why now**: one fetcher abstraction keeps Playwright and httpx output identical across the CLI, FastAPI server, and Python API.  \
 > **Outcome**: verified tutorials, a single operations runbook, and concise reference tables keep teams unblocked in production.
 
+**Audience**: Engineers shipping ingestion pipelines, doc search, or automation that needs stable Markdown from HTML.
+
+**Prerequisites**: Python 3.12+ (optional: `uv` for tooling, Docker for server demos).
+
+**Time**: 2–10 minutes depending on whether you use CLI, server, or library.
+
+**What you'll learn**: How to run the CLI once, start the FastAPI server, or embed the library in your app.
+
 ## Value At a Glance
 
 - Deterministic Readability-style scoring tuned for long-form docs, blogs, and knowledge bases.

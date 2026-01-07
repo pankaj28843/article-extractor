@@ -2,6 +2,14 @@
 
 This guide covers the complete development workflow for article-extractor.
 
+**Audience**: Contributors updating code, docs, or release workflows.
+
+**Prerequisites**: Python 3.12+, `uv`, and Docker if you need container validation.
+
+**Time**: ~30 minutes for code changes, longer if you run Docker smoke checks.
+
+**What you'll learn**: Local setup, validation loop, and release steps.
+
 ## Quick Start for Contributors
 
 ### 1. Setup Development Environment
