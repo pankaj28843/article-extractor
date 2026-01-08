@@ -30,6 +30,16 @@ if TYPE_CHECKING:
     from justhtml.node import SimpleDomNode
 
 
+_URL_ATTR_MAP: dict[str, tuple[str, ...]] = {
+    "a": ("href",),
+    "img": ("src", "srcset"),
+    "source": ("src", "srcset"),
+    "video": ("src", "poster"),
+    "audio": ("src",),
+    "track": ("src",),
+}
+
+
 class Fetcher(Protocol):
     """Protocol for HTML fetchers."""
 
@@ -346,16 +356,7 @@ class ArticleExtractor:
     def _absolutize_urls(self, node: SimpleDomNode, base_url: str) -> None:
         """Rewrite relative media/anchor URLs inside the node to be absolute."""
 
-        attr_map: dict[str, tuple[str, ...]] = {
-            "a": ("href",),
-            "img": ("src", "srcset"),
-            "source": ("src", "srcset"),
-            "video": ("src", "poster"),
-            "audio": ("src",),
-            "track": ("src",),
-        }
-
-        for tag, attributes in attr_map.items():
+        for tag, attributes in _URL_ATTR_MAP.items():
             for element in self._collect_nodes(node, (tag,)):
                 self._rewrite_url_attributes(element, attributes, base_url)
 
