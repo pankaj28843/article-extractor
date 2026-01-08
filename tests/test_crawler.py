@@ -1129,3 +1129,351 @@ def test_crawl_progress_dataclass() -> None:
     assert progress.successful == 4
     assert progress.failed == 1
     assert progress.remaining == 10
+
+
+def test_select_fetcher_class_prefers_explicit(tmp_path):
+    from article_extractor.fetcher import HttpxFetcher
+
+    crawler = Crawler(CrawlConfig(output_dir=tmp_path))
+
+    assert (
+        crawler._select_fetcher_class(HttpxFetcher, prefer_playwright=True)
+        is HttpxFetcher
+    )
+
+
+@pytest.mark.asyncio
+async def test_load_sitemaps_skips_filtered_urls(tmp_path: Path, monkeypatch) -> None:
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        sitemaps=["https://example.com/sitemap.xml"],
+        allow_prefixes=["https://example.com/"],
+    )
+    crawler = Crawler(config)
+
+    async def _fake_load(_source, _fetcher):
+        return ["https://other.example.com/page"]
+
+    monkeypatch.setattr("article_extractor.crawler.load_sitemap", _fake_load)
+
+    enqueued = await crawler.load_sitemaps()
+
+    assert enqueued == 0
+
+
+def test_extract_page_handles_exception(tmp_path: Path, monkeypatch) -> None:
+    from article_extractor import ArticleExtractor
+
+    crawler = Crawler(CrawlConfig(output_dir=tmp_path))
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("explode")
+
+    monkeypatch.setattr(ArticleExtractor, "extract", _boom)
+
+    result = crawler.extract_page("<html></html>", "https://example.com")
+
+    assert result.status == "failed"
+    assert "explode" in result.error
+
+
+def test_extract_page_handles_unsuccessful_result(tmp_path: Path, monkeypatch) -> None:
+    from article_extractor import ArticleExtractor
+    from article_extractor.types import ArticleResult
+
+    crawler = Crawler(CrawlConfig(output_dir=tmp_path))
+
+    def _failed(*_args, **_kwargs):
+        return ArticleResult(
+            url="https://example.com",
+            title="",
+            content="",
+            markdown="",
+            excerpt="",
+            word_count=0,
+            success=False,
+            error="no content",
+            warnings=["warn"],
+        )
+
+    monkeypatch.setattr(ArticleExtractor, "extract", _failed)
+
+    result = crawler.extract_page("<html></html>", "https://example.com")
+
+    assert result.status == "failed"
+    assert result.error == "no content"
+    assert result.warnings == ["warn"]
+
+
+def test_url_to_filepath_skips_empty_components(tmp_path: Path) -> None:
+    crawler = Crawler(CrawlConfig(output_dir=tmp_path))
+
+    path = crawler._url_to_filepath("https://example.com/@@@")
+
+    assert path.name == "example.com__index.md"
+
+
+def test_validate_output_dir_rejects_unwritable(tmp_path: Path, monkeypatch) -> None:
+    from pathlib import Path as PathClass
+
+    target = tmp_path / "unwritable"
+    target.mkdir()
+
+    original_touch = PathClass.touch
+
+    def _boom(self, *args, **kwargs):
+        if self.name == ".write_test":
+            raise OSError("nope")
+        return original_touch(self, *args, **kwargs)
+
+    monkeypatch.setattr(PathClass, "touch", _boom)
+
+    with pytest.raises(ValueError, match="not writable"):
+        validate_output_dir(target)
+
+
+def test_check_disk_space_handles_oserror(tmp_path: Path, monkeypatch) -> None:
+    def _boom(_path):
+        raise OSError("no stat")
+
+    monkeypatch.setattr("article_extractor.crawler.os.statvfs", _boom)
+
+    assert check_disk_space(tmp_path) is True
+
+
+@pytest.mark.asyncio
+async def test_load_local_sitemap_skips_remote_entries(tmp_path: Path) -> None:
+    local_sitemap = tmp_path / "local.xml"
+    local_sitemap.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/a</loc></url>
+</urlset>
+""",
+        encoding="utf-8",
+    )
+    index = tmp_path / "index.xml"
+    index.write_text(
+        f"""<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>{local_sitemap}</loc></sitemap>
+  <sitemap><loc>https://example.com/remote.xml</loc></sitemap>
+</sitemapindex>
+""",
+        encoding="utf-8",
+    )
+
+    urls = await load_sitemap(str(index))
+
+    assert "https://example.com/a" in urls
+    assert "https://example.com/remote.xml" not in urls
+
+
+def test_extract_links_handles_parser_error(monkeypatch) -> None:
+    def _boom(self, _html):
+        raise ValueError("bad html")
+
+    monkeypatch.setattr("article_extractor.crawler._LinkExtractor.feed", _boom)
+
+    assert extract_links("<html></html>", "https://example.com") == []
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_warns_on_low_disk_space(tmp_path: Path, caplog) -> None:
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=["https://example.com/"],
+        max_pages=1,
+        follow_links=False,
+    )
+
+    @asynccontextmanager
+    async def mock_open_fetcher(*args, **kwargs):
+        yield AsyncMock()
+
+    caplog.set_level("WARNING")
+
+    with (
+        patch.object(Crawler, "open_fetcher", mock_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+        patch.object(Crawler, "fetch_with_retry", new_callable=AsyncMock) as mock_fetch,
+        patch("article_extractor.crawler.check_disk_space", return_value=False),
+    ):
+        mock_sitemaps.return_value = 0
+        mock_fetch.return_value = SAMPLE_HTML
+        await run_crawl(config)
+
+    assert any("Low disk space" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_logs_sitemap_load(tmp_path: Path, caplog) -> None:
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=[],
+        sitemaps=["https://example.com/sitemap.xml"],
+        max_pages=1,
+        follow_links=False,
+    )
+
+    @asynccontextmanager
+    async def mock_open_fetcher(*args, **kwargs):
+        yield AsyncMock()
+
+    caplog.set_level("INFO")
+
+    with (
+        patch.object(Crawler, "open_fetcher", mock_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+        patch.object(Crawler, "fetch_with_retry", new_callable=AsyncMock) as mock_fetch,
+    ):
+        mock_sitemaps.return_value = 1
+        mock_fetch.return_value = SAMPLE_HTML
+        await run_crawl(config)
+
+    assert any(
+        "Loaded 1 URLs from sitemaps" in record.message for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_closes_when_queue_empty(tmp_path: Path, monkeypatch) -> None:
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=[],
+        max_pages=1,
+        follow_links=False,
+    )
+
+    called = {"closed": False}
+    original_close = Crawler.close
+
+    def _close(self):
+        called["closed"] = True
+        return original_close(self)
+
+    @asynccontextmanager
+    async def mock_open_fetcher(*args, **kwargs):
+        yield AsyncMock()
+
+    monkeypatch.setattr(Crawler, "close", _close)
+
+    with (
+        patch.object(Crawler, "open_fetcher", mock_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+    ):
+        mock_sitemaps.return_value = 0
+        await run_crawl(config)
+
+    assert called["closed"] is True
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_discovers_links_when_enabled(tmp_path: Path) -> None:
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=["https://example.com/"],
+        max_pages=1,
+        follow_links=True,
+    )
+
+    @asynccontextmanager
+    async def mock_open_fetcher(*args, **kwargs):
+        yield AsyncMock()
+
+    with (
+        patch.object(Crawler, "open_fetcher", mock_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+        patch.object(Crawler, "fetch_with_retry", new_callable=AsyncMock) as mock_fetch,
+        patch.object(Crawler, "discover_links", return_value=0) as mock_discover,
+    ):
+        mock_sitemaps.return_value = 0
+        mock_fetch.return_value = (SAMPLE_HTML, 200)
+        await run_crawl(config)
+
+    mock_discover.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_marks_write_failures(tmp_path: Path) -> None:
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=["https://example.com/"],
+        max_pages=1,
+        follow_links=False,
+    )
+
+    @asynccontextmanager
+    async def mock_open_fetcher(*args, **kwargs):
+        yield AsyncMock()
+
+    def _extract_page(_self, _html, _url):
+        return CrawlResult(
+            url="https://example.com/",
+            file_path=None,
+            status="success",
+            word_count=10,
+            title="Title",
+            extracted_at="2026-01-05T10:01:00Z",
+            markdown="content",
+        )
+
+    with (
+        patch.object(Crawler, "open_fetcher", mock_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+        patch.object(Crawler, "fetch_with_retry", new_callable=AsyncMock) as mock_fetch,
+        patch.object(Crawler, "extract_page", _extract_page),
+        patch.object(Crawler, "write_markdown", side_effect=RuntimeError("boom")),
+    ):
+        mock_sitemaps.return_value = 0
+        mock_fetch.return_value = (SAMPLE_HTML, 200)
+        manifest = await run_crawl(config)
+
+    assert manifest.failed == 1
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_records_failed_extractions(tmp_path: Path) -> None:
+    from contextlib import asynccontextmanager
+
+    config = CrawlConfig(
+        output_dir=tmp_path,
+        seeds=["https://example.com/"],
+        max_pages=1,
+        follow_links=False,
+    )
+
+    @asynccontextmanager
+    async def mock_open_fetcher(*args, **kwargs):
+        yield AsyncMock()
+
+    def _extract_page(_self, _html, _url):
+        return CrawlResult(
+            url="https://example.com/",
+            file_path=None,
+            status="failed",
+            error="nope",
+            extracted_at="2026-01-05T10:01:00Z",
+        )
+
+    with (
+        patch.object(Crawler, "open_fetcher", mock_open_fetcher),
+        patch.object(Crawler, "load_sitemaps", new_callable=AsyncMock) as mock_sitemaps,
+        patch.object(Crawler, "fetch_with_retry", new_callable=AsyncMock) as mock_fetch,
+        patch.object(Crawler, "extract_page", _extract_page),
+    ):
+        mock_sitemaps.return_value = 0
+        mock_fetch.return_value = (SAMPLE_HTML, 200)
+        manifest = await run_crawl(config)
+
+    assert manifest.failed == 1

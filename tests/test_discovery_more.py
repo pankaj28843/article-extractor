@@ -1,5 +1,6 @@
 import asyncio
 import secrets
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -756,11 +757,37 @@ def test_report_progress_with_queue():
     crawler._report_progress(start_time=0.0)
 
 
+def test_report_progress_without_queue():
+    crawler = EfficientCrawler({"https://example.com"})
+    crawler.frontier.append("https://example.com")
+    crawler.collected.add("https://example.com")
+
+    crawler._report_progress(start_time=0.0)
+
+
 def test_log_completion_with_rate_limit_stats():
     crawler = EfficientCrawler({"https://example.com"})
     crawler.collected.add("https://example.com")
     crawler._crawler_skipped = 1
     crawler._rate_limiter.record_429("https://example.com")
+
+    crawler._log_completion(start_time=0.0)
+
+
+def test_log_completion_without_rate_limit_stats(monkeypatch):
+    crawler = EfficientCrawler({"https://example.com"})
+    crawler.collected.add("https://example.com")
+    monkeypatch.setattr(
+        crawler._rate_limiter,
+        "get_stats",
+        lambda: {
+            "example.com": {
+                "total_429s": 0,
+                "total_requests": 2,
+                "current_delay": 0.0,
+            }
+        },
+    )
 
     crawler._log_completion(start_time=0.0)
 
@@ -1155,3 +1182,220 @@ async def test_fetch_playwright_handles_generic_exception(monkeypatch):
 
     assert content is None
     assert fallback is True
+
+
+def test_create_client_requires_httpx(monkeypatch):
+    import builtins
+
+    crawler = EfficientCrawler({"https://example.com"})
+
+    real_import = builtins.__import__
+
+    def _boom(name, *args, **kwargs):
+        if name == "httpx":
+            raise ImportError("no httpx")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _boom)
+
+    with pytest.raises(ImportError, match="httpx not installed"):
+        crawler._create_client()
+
+
+@pytest.mark.asyncio
+async def test_crawl_requires_context_manager():
+    crawler = EfficientCrawler({"https://example.com"})
+
+    with pytest.raises(RuntimeError, match="async context manager"):
+        await crawler.crawl()
+
+
+@pytest.mark.asyncio
+async def test_crawl_worker_requires_queue():
+    crawler = EfficientCrawler({"https://example.com"})
+
+    with pytest.raises(RuntimeError, match="queue not initialized"):
+        await crawler._crawl_worker(0.0, {"last_report": 0}, asyncio.Lock())
+
+
+@pytest.mark.asyncio
+async def test_process_page_requires_client():
+    crawler = EfficientCrawler({"https://example.com"})
+
+    with pytest.raises(RuntimeError, match="async context manager"):
+        await crawler._process_page("https://example.com")
+
+
+@pytest.mark.asyncio
+async def test_fetch_with_playwright_first_requires_client():
+    crawler = EfficientCrawler({"https://example.com"})
+
+    with pytest.raises(RuntimeError, match="Client must be initialized"):
+        await crawler._fetch_with_playwright_first("https://example.com", {})
+
+
+@pytest.mark.asyncio
+async def test_fetch_with_httpx_first_requires_client():
+    crawler = EfficientCrawler({"https://example.com"})
+
+    with pytest.raises(RuntimeError, match="Client must be initialized"):
+        await crawler._fetch_with_httpx_first("https://example.com", {})
+
+
+@pytest.mark.asyncio
+async def test_handle_crawl_url_records_success(monkeypatch):
+    crawler = EfficientCrawler({"https://example.com"})
+    crawler._url_queue = asyncio.Queue()
+    crawler._concurrency = AdaptiveConcurrencyLimiter(1, 1)
+
+    async def _fake_acquire():
+        return None
+
+    async def _fake_release():
+        return None
+
+    crawler._concurrency.acquire = _fake_acquire  # type: ignore[assignment]
+    crawler._concurrency.release = _fake_release  # type: ignore[assignment]
+    crawler._concurrency.record_success = AsyncMock()
+    crawler._concurrency.record_rate_limit = AsyncMock()
+
+    monkeypatch.setattr(
+        crawler, "_process_page", AsyncMock(return_value=PageProcessResult(True))
+    )
+    monkeypatch.setattr(crawler, "_maybe_report_progress", AsyncMock())
+
+    await crawler._handle_crawl_url("https://example.com", 0.0, {}, asyncio.Lock())
+
+    crawler._concurrency.record_success.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_crawl_url_records_failure(monkeypatch):
+    crawler = EfficientCrawler({"https://example.com"})
+    crawler._url_queue = asyncio.Queue()
+    crawler._concurrency = AdaptiveConcurrencyLimiter(1, 1)
+
+    async def _fake_acquire():
+        return None
+
+    async def _fake_release():
+        return None
+
+    crawler._concurrency.acquire = _fake_acquire  # type: ignore[assignment]
+    crawler._concurrency.release = _fake_release  # type: ignore[assignment]
+    crawler._concurrency.record_success = AsyncMock()
+    crawler._concurrency.record_rate_limit = AsyncMock()
+
+    monkeypatch.setattr(
+        crawler,
+        "_process_page",
+        AsyncMock(return_value=PageProcessResult(success=False, rate_limited=False)),
+    )
+    monkeypatch.setattr(crawler, "_maybe_report_progress", AsyncMock())
+
+    await crawler._handle_crawl_url("https://example.com", 0.0, {}, asyncio.Lock())
+
+    crawler._concurrency.record_success.assert_not_awaited()
+    crawler._concurrency.record_rate_limit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_page_queues_links(monkeypatch):
+    config = CrawlConfig(prefer_playwright=False)
+    crawler = EfficientCrawler({"https://example.com"}, config)
+    crawler.client = object()
+    crawler._url_queue = asyncio.Queue()
+
+    async def _noop_rate_limit(_url=None):
+        return None
+
+    async def _fake_fetch(_url, _headers, include_rate_limit=False):
+        return "<html><a href='https://example.com/docs'></a></html>", False
+
+    monkeypatch.setattr(crawler, "_apply_rate_limit", _noop_rate_limit)
+    monkeypatch.setattr(crawler, "_fetch_with_httpx_first", _fake_fetch)
+    monkeypatch.setattr(
+        crawler, "_extract_links", lambda *_a, **_k: {"https://example.com/docs"}
+    )
+
+    result = await crawler._process_page("https://example.com")
+
+    assert result.success is True
+    assert crawler._url_queue.qsize() == 1
+
+
+@pytest.mark.asyncio
+async def test_process_page_without_queue_still_discovers_links(monkeypatch):
+    config = CrawlConfig(prefer_playwright=False)
+    crawler = EfficientCrawler({"https://example.com"}, config)
+    crawler.client = object()
+
+    async def _noop_rate_limit(_url=None):
+        return None
+
+    async def _fake_fetch(_url, _headers, include_rate_limit=False):
+        return "<html><a href='https://example.com/docs'></a></html>", False
+
+    monkeypatch.setattr(crawler, "_apply_rate_limit", _noop_rate_limit)
+    monkeypatch.setattr(crawler, "_fetch_with_httpx_first", _fake_fetch)
+    monkeypatch.setattr(
+        crawler, "_extract_links", lambda *_a, **_k: {"https://example.com/docs"}
+    )
+
+    result = await crawler._process_page("https://example.com")
+
+    assert result.success is True
+    assert crawler.frontier
+
+
+@pytest.mark.asyncio
+async def test_apply_rate_limit_without_url_sleeps(monkeypatch):
+    config = CrawlConfig(delay_seconds=0.5)
+    crawler = EfficientCrawler({"https://example.com"}, config)
+    crawler._last_request_time = 9.9
+
+    times = iter([10.0, 10.5])
+    monkeypatch.setattr("article_extractor.discovery.time.time", lambda: next(times))
+
+    sleep_calls = []
+
+    async def _fake_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", _fake_sleep)
+
+    await crawler._apply_rate_limit()
+
+    assert sleep_calls
+
+
+@pytest.mark.asyncio
+async def test_apply_rate_limit_without_url_no_sleep_when_elapsed(monkeypatch):
+    config = CrawlConfig(delay_seconds=0.5)
+    crawler = EfficientCrawler({"https://example.com"}, config)
+    crawler._last_request_time = 1.0
+
+    times = iter([2.0, 2.1])
+    monkeypatch.setattr("article_extractor.discovery.time.time", lambda: next(times))
+    sleep_mock = AsyncMock()
+    monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", sleep_mock)
+
+    await crawler._apply_rate_limit()
+
+    sleep_mock.assert_not_awaited()
+    assert crawler._last_request_time == 2.1
+
+
+@pytest.mark.asyncio
+async def test_apply_rate_limit_without_delay_returns(monkeypatch):
+    config = CrawlConfig(delay_seconds=0.0)
+    crawler = EfficientCrawler({"https://example.com"}, config)
+    crawler._last_request_time = 5.0
+
+    sleep_mock = AsyncMock()
+    monkeypatch.setattr("article_extractor.discovery.asyncio.sleep", sleep_mock)
+
+    await crawler._apply_rate_limit()
+
+    sleep_mock.assert_not_awaited()
+    assert crawler._last_request_time == 5.0

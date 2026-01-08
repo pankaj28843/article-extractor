@@ -97,6 +97,14 @@ class TestGetClassWeight:
         weight = get_class_weight(nodes[0])
         assert weight == 0
 
+    def test_readability_asset_class_adds_weight(self):
+        """Readability asset classes should add weight."""
+        doc = JustHTML('<div class="entry-content-asset">text</div>')
+        nodes = doc.query("div")
+        assert len(nodes) == 1
+        weight = get_class_weight(nodes[0])
+        assert weight >= 25
+
 
 @pytest.mark.unit
 class TestIsUnlikelyCandidate:
@@ -516,3 +524,15 @@ class TestGetClassIdString:
         assert len(nodes) == 1
         result = get_class_id_string(nodes[0])
         assert result.strip() == ""
+
+    def test_handles_class_list(self):
+        """Should join list-based class attributes."""
+        from article_extractor.scorer import get_class_id_string
+
+        doc = JustHTML('<div class="alpha beta">text</div>')
+        node = doc.query("div")[0]
+        node.attrs["class"] = ["alpha", "beta"]
+
+        result = get_class_id_string(node)
+
+        assert "alpha beta" in result

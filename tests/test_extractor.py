@@ -281,49 +281,44 @@ class TestEdgeCases:
             # Unicode should be preserved
             assert "日本語" in result.title or "日本語" in result.content
 
-        def test_absolutizes_relative_links_and_media(self):
-            """Extractor should rewrite relative URLs in anchors and media tags."""
-            html = """
-            <html>
-            <body>
-                <article>
-                    <h1>Relative Assets</h1>
-                    <p>This article references local assets and links to prove that
-                    URL rewriting converts them into absolute destinations for the final
-                    markdown output that readers view offline.</p>
-                    <p>Read more on <a href="/docs/getting-started">our docs</a> to keep learning.</p>
-                    <figure>
-                        <img src="images/photo.jpg" srcset="/img/photo-1x.jpg 1x, img/photo-2x.jpg 2x" alt="Photo">
-                    </figure>
-                    <video controls poster="media/thumb.jpg" src="../media/trailer.mp4"></video>
-                </article>
-            </body>
-            </html>
-            """
+    def test_absolutizes_relative_links_and_media(self):
+        """Extractor should rewrite relative URLs in anchors and media tags."""
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>Relative Assets</h1>
+                <p>This article references local assets and links to prove that
+                URL rewriting converts them into absolute destinations for the final
+                markdown output that readers view offline.</p>
+                <p>Read more on <a href="/docs/getting-started">our docs</a> to keep learning.</p>
+                <figure>
+                    <img src="images/photo.jpg" srcset="/img/photo-1x.jpg 1x, /img/photo-2x.jpg, , img/photo-3x.jpg 3x" alt="Photo">
+                </figure>
+                <video controls poster="media/thumb.jpg" src="../media/trailer.mp4"></video>
+            </article>
+        </body>
+        </html>
+        """
 
-            options = ExtractionOptions(min_word_count=10, min_char_threshold=10)
-            result = extract_article(
-                html,
-                url="https://example.com/blog/post-one/index.html",
-                options=options,
-            )
+        options = ExtractionOptions(
+            min_word_count=10, min_char_threshold=10, safe_markdown=False
+        )
+        result = extract_article(
+            html,
+            url="https://example.com/blog/post-one/index.html",
+            options=options,
+        )
 
-            assert result.success is True
-            assert "https://example.com/docs/getting-started" in result.content
-            assert (
-                "https://example.com/blog/post-one/images/photo.jpg" in result.content
-            )
-            assert (
-                "https://example.com/img/photo-1x.jpg 1x" in result.content
-                and "https://example.com/blog/post-one/img/photo-2x.jpg 2x"
-                in result.content
-            )
-            assert "https://example.com/blog/post-one/media/thumb.jpg" in result.content
-            assert "https://example.com/blog/media/trailer.mp4" in result.content
-            assert (
-                "[our docs](https://example.com/docs/getting-started)"
-                in result.markdown
-            )
+        assert result.success is True
+        assert "https://example.com/docs/getting-started" in result.content
+        assert "https://example.com/blog/post-one/images/photo.jpg" in result.content
+        assert "https://example.com/img/photo-1x.jpg 1x" in result.content
+        assert "https://example.com/img/photo-2x.jpg" in result.content
+        assert "https://example.com/blog/post-one/img/photo-3x.jpg 3x" in result.content
+        assert "https://example.com/blog/post-one/media/thumb.jpg" in result.content
+        assert "https://example.com/blog/media/trailer.mp4" in result.content
+        assert "[our docs](https://example.com/docs/getting-started)" in result.markdown
 
     def test_deeply_nested_content(self):
         """Should handle deeply nested content."""
@@ -1030,3 +1025,501 @@ class TestExtractArticleFromUrlAutoFetcher:
                 "https://example.com", prefer_playwright=True
             )
             assert result.success is True
+
+
+@pytest.mark.unit
+class TestExtractorEdgeCases:
+    @pytest.mark.asyncio
+    async def test_fetcher_protocol_stub(self):
+        from article_extractor import extractor as extractor_module
+
+        assert await extractor_module.Fetcher.fetch(None, "https://example.com") is None
+
+    def test_parse_failure_returns_error(self, monkeypatch):
+        from article_extractor import extract_article
+        from article_extractor import extractor as extractor_module
+
+        def _boom(_html):
+            raise ValueError("bad html")
+
+        monkeypatch.setattr(extractor_module, "JustHTML", _boom)
+
+        result = extract_article("<html></html>", url="https://example.com")
+
+        assert result.success is False
+        assert "Failed to parse HTML" in result.error
+
+    def test_no_candidates_returns_failure(self, monkeypatch):
+        from article_extractor import extract_article
+        from article_extractor import extractor as extractor_module
+
+        class _EmptyDoc:
+            def query(self, _selector):
+                return []
+
+        monkeypatch.setattr(extractor_module, "JustHTML", lambda _html: _EmptyDoc())
+
+        result = extract_article("", url="https://example.com/docs/getting-started")
+
+        assert result.success is False
+        assert result.error == "Could not find main content"
+        assert result.title == "Getting Started"
+
+    def test_content_serialization_error_returns_failure(self, monkeypatch):
+        from article_extractor import extract_article
+        from article_extractor import extractor as extractor_module
+
+        class _BadNode:
+            name = "article"
+            attrs = {}
+
+            def query(self, _selector):
+                return []
+
+            def to_html(self, *args, **kwargs):
+                raise ValueError("serialize fail")
+
+            def to_text(self, *args, **kwargs):
+                return "text"
+
+        class _Doc:
+            def __init__(self, node):
+                self._node = node
+
+            def query(self, selector):
+                if selector == "article":
+                    return [self._node]
+                return []
+
+        monkeypatch.setattr(
+            extractor_module, "JustHTML", lambda _html: _Doc(_BadNode())
+        )
+
+        result = extract_article("<html></html>", url="https://example.com")
+
+        assert result.success is False
+        assert "Failed to extract content" in result.error
+
+    def test_clean_document_removes_script_and_roles(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <head><script>var noisy = 1;</script></head>
+        <body>
+            <nav role="navigation">Nav text</nav>
+            <article>
+                <p>Main article content with enough words to pass extraction.</p>
+                <p>More substantive content to keep extraction successful.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="https://example.com", options=options)
+
+        assert result.success is True
+        assert "Nav text" not in result.content
+        assert "noisy" not in result.content
+
+    def test_title_uses_og_title(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <head>
+            <meta property="og:title" content="OG Title" />
+        </head>
+        <body>
+            <article>
+                <p>Content with enough words to satisfy the extraction rules.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="https://example.com", options=options)
+
+        assert result.title == "OG Title"
+
+    def test_title_strips_suffix(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <head><title>Welcome - Example</title></head>
+        <body>
+            <article>
+                <p>Enough content here to pass extraction thresholds.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="https://example.com", options=options)
+
+        assert result.title == "Welcome"
+
+    def test_title_og_empty_falls_back_to_url(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <head>
+            <meta property="og:title" content="" />
+        </head>
+        <body>
+            <article>
+                <p>Content with enough words to satisfy the extraction rules.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(
+            html, url="https://example.com/posts/slug", options=options
+        )
+
+        assert result.title == "Slug"
+
+    def test_title_h1_empty_falls_back_to_title(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <head><title>Fallback Title</title></head>
+        <body>
+            <article>
+                <h1> </h1>
+                <p>Enough content to keep extraction successful.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="https://example.com", options=options)
+
+        assert result.title == "Fallback Title"
+
+    def test_title_tag_blank_falls_back_to_untitled(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <head><title> </title></head>
+        <body>
+            <article>
+                <p>Enough content to keep extraction successful.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="", options=options)
+
+        assert result.title == "Untitled"
+
+    def test_url_root_falls_back_to_untitled(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <body>
+            <article>
+                <p>Enough content to keep extraction successful.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="https://example.com/", options=options)
+
+        assert result.title == "Untitled"
+
+    def test_extract_without_url_keeps_relative_links(self):
+        from article_extractor import ExtractionOptions, extract_article
+
+        html = """
+        <html>
+        <body>
+            <article>
+                <p>Read more on <a href="/docs">our docs</a>.</p>
+            </article>
+        </body>
+        </html>
+        """
+        options = ExtractionOptions(min_word_count=5, min_char_threshold=10)
+        result = extract_article(html, url="", options=options)
+
+        assert result.success is True
+        assert 'href="/docs"' in result.content
+
+    def test_normalize_srcset_handles_empty_and_plain_entries(self):
+        from article_extractor import ArticleExtractor
+
+        extractor = ArticleExtractor()
+        normalized = extractor._normalize_srcset(
+            " , /img/one.jpg, /img/two.jpg 2x",
+            "https://example.com/base/",
+        )
+
+        assert "https://example.com/img/one.jpg" in normalized
+        assert "https://example.com/img/two.jpg 2x" in normalized
+
+    def test_remove_empty_links_skips_parentless_nodes(self):
+        from article_extractor import ArticleExtractor
+
+        class _Anchor:
+            name = "a"
+            parent = None
+
+            def to_text(self, *args, **kwargs):
+                return ""
+
+            def query(self, _selector):
+                return []
+
+        class _Root:
+            name = "div"
+
+            def query(self, _selector):
+                return [_Anchor()]
+
+        extractor = ArticleExtractor()
+        extractor._remove_empty_links(_Root())
+
+    def test_remove_empty_images_skips_parentless_nodes(self):
+        from article_extractor import ArticleExtractor
+
+        class _Image:
+            name = "img"
+            parent = None
+            attrs = {"src": ""}
+
+        class _Root:
+            name = "div"
+
+            def query(self, _selector):
+                return [_Image()]
+
+        extractor = ArticleExtractor()
+        extractor._remove_empty_images(_Root())
+
+    def test_remove_empty_blocks_skips_parentless_nodes(self):
+        from article_extractor import ArticleExtractor
+
+        class _Block:
+            name = "p"
+            parent = None
+
+            def to_text(self, *args, **kwargs):
+                return ""
+
+            def query(self, _selector):
+                return []
+
+        class _Root:
+            name = "div"
+
+            def query(self, _selector):
+                return [_Block()]
+
+            def to_text(self, *args, **kwargs):
+                return ""
+
+        extractor = ArticleExtractor()
+        extractor._remove_empty_blocks(_Root())
+
+    def test_find_top_candidate_returns_none_when_ranked_empty(self, monkeypatch):
+        from justhtml import JustHTML
+
+        from article_extractor import ArticleExtractor
+        from article_extractor import extractor as extractor_module
+
+        monkeypatch.setattr(extractor_module, "rank_candidates", lambda *_a, **_k: [])
+
+        doc = JustHTML("<article><p>Text</p></article>")
+        extractor = ArticleExtractor()
+        result = extractor._find_top_candidate(doc, extractor_module.ExtractionCache())
+
+        assert result is None
+
+    def test_clean_document_skips_parentless_nodes(self):
+        from article_extractor import ArticleExtractor
+
+        class _Node:
+            parent = None
+
+        class _Doc:
+            def query(self, _selector):
+                return [_Node()]
+
+        extractor = ArticleExtractor()
+        extractor._clean_document(_Doc())
+
+    def test_clean_document_removes_role_nodes(self):
+        from article_extractor import ArticleExtractor
+
+        class _Parent:
+            def __init__(self):
+                self.removed = []
+
+            def remove_child(self, node):
+                self.removed.append(node)
+
+        class _Node:
+            def __init__(self, parent):
+                self.parent = parent
+
+        class _Doc:
+            def __init__(self, node):
+                self._node = node
+
+            def query(self, selector):
+                if 'role="' in selector:
+                    return [self._node]
+                return []
+
+        parent = _Parent()
+        node = _Node(parent)
+        extractor = ArticleExtractor()
+        extractor._clean_document(_Doc(node))
+
+        assert parent.removed == [node]
+
+    def test_absolutize_root_media_node(self):
+        from justhtml import JustHTML
+
+        from article_extractor import ArticleExtractor
+
+        doc = JustHTML('<img src="images/pic.png">')
+        node = doc.query("img")[0]
+        extractor = ArticleExtractor()
+        extractor._absolutize_urls(node, "https://example.com/base/")
+
+        assert node.attrs["src"] == "https://example.com/base/images/pic.png"
+
+    def test_rewrite_url_attributes_no_attrs(self):
+        from article_extractor import ArticleExtractor
+
+        class _AttrlessNode:
+            attrs = None
+
+        extractor = ArticleExtractor()
+        extractor._rewrite_url_attributes(
+            _AttrlessNode(),
+            ("href",),
+            "https://example.com",
+        )
+
+    def test_remove_empty_anchor_root(self):
+        from justhtml import JustHTML
+
+        from article_extractor import ArticleExtractor
+
+        doc = JustHTML('<div><a href="https://example.com"></a></div>')
+        node = doc.query("a")[0]
+        extractor = ArticleExtractor()
+
+        extractor._remove_empty_links(node)
+
+        assert doc.query("a") == []
+
+    def test_remove_empty_image_root(self):
+        from justhtml import JustHTML
+
+        from article_extractor import ArticleExtractor
+
+        doc = JustHTML("<div><img></div>")
+        node = doc.query("img")[0]
+        extractor = ArticleExtractor()
+
+        extractor._remove_empty_images(node)
+
+        assert doc.query("img") == []
+
+    def test_remove_empty_block_root(self):
+        from justhtml import JustHTML
+
+        from article_extractor import ArticleExtractor
+
+        doc = JustHTML("<div><p>   </p></div>")
+        node = doc.query("p")[0]
+        extractor = ArticleExtractor()
+
+        extractor._remove_empty_blocks(node)
+
+        assert doc.query("p") == []
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestExtractorAsyncEdges:
+    async def test_transient_404_short_html_fails(self):
+        from article_extractor import extract_article_from_url
+
+        class ShortFetcher:
+            async def fetch(self, _url: str) -> tuple[str, int]:
+                return "<html><body><p>short</p></body></html>", 404
+
+        result = await extract_article_from_url(
+            "https://example.com/spa", fetcher=ShortFetcher()
+        )
+
+        assert result.success is False
+        assert result.error == "HTTP 404"
+
+    async def test_transient_404_extractable_but_failure(self):
+        from article_extractor import extractor as extractor_module
+        from article_extractor.types import ArticleResult
+
+        class FailingExtractor:
+            def extract(self, _html: str, _url: str):
+                return ArticleResult(
+                    url=_url,
+                    title="",
+                    content="",
+                    markdown="",
+                    excerpt="",
+                    word_count=0,
+                    success=False,
+                    error="no content",
+                )
+
+        class Fetcher:
+            async def fetch(self, _url: str) -> tuple[str, int]:
+                html = "<article>" + ("word " * 200) + "</article>"
+                return html, 404
+
+        result = await extractor_module._extract_with_fetcher(
+            FailingExtractor(),
+            "https://example.com/spa",
+            Fetcher(),
+            executor=None,
+        )
+
+        assert result.success is False
+        assert result.error == "HTTP 404"
+
+    async def test_extract_with_executor_uses_thread_pool(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        from article_extractor import extract_article_from_url
+
+        class OkFetcher:
+            async def fetch(self, _url: str) -> tuple[str, int]:
+                html = """
+                <html><body><article>
+                <p>Content with enough words to satisfy extraction in executor.</p>
+                </article></body></html>
+                """
+                return html, 200
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = await extract_article_from_url(
+                "https://example.com/ok",
+                fetcher=OkFetcher(),
+                executor=executor,
+            )
+
+        assert result.success is True

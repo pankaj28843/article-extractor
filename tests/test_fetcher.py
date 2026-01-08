@@ -72,6 +72,26 @@ def test_augment_context_merges_without_none():
     assert "status_code" not in merged
 
 
+def test_augment_context_empty_returns_empty():
+    from article_extractor import fetcher as fetcher_module
+
+    assert (
+        fetcher_module._augment_context(
+            {},
+        )
+        == {}
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetcher_protocol_stubs():
+    from article_extractor import fetcher as fetcher_module
+
+    assert await fetcher_module.Fetcher.fetch(None, "https://example.com") is None
+    assert await fetcher_module.Fetcher.__aenter__(None) is None
+    assert await fetcher_module.Fetcher.__aexit__(None, None, None, None) is None
+
+
 # Test PlaywrightFetcher internals
 
 
@@ -140,6 +160,28 @@ class TestPlaywrightFetcherFetch:
         assert status == 200
         assert content == "<html>test</html>"
         page.close.assert_awaited_once()
+
+    async def test_fetch_never_stabilizes_returns_latest(self):
+        """Fetch should return latest content when stability checks never converge."""
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher()
+        fetcher._semaphore = asyncio.Semaphore(1)
+        context = AsyncMock()
+        fetcher._context = context
+
+        page = AsyncMock()
+        context.new_page.return_value = page
+        page.goto.return_value = SimpleNamespace(status=200)
+        page.content = AsyncMock(side_effect=["<html>a</html>", "<html>b</html>"])
+
+        with patch("asyncio.sleep", AsyncMock()):
+            content, status = await fetcher.fetch(
+                "https://example.com", max_stability_checks=2
+            )
+
+        assert status == 200
+        assert content == "<html>b</html>"
 
     async def test_fetch_with_wait_for_selector(self):
         """Fetch should wait for selector if provided."""
@@ -271,6 +313,197 @@ class TestPlaywrightFetcherStorageState:
 
         fetcher._context.clear_cookies.assert_awaited_once()
         assert not storage_file.exists()
+
+    async def test_clear_storage_state_without_context_deletes_file(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "state.json"
+        storage_file.write_text("data", encoding="utf-8")
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+
+        await fetcher.clear_storage_state()
+
+        assert not storage_file.exists()
+
+    async def test_clear_cookies_without_context_deletes_file(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "cookies.json"
+        storage_file.write_text("data", encoding="utf-8")
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+
+        await fetcher.clear_cookies()
+
+        assert not storage_file.exists()
+
+    async def test_clear_storage_state_without_file(self):
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher()
+        context = AsyncMock()
+        context.pages = []
+        fetcher._context = context
+
+        await fetcher.clear_storage_state()
+
+        context.clear_cookies.assert_awaited_once()
+
+    async def test_clear_cookies_without_file(self):
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher()
+        fetcher._context = AsyncMock()
+
+        await fetcher.clear_cookies()
+
+        fetcher._context.clear_cookies.assert_awaited_once()
+
+    async def test_log_storage_state_missing_file(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "missing.json"
+        fetcher = PlaywrightFetcher(
+            storage_state_file=storage_file, diagnostics_enabled=True
+        )
+        with patch.object(PlaywrightFetcher, "_log_diagnostic") as log_mock:
+            fetcher._log_storage_state("start")
+
+        extra = log_mock.call_args.kwargs["extra"]
+        assert extra["storage_exists"] is False
+        assert "storage_bytes" not in extra
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestPlaywrightFetcherStorageQueue:
+    async def test_storage_queue_uses_settings(self, tmp_path, monkeypatch):
+        from article_extractor import PlaywrightFetcher
+        from article_extractor.storage_queue import StorageQueue
+
+        class _Settings:
+            storage_queue_dir = tmp_path / "queue"
+            storage_queue_max_entries = 5
+            storage_queue_max_age_seconds = 12.0
+            storage_queue_retention_seconds = 30.0
+
+        monkeypatch.setattr(
+            "article_extractor.settings.get_settings", lambda: _Settings
+        )
+
+        storage_file = tmp_path / "state.json"
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+
+        assert isinstance(fetcher._storage_queue, StorageQueue)
+        assert fetcher._storage_queue.queue_dir == _Settings.storage_queue_dir
+
+    async def test_log_storage_state_handles_stat_error(self, tmp_path, monkeypatch):
+        from pathlib import Path
+
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "state.json"
+        storage_file.write_text("data", encoding="utf-8")
+        fetcher = PlaywrightFetcher(
+            storage_state_file=storage_file, diagnostics_enabled=True
+        )
+
+        original_stat = Path.stat
+
+        def _boom(self):
+            if self == storage_file:
+                raise OSError("boom")
+            return original_stat(self)
+
+        monkeypatch.setattr(Path, "stat", _boom)
+
+        fetcher._log_storage_state("load")
+
+    async def test_persist_storage_payload_skips_when_unchanged(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+        from article_extractor.storage_queue import StorageSnapshot, compute_fingerprint
+
+        storage_file = tmp_path / "state.json"
+        payload = b"payload"
+        fetcher = PlaywrightFetcher(
+            storage_state_file=storage_file, diagnostics_enabled=True
+        )
+        fingerprint = compute_fingerprint(payload)
+        fetcher._storage_snapshot = StorageSnapshot(
+            path=storage_file, fingerprint=fingerprint, size=len(payload)
+        )
+
+        await fetcher._persist_storage_payload(payload)
+
+        assert fetcher._storage_snapshot.fingerprint == fingerprint
+
+    async def test_write_storage_direct_handles_disabled_storage(self):
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher(diagnostics_enabled=True)
+
+        fetcher._write_storage_direct(b"payload")
+
+    async def test_network_property_exposes_network(self):
+        from article_extractor import PlaywrightFetcher
+
+        network = NetworkOptions(user_agent="Agent")
+        fetcher = PlaywrightFetcher(network=network)
+
+        assert fetcher.network is network
+
+    async def test_log_stability_summary_emits_when_enabled(self, caplog):
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher(diagnostics_enabled=True)
+        caplog.set_level("INFO")
+
+        fetcher._log_stability_summary(
+            {"url": "https://example.com"},
+            checks=2,
+            stabilized=True,
+            max_checks=5,
+        )
+
+        assert any(
+            "Playwright stability summary" in record.message
+            for record in caplog.records
+        )
+
+    async def test_aenter_handles_missing_storage_file(self, tmp_path, monkeypatch):
+        from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_check_playwright", lambda: True)
+        _install_dummy_playwright(monkeypatch)
+
+        storage_file = tmp_path / "missing.json"
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+
+        entered = await fetcher.__aenter__()
+
+        assert entered is fetcher
+        assert "storage_state" not in fetcher._browser.context_options
+
+        await fetcher.__aexit__(None, None, None)
+
+    async def test_aexit_saves_storage_and_closes(self, tmp_path):
+        from article_extractor import PlaywrightFetcher
+
+        storage_file = tmp_path / "state.json"
+        fetcher = PlaywrightFetcher(storage_state_file=storage_file)
+        context = AsyncMock()
+        context.storage_state = AsyncMock(return_value={"cookies": []})
+        fetcher._context = context
+        browser = AsyncMock()
+        playwright = AsyncMock()
+        fetcher._browser = browser
+        fetcher._playwright = playwright
+
+        await fetcher.__aexit__(None, None, None)
+
+        context.storage_state.assert_awaited_once()
+        browser.close.assert_awaited_once()
+        playwright.stop.assert_awaited_once()
 
 
 class TestPlaywrightFetcherStorageEnv:
@@ -550,6 +783,40 @@ class TestCheckFunctions:
         result2 = fetcher_module._check_httpx()
         assert result == result2
 
+    def test_check_playwright_handles_import_error(self, monkeypatch):
+        import builtins
+
+        from article_extractor import fetcher as fetcher_module
+
+        real_import = builtins.__import__
+
+        def _boom(name, *args, **kwargs):
+            if name == "playwright.async_api":
+                raise ImportError("no playwright")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(fetcher_module, "_playwright_available", None)
+        monkeypatch.setattr(builtins, "__import__", _boom)
+
+        assert fetcher_module._check_playwright() is False
+
+    def test_check_httpx_handles_import_error(self, monkeypatch):
+        import builtins
+
+        from article_extractor import fetcher as fetcher_module
+
+        real_import = builtins.__import__
+
+        def _boom(name, *args, **kwargs):
+            if name == "httpx":
+                raise ImportError("no httpx")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(fetcher_module, "_httpx_available", None)
+        monkeypatch.setattr(builtins, "__import__", _boom)
+
+        assert fetcher_module._check_httpx() is False
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -671,6 +938,32 @@ class TestPlaywrightFetcherContextManager:
         assert mock_context.close.await_count == 1
         assert mock_browser.close.await_count == 1
         assert mock_playwright.stop.await_count == 1
+
+    async def test_aexit_without_context_or_browser(self):
+        from article_extractor import PlaywrightFetcher
+
+        fetcher = PlaywrightFetcher()
+        fetcher._context = None
+        fetcher._browser = None
+        fetcher._playwright = None
+
+        await fetcher.__aexit__(None, None, None)
+
+        assert fetcher._context is None
+        assert fetcher._browser is None
+        assert fetcher._playwright is None
+
+    async def test_initialize_storage_queue_without_settings(
+        self, monkeypatch, tmp_path
+    ):
+        from article_extractor import PlaywrightFetcher
+        from article_extractor import settings as settings_module
+
+        monkeypatch.setattr(settings_module, "get_settings", lambda: None)
+
+        fetcher = PlaywrightFetcher(storage_state_file=tmp_path / "state.json")
+
+        assert fetcher._storage_queue is not None
 
     async def test_persist_storage_payload_writes_via_queue(self, tmp_path):
         """_persist_storage_payload should leverage the storage queue."""
@@ -985,6 +1278,16 @@ class TestGenerateRandomUserAgent:
         caplog.set_level("WARNING")
         assert fetcher_module._generate_random_user_agent() is None
         assert any("fake-useragent unavailable" in msg for msg in caplog.messages)
+
+    def test_generate_random_user_agent_returns_none_after_error_logged(
+        self, monkeypatch
+    ):
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_fake_useragent", None)
+        monkeypatch.setattr(fetcher_module, "_fake_useragent_error_logged", True)
+
+        assert fetcher_module._generate_random_user_agent() is None
 
 
 @pytest.mark.unit

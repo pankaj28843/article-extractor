@@ -55,6 +55,7 @@ Follow the mandatory loop from `.github/instructions/validation.instructions.md`
 uv run ruff format .
 uv run ruff check --fix .
 timeout 60 uv run pytest tests/ -v
+timeout 60 uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing --cov-fail-under=95
 uv run article-extractor --help
 ```
 
@@ -70,6 +71,7 @@ docker build -t article-extractor:test .
 - Add/extend tests in `tests/` alongside every behavior change. Favor fixtures already defined in `tests/conftest.py`.
 - Prefer behavioral assertions (extractor output, server response) rather than mocking internals.
 - Async tests use `pytest.mark.asyncio`; keep them deterministic by mocking network layers instead of sleeping.
+- Minimum unit test coverage: 95% (target near-100% with MECE tests). Coverage failures must fail CI on PRs and `main`.
 - See `.github/instructions/tests.instructions.md` for all pytest conventions.
 
 ## URL Hygiene (CRITICAL)

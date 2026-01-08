@@ -20,6 +20,15 @@ def test_purge_storage_directory_resets_contents(tmp_path):
     assert not any(target.iterdir())
 
 
+def test_purge_storage_directory_creates_missing(tmp_path):
+    target = tmp_path / "missing"
+
+    result = purge_storage_directory(target)
+
+    assert result == target
+    assert target.exists()
+
+
 def test_storage_main_calls_purge(tmp_path, monkeypatch):
     target = tmp_path / "cli"
     target.mkdir()

@@ -1093,6 +1093,131 @@ class TestCrawlJobRunner:
         )
 
     @pytest.mark.asyncio
+    async def test_run_crawl_job_skips_metrics_when_disabled(
+        self, monkeypatch, tmp_path
+    ):
+        from article_extractor.crawler import CrawlProgress
+        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
+
+        class _Metrics:
+            def __init__(self):
+                self.enabled = False
+                self.increments = []
+                self.observations = []
+
+            def increment(self, name, tags=None):
+                self.increments.append((name, tags))
+
+            def observe(self, name, value=None, tags=None):
+                self.observations.append((name, value, tags))
+
+        async def _fake_run_crawl(config, network=None, on_progress=None):
+            if on_progress:
+                on_progress(
+                    CrawlProgress(
+                        url="https://example.com/a",
+                        status="success",
+                        fetched=1,
+                        successful=1,
+                        failed=0,
+                        skipped=0,
+                        remaining=0,
+                    )
+                )
+            return CrawlManifest(
+                job_id="job-1",
+                started_at="start",
+                completed_at="end",
+                config=config,
+                total_pages=1,
+                successful=1,
+                failed=0,
+                skipped=0,
+                duration_seconds=1.5,
+            )
+
+        monkeypatch.setattr("article_extractor.crawler.run_crawl", _fake_run_crawl)
+
+        job_store = CrawlJobStore()
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com/"])
+        job = await job_store.create_job(config)
+        metrics = _Metrics()
+
+        await _run_crawl_job(
+            job.job_id,
+            config,
+            NetworkOptions(),
+            job_store,
+            metrics,
+        )
+
+        assert metrics.increments == []
+        assert metrics.observations == []
+
+    @pytest.mark.asyncio
+    async def test_run_crawl_job_ignores_unknown_progress_status(
+        self, monkeypatch, tmp_path
+    ):
+        from article_extractor.crawler import CrawlProgress
+        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
+
+        class _Metrics:
+            def __init__(self):
+                self.enabled = True
+                self.increments = []
+                self.observations = []
+
+            def increment(self, name, tags=None):
+                self.increments.append((name, tags))
+
+            def observe(self, name, value=None, tags=None):
+                self.observations.append((name, value, tags))
+
+        async def _fake_run_crawl(config, network=None, on_progress=None):
+            if on_progress:
+                on_progress(
+                    CrawlProgress(
+                        url="https://example.com/a",
+                        status="other",
+                        fetched=1,
+                        successful=0,
+                        failed=0,
+                        skipped=0,
+                        remaining=0,
+                    )
+                )
+            return CrawlManifest(
+                job_id="job-1",
+                started_at="start",
+                completed_at="end",
+                config=config,
+                total_pages=1,
+                successful=0,
+                failed=0,
+                skipped=0,
+                duration_seconds=1.5,
+            )
+
+        monkeypatch.setattr("article_extractor.crawler.run_crawl", _fake_run_crawl)
+
+        job_store = CrawlJobStore()
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com/"])
+        job = await job_store.create_job(config)
+        metrics = _Metrics()
+
+        await _run_crawl_job(
+            job.job_id,
+            config,
+            NetworkOptions(),
+            job_store,
+            metrics,
+        )
+
+        assert metrics.increments == []
+
+    @pytest.mark.asyncio
     async def test_run_crawl_job_handles_failure(self, monkeypatch, tmp_path):
         from article_extractor.server import CrawlJobStore, _run_crawl_job
         from article_extractor.types import CrawlConfig, NetworkOptions
@@ -1127,3 +1252,174 @@ class TestCrawlJobRunner:
         assert updated.status == "failed"
         assert updated.error == "boom"
         assert metrics.increments
+
+    @pytest.mark.asyncio
+    async def test_run_crawl_job_failure_skips_metrics_when_disabled(
+        self, monkeypatch, tmp_path
+    ):
+        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.types import CrawlConfig, NetworkOptions
+
+        class _Metrics:
+            def __init__(self):
+                self.enabled = False
+                self.increments = []
+
+            def increment(self, name, tags=None):
+                self.increments.append((name, tags))
+
+        async def _boom(*_args, **_kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr("article_extractor.crawler.run_crawl", _boom)
+
+        job_store = CrawlJobStore()
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com/"])
+        job = await job_store.create_job(config)
+        metrics = _Metrics()
+
+        await _run_crawl_job(
+            job.job_id,
+            config,
+            NetworkOptions(),
+            job_store,
+            metrics,
+        )
+
+        assert metrics.increments == []
+
+
+def test_crawl_job_store_ignores_missing_job():
+    from article_extractor.server import CrawlJobStore
+
+    store = CrawlJobStore()
+
+    asyncio.run(store.update_job("missing", status="running"))
+
+
+def test_crawl_job_store_get_task_missing():
+    from article_extractor.server import CrawlJobStore
+
+    store = CrawlJobStore()
+
+    assert store.get_task("missing") is None
+
+
+def test_submit_crawl_requires_service_initialized(client, monkeypatch):
+    monkeypatch.setattr(app.state, "crawl_jobs", None, raising=False)
+
+    response = client.post(
+        "/crawl",
+        json={"output_dir": "/tmp/crawl-test", "seeds": ["https://example.com"]},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Crawl service not initialized"
+
+
+def test_submit_crawl_respects_concurrency_limit(client, monkeypatch):
+    class _LimitedStore:
+        async def can_start(self):
+            return False
+
+    monkeypatch.setattr(app.state, "crawl_jobs", _LimitedStore(), raising=False)
+
+    response = client.post(
+        "/crawl",
+        json={"output_dir": "/tmp/crawl-test", "seeds": ["https://example.com"]},
+    )
+
+    assert response.status_code == 429
+
+
+def test_get_crawl_status_requires_service_initialized(client, monkeypatch):
+    monkeypatch.setattr(app.state, "crawl_jobs", None, raising=False)
+
+    response = client.get("/crawl/any-job")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Crawl service not initialized"
+
+
+def test_get_crawl_status_returns_job(client, monkeypatch, tmp_path):
+    from article_extractor.server import CrawlJobStore
+    from article_extractor.types import CrawlConfig
+
+    store = CrawlJobStore()
+    config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
+    job = asyncio.run(store.create_job(config))
+    job.status = "running"
+    job.progress = 2
+    job.total = 4
+    job._successful = 2
+    job._failed = 1
+    job._skipped = 0
+    monkeypatch.setattr(app.state, "crawl_jobs", store, raising=False)
+
+    response = client.get(f"/crawl/{job.job_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["job_id"] == job.job_id
+    assert payload["status"] == "running"
+    assert payload["progress"] == 2
+    assert payload["total"] == 4
+    assert payload["successful"] == 2
+    assert payload["failed"] == 1
+
+
+def test_get_crawl_manifest_requires_service_initialized(client, monkeypatch):
+    monkeypatch.setattr(app.state, "crawl_jobs", None, raising=False)
+
+    response = client.get("/crawl/any-job/manifest")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Crawl service not initialized"
+
+
+def test_get_crawl_manifest_rejects_incomplete_job(client, monkeypatch, tmp_path):
+    from article_extractor.server import CrawlJobStore
+    from article_extractor.types import CrawlConfig
+
+    store = CrawlJobStore()
+    config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
+    job = asyncio.run(store.create_job(config))
+    job.status = "running"
+    monkeypatch.setattr(app.state, "crawl_jobs", store, raising=False)
+
+    response = client.get(f"/crawl/{job.job_id}/manifest")
+
+    assert response.status_code == 400
+
+
+def test_get_crawl_manifest_missing_file(client, monkeypatch, tmp_path):
+    from article_extractor.server import CrawlJobStore
+    from article_extractor.types import CrawlConfig
+
+    store = CrawlJobStore()
+    config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
+    job = asyncio.run(store.create_job(config))
+    job.status = "completed"
+    monkeypatch.setattr(app.state, "crawl_jobs", store, raising=False)
+
+    response = client.get(f"/crawl/{job.job_id}/manifest")
+
+    assert response.status_code == 404
+
+
+def test_get_crawl_manifest_returns_file(client, monkeypatch, tmp_path):
+    from article_extractor.server import CrawlJobStore
+    from article_extractor.types import CrawlConfig
+
+    store = CrawlJobStore()
+    config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
+    job = asyncio.run(store.create_job(config))
+    job.status = "completed"
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text('{"ok": true}', encoding="utf-8")
+    monkeypatch.setattr(app.state, "crawl_jobs", store, raising=False)
+
+    response = client.get(f"/crawl/{job.job_id}/manifest")
+
+    assert response.status_code == 200
+    assert response.text.strip() == '{"ok": true}'
