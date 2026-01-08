@@ -297,16 +297,24 @@ class ArticleExtractor:
                 return title_text
 
         # Fallback to URL
-        if url:
-            path = urlparse(url).path
-            if path and path != "/":
-                # Convert path to title-like string
-                title = (
-                    path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
-                )
-                return title.title()
+        url_title = self._title_from_url(url)
+        if url_title:
+            return url_title
 
         return "Untitled"
+
+    def _title_from_url(self, url: str) -> str | None:
+        """Build a readable title from a URL path."""
+
+        if not url:
+            return None
+
+        path = urlparse(url).path
+        if not path or path == "/":
+            return None
+
+        title = path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
+        return title.title()
 
     def _sanitize_content_node(self, node: SimpleDomNode) -> None:
         """Remove empty anchors and images without usable sources."""
