@@ -40,6 +40,8 @@ _URL_ATTR_MAP: dict[str, tuple[str, ...]] = {
 }
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
+_SEMANTIC_CANDIDATE_TAGS = ("article", "main")
+_FALLBACK_CANDIDATE_TAGS = ("div", "section")
 
 
 class Fetcher(Protocol):
@@ -222,20 +224,19 @@ class ArticleExtractor:
     ) -> list[SimpleDomNode]:
         """Find potential content container candidates."""
         # Look for semantic article containers first (fast path)
-        candidates = self._candidate_nodes(doc, cache, "article")
-        candidates.extend(self._candidate_nodes(doc, cache, "main"))
+        candidates: list[SimpleDomNode] = []
+        for tag in _SEMANTIC_CANDIDATE_TAGS:
+            candidates.extend(self._candidate_nodes(doc, cache, tag))
 
         # If we found semantic containers, use them directly
         if candidates:
             return candidates
 
         # Fallback: scan divs and sections
-        candidates.extend(
-            self._candidate_nodes(doc, cache, "div", min_length=MIN_CHAR_THRESHOLD)
-        )
-        candidates.extend(
-            self._candidate_nodes(doc, cache, "section", min_length=MIN_CHAR_THRESHOLD)
-        )
+        for tag in _FALLBACK_CANDIDATE_TAGS:
+            candidates.extend(
+                self._candidate_nodes(doc, cache, tag, min_length=MIN_CHAR_THRESHOLD)
+            )
 
         return candidates
 
