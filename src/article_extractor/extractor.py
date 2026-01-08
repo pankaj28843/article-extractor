@@ -9,6 +9,7 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urljoin, urlparse
@@ -383,24 +384,29 @@ class ArticleExtractor:
     def _remove_empty_links(self, root: SimpleDomNode) -> None:
         """Drop anchor tags that would render as empty markdown links."""
 
-        for anchor in self._collect_nodes(root, ("a",)):
-            if self._node_has_visible_content(anchor):
-                continue
-
-            parent = getattr(anchor, "parent", None)
-            if parent is not None:
-                parent.remove_child(anchor)
+        self._remove_nodes(root, ("a",), keep=self._node_has_visible_content)
 
     def _remove_empty_images(self, root: SimpleDomNode) -> None:
         """Remove <img> elements without a usable src attribute."""
 
-        for img in self._collect_nodes(root, ("img",)):
-            if self._has_valid_image_src(img):
+        self._remove_nodes(root, ("img",), keep=self._has_valid_image_src)
+
+    def _remove_nodes(
+        self,
+        root: SimpleDomNode,
+        tags: tuple[str, ...],
+        *,
+        keep: Callable[[SimpleDomNode], bool],
+    ) -> None:
+        """Remove nodes for tags when they fail the keep predicate."""
+
+        for node in self._collect_nodes(root, tags):
+            if keep(node):
                 continue
 
-            parent = getattr(img, "parent", None)
+            parent = getattr(node, "parent", None)
             if parent is not None:
-                parent.remove_child(img)
+                parent.remove_child(node)
 
     def _has_valid_image_src(self, node: SimpleDomNode) -> bool:
         """Check whether an image node has a non-empty src attribute."""
@@ -416,13 +422,7 @@ class ArticleExtractor:
         """Strip block-level nodes that no longer carry content."""
 
         target_tags = ("li", "p", "div")
-        for node in self._collect_nodes(root, target_tags):
-            if self._node_has_visible_content(node):
-                continue
-
-            parent = getattr(node, "parent", None)
-            if parent is not None:
-                parent.remove_child(node)
+        self._remove_nodes(root, target_tags, keep=self._node_has_visible_content)
 
     def _node_has_visible_content(self, node: SimpleDomNode) -> bool:
         """Determine whether a node contains text or media worth keeping."""
