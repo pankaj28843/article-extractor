@@ -189,20 +189,21 @@ class ArticleExtractor:
         # Build combined selector for all tags to strip
         strip_selector = ", ".join(STRIP_TAGS)
 
-        # Remove all matching nodes in one query
-        for node in doc.query(strip_selector):
-            if hasattr(node, "parent") and node.parent:
-                node.parent.remove_child(node)
+        self._remove_nodes_by_selector(doc, strip_selector)
 
         # Build combined selector for unlikely roles
         role_selector = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
 
-        # Remove nodes with unlikely roles in one query
-        for node in doc.query(role_selector):
-            if hasattr(node, "parent") and node.parent:
-                node.parent.remove_child(node)
+        self._remove_nodes_by_selector(doc, role_selector)
 
         return doc
+
+    def _remove_nodes_by_selector(self, doc: JustHTML, selector: str) -> None:
+        """Remove all nodes matching a selector when they have a parent."""
+        for node in doc.query(selector):
+            parent = getattr(node, "parent", None)
+            if parent is not None:
+                parent.remove_child(node)
 
     def _find_candidates(
         self, doc: JustHTML, cache: ExtractionCache
