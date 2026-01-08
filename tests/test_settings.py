@@ -5,7 +5,14 @@ from __future__ import annotations
 import pytest
 
 from article_extractor.settings import (
+    ServiceSettings,
     _coerce_bool,
+    _coerce_log_format,
+    _coerce_log_level,
+    _coerce_metrics_host,
+    _coerce_metrics_namespace,
+    _coerce_metrics_sink,
+    _coerce_non_negative_float,
     get_settings,
     reload_settings,
     settings_dependency,
@@ -297,6 +304,143 @@ def test_storage_queue_invalid_values_warn(monkeypatch, caplog):
 def test_coerce_bool_handles_numeric_values():
     assert _coerce_bool(0, default=True, env_name="TEST") is False
     assert _coerce_bool(2, default=False, env_name="TEST") is True
+
+
+def test_coerce_cache_size_handles_empty():
+    assert ServiceSettings._coerce_cache_size(None) == 1000
+    assert ServiceSettings._coerce_cache_size("") == 1000
+
+
+def test_coerce_non_negative_float_handles_empty():
+    assert _coerce_non_negative_float(None, "TEST", fallback=1.5) == 1.5
+
+
+def test_coerce_bool_handles_empty():
+    assert _coerce_bool(None, default=False, env_name="TEST") is False
+
+
+def test_coerce_bool_handles_empty_string():
+    assert _coerce_bool("", default=True, env_name="TEST") is True
+
+
+def test_coerce_bool_handles_unknown_type():
+    assert _coerce_bool(object(), default=True, env_name="TEST") is True
+
+
+def test_coerce_log_level_invalid_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_log_level("nope") is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_LOG_LEVEL" in message for message in caplog.messages
+    )
+
+
+def test_coerce_log_level_valid():
+    assert _coerce_log_level("info") == "INFO"
+
+
+def test_coerce_log_level_non_string_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_log_level(123) is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_LOG_LEVEL" in message for message in caplog.messages
+    )
+
+
+def test_coerce_log_format_invalid_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_log_format("yaml") is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_LOG_FORMAT" in message for message in caplog.messages
+    )
+
+
+def test_coerce_log_format_valid():
+    assert _coerce_log_format("json") == "json"
+
+
+def test_coerce_log_format_non_string_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_log_format(123) is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_LOG_FORMAT" in message for message in caplog.messages
+    )
+
+
+def test_coerce_metrics_sink_invalid_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_metrics_sink("otlp") is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_SINK" in message
+        for message in caplog.messages
+    )
+
+
+def test_coerce_metrics_sink_valid():
+    assert _coerce_metrics_sink("statsd") == "statsd"
+
+
+def test_coerce_metrics_sink_non_string_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_metrics_sink(123) is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_SINK" in message
+        for message in caplog.messages
+    )
+
+
+def test_coerce_metrics_host_invalid_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_metrics_host("   ") is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_STATSD_HOST" in message
+        for message in caplog.messages
+    )
+
+
+def test_coerce_metrics_host_valid():
+    assert _coerce_metrics_host("statsd.local") == "statsd.local"
+
+
+def test_coerce_metrics_host_non_string_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_metrics_host(123) is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_STATSD_HOST" in message
+        for message in caplog.messages
+    )
+
+
+def test_coerce_metrics_namespace_invalid_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_metrics_namespace("   ") is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_NAMESPACE" in message
+        for message in caplog.messages
+    )
+
+
+def test_coerce_metrics_namespace_valid():
+    assert _coerce_metrics_namespace("article") == "article"
+
+
+def test_coerce_metrics_namespace_non_string_warns(caplog):
+    caplog.set_level("WARNING")
+
+    assert _coerce_metrics_namespace(123) is None
+    assert any(
+        "Invalid ARTICLE_EXTRACTOR_METRICS_NAMESPACE" in message
+        for message in caplog.messages
+    )
 
 
 def test_settings_dependency_returns_cached_instance():

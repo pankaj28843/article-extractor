@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
-from article_extractor.network import host_matches_no_proxy, resolve_network_options
+from article_extractor.network import (
+    _determine_proxy_from_env,
+    _normalize_bypass,
+    host_matches_no_proxy,
+    resolve_network_options,
+)
 from article_extractor.types import NetworkOptions
 
 
@@ -76,6 +81,20 @@ def test_storage_state_path_defaults_to_none(monkeypatch):
     options = resolve_network_options()
 
     assert options.storage_state_path is None
+
+
+def test_determine_proxy_uses_http_proxy():
+    env = {"HTTP_PROXY": "http://proxy:8080"}
+
+    assert (
+        _determine_proxy_from_env("http://example.com/docs", env) == "http://proxy:8080"
+    )
+
+
+def test_normalize_bypass_dedupes_and_skips_blanks():
+    assert _normalize_bypass([" example.com ", "", "EXAMPLE.com", " "]) == (
+        "example.com",
+    )
 
 
 def test_storage_state_alias_wins_over_legacy_env(monkeypatch, tmp_path):

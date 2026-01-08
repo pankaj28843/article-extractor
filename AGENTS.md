@@ -14,7 +14,12 @@
 ## Validation
 - Run: `uv run ruff format . && uv run ruff check --fix .`
 - Run: `timeout 60 uv run pytest -v`
+- Run: `timeout 60 uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing --cov-fail-under=95`
 - Run: `uv run article-extractor --help`
+
+## Coverage Policy
+- Minimum unit test coverage: 95% (target near-100% with MECE tests).
+- Always run unit tests with `timeout 60` to keep suites fast and detect hangs.
 
 ## Planning
 - Store PRP plans in `~/codex-prp-plans` (not in-repo).

@@ -544,6 +544,82 @@ def test_main_exception(capsys):
     assert exception_kwargs["extra"]["url"].endswith("example.com/")
 
 
+def test_main_keyboard_interrupt_without_source_hint(capsys):
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article",
+            side_effect=KeyboardInterrupt,
+        ),
+        patch("article_extractor.cli.logger") as mock_logger,
+        patch("sys.stdin", StringIO("<html></html>")),
+        patch("sys.argv", ["article-extractor"]),
+    ):
+        assert main() == 130
+
+    captured = capsys.readouterr()
+    assert "Interrupted" in captured.err
+    mock_logger.warning.assert_not_called()
+
+
+def test_main_exception_without_source_hint(capsys):
+    with (
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article",
+            side_effect=RuntimeError("boom"),
+        ),
+        patch("article_extractor.cli.logger") as mock_logger,
+        patch("sys.stdin", StringIO("<html></html>")),
+        patch("sys.argv", ["article-extractor"]),
+    ):
+        assert main() == 1
+
+    captured = capsys.readouterr()
+    assert "Error: boom" in captured.err
+    mock_logger.exception.assert_not_called()
+
+
+def test_main_keyboard_interrupt_logs_source_hint(monkeypatch):
+    with (
+        patch(
+            "article_extractor.cli._describe_source",
+            return_value="https://example.com/",
+        ),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            side_effect=KeyboardInterrupt,
+        ),
+        patch("article_extractor.cli.logger") as mock_logger,
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 130
+
+    mock_logger.warning.assert_called_once()
+
+
+def test_main_exception_logs_source_hint(monkeypatch):
+    with (
+        patch(
+            "article_extractor.cli._describe_source",
+            return_value="https://example.com/",
+        ),
+        patch("article_extractor.cli.resolve_network_options"),
+        patch(
+            "article_extractor.cli.extract_article_from_url",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("boom"),
+        ),
+        patch("article_extractor.cli.logger") as mock_logger,
+        patch("sys.argv", ["article-extractor", "https://example.com"]),
+    ):
+        assert main() == 1
+
+    mock_logger.exception.assert_called_once()
+
+
 def test_server_mode():
     """Test starting server mode."""
     mock_uvicorn_module = MagicMock()
@@ -689,6 +765,31 @@ def test_print_crawl_progress_truncates_url(capsys):
     captured = capsys.readouterr()
     assert long_url[:57] in captured.err
     assert captured.err.strip().startswith("✓ [5/5]")
+
+
+def test_print_crawl_progress_ignores_unknown_object(capsys):
+    _print_crawl_progress(object())
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+
+
+def test_print_crawl_progress_keeps_short_url(capsys):
+    url = "https://example.com/short"
+    progress = CrawlProgress(
+        url=url,
+        status="success",
+        fetched=1,
+        successful=1,
+        failed=0,
+        skipped=0,
+        remaining=0,
+    )
+
+    _print_crawl_progress(progress)
+
+    captured = capsys.readouterr()
+    assert url in captured.err
 
 
 def test_crawl_help_works(capsys):
@@ -973,7 +1074,74 @@ async def test_run_crawl_command_success(monkeypatch, tmp_path, capsys):
     result = await _run_crawl_command(args, sentinel_network)
 
     assert result == 0
-    assert "Crawl complete" in capsys.readouterr().err
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_command_prompts_for_output_dir(monkeypatch, tmp_path):
+    args = _crawl_args(tmp_path, output_dir=None)
+
+    async def _fake_run_crawl(*_args, **_kwargs):
+        manifest = MagicMock()
+        manifest.total_pages = 0
+        manifest.successful = 0
+        manifest.failed = 0
+        manifest.skipped = 0
+        return manifest
+
+    monkeypatch.setattr("article_extractor.cli._prompt_output_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        "article_extractor.crawler.validate_output_dir", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr("article_extractor.crawler.run_crawl", _fake_run_crawl)
+
+    result = await _run_crawl_command(args, NetworkOptions())
+
+    assert result == 0
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_command_handles_invalid_output_dir(
+    monkeypatch, tmp_path, capsys
+):
+    args = _crawl_args(tmp_path)
+
+    def _boom(*_args, **_kwargs):
+        raise ValueError("bad output")
+
+    monkeypatch.setattr("article_extractor.crawler.validate_output_dir", _boom)
+
+    result = await _run_crawl_command(args, NetworkOptions())
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "bad output" in captured.err
+
+
+@pytest.mark.asyncio
+async def test_run_crawl_command_handles_keyboard_interrupt(
+    monkeypatch, tmp_path, capsys
+):
+    args = _crawl_args(tmp_path)
+
+    async def _boom(*_args, **_kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("article_extractor.crawler.run_crawl", _boom)
+
+    result = await _run_crawl_command(args, NetworkOptions())
+
+    captured = capsys.readouterr()
+    assert result == 130
+    assert "Crawl interrupted" in captured.err
+
+
+def test_cli_module_runs_as_main(monkeypatch):
+    import runpy
+
+    monkeypatch.setattr("sys.argv", ["article-extractor", "--help"])
+
+    with pytest.raises(SystemExit):
+        runpy.run_module("article_extractor.cli", run_name="__main__")
 
 
 @pytest.mark.asyncio

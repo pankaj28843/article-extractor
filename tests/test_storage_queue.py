@@ -142,8 +142,18 @@ def test_storage_queue_prune_processed_removes_old_entries(tmp_path):
     assert not processed.exists()
 
 
+def test_storage_queue_prune_processed_skips_when_disabled(tmp_path):
+    queue = StorageQueue(tmp_path / "state.json", processed_retention_seconds=0.0)
+
+    queue._prune_processed()
+
+
 def test_normalize_payload_handles_various_types():
     assert normalize_payload("hello") == b"hello"
     payload = normalize_payload({"foo": "bar"})
 
     assert json.loads(payload.decode("utf-8")) == {"foo": "bar"}
+
+
+def test_normalize_payload_keeps_bytes():
+    assert normalize_payload(b"payload") == b"payload"

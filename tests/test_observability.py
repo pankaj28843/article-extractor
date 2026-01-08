@@ -58,6 +58,14 @@ def test_build_url_log_context_includes_hash():
     assert empty == {}
 
 
+def test_build_url_log_context_skips_hash_when_unavailable(monkeypatch):
+    monkeypatch.setattr(observability, "stable_url_hash", lambda *_a, **_k: None)
+
+    context = build_url_log_context("https://example.com/path")
+
+    assert context == {"url": "https://example.com/path"}
+
+
 def test_build_metrics_emitter_disabled_when_not_enabled():
     emitter = build_metrics_emitter(component="cli", enabled=False, sink=None)
 
@@ -122,6 +130,12 @@ def test_metrics_emitter_statsd_missing_host_disables(caplog):
 
     assert emitter.enabled is False
     assert any("StatsD sink requires host" in message for message in caplog.messages)
+
+
+def test_metrics_emitter_statsd_without_client_noops():
+    emitter = MetricsEmitter(component="cli", enabled=True, sink="statsd")
+
+    emitter.increment("noop")
 
 
 def test_json_formatter_includes_custom_fields():
@@ -191,6 +205,28 @@ def test_text_formatter_appends_context_fields():
     assert "status_code=200" in formatted
 
 
+def test_text_formatter_appends_exception_info():
+    formatter = observability._TextFormatter()
+    record = logging.LogRecord(
+        name="test",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=101,
+        msg="boom",
+        args=(),
+        exc_info=None,
+    )
+    record.component = "cli"
+    try:
+        raise RuntimeError("explode")
+    except RuntimeError as exc:
+        record.exc_info = (exc.__class__, exc, exc.__traceback__)
+
+    formatted = formatter.format(record)
+
+    assert "RuntimeError" in formatted
+
+
 def test_text_formatter_without_extras_returns_base():
     formatter = observability._TextFormatter()
     record = logging.LogRecord(
@@ -253,6 +289,64 @@ def test_statsd_client_send_serializes_namespace_and_tags(monkeypatch):
     )
 
     assert sent["payload"] == "article.hits:2|c|#env:test"
+    assert sent["address"] == ("localhost", 8125)
+
+
+def test_statsd_client_send_without_namespace_or_tags(monkeypatch):
+    sent = {}
+
+    class DummySocket:
+        def setblocking(self, _flag):
+            return None
+
+        def sendto(self, payload, address):
+            sent["payload"] = payload.decode("utf-8")
+            sent["address"] = address
+
+    monkeypatch.setattr(
+        observability.socket, "socket", lambda *_args, **_kwargs: DummySocket()
+    )
+
+    client = observability._StatsdClient("localhost", 8125, namespace=None)
+    client.send(
+        metric_type="counter",
+        metric_name="hits",
+        metric_value=1,
+        tags=None,
+    )
+
+    assert sent["payload"] == "hits:1|c"
+    assert sent["address"] == ("localhost", 8125)
+
+
+def test_statsd_client_send_skips_empty_serialized_tags(monkeypatch):
+    sent = {}
+
+    class DummySocket:
+        def setblocking(self, _flag):
+            return None
+
+        def sendto(self, payload, address):
+            sent["payload"] = payload.decode("utf-8")
+            sent["address"] = address
+
+    class _TruthyEmptyTags(dict):
+        def __bool__(self):
+            return True
+
+    monkeypatch.setattr(
+        observability.socket, "socket", lambda *_args, **_kwargs: DummySocket()
+    )
+
+    client = observability._StatsdClient("localhost", 8125, namespace=None)
+    client.send(
+        metric_type="counter",
+        metric_name="hits",
+        metric_value=1,
+        tags=_TruthyEmptyTags(),
+    )
+
+    assert sent["payload"] == "hits:1|c"
     assert sent["address"] == ("localhost", 8125)
 
 
@@ -331,6 +425,7 @@ def test_format_helpers_normalize_values():
     assert observability._resolve_level("warning") == logging.WARNING
     assert observability._resolve_level(15) == 15
     assert observability._resolve_level("bogus") is None
+    assert observability._resolve_level({}) is None
 
 
 def test_metrics_emitter_log_sink_copies_tags():
@@ -345,6 +440,19 @@ def test_metrics_emitter_log_sink_copies_tags():
     logger.info.assert_called_once()
     extra = logger.info.call_args.kwargs["extra"]
     assert extra["metric_tags"] == {"foo": "bar"}
+
+
+def test_metrics_emitter_log_sink_omits_empty_tags():
+    logger = MagicMock()
+    with patch(
+        "article_extractor.observability.logging.getLogger",
+        return_value=logger,
+    ):
+        emitter = build_metrics_emitter(component="cli", enabled=True, sink="log")
+        emitter.increment("demo")
+
+    extra = logger.info.call_args.kwargs["extra"]
+    assert "metric_tags" not in extra
 
 
 def test_metrics_emitter_statsd_sink_handles_timer(monkeypatch):
