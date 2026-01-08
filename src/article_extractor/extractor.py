@@ -104,14 +104,9 @@ class ArticleExtractor:
         try:
             doc = JustHTML(html)
         except Exception as e:
-            return ArticleResult(
-                url=url,
+            return self._failure_result(
+                url,
                 title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
                 error=f"Failed to parse HTML: {e}",
             )
 
@@ -125,14 +120,9 @@ class ArticleExtractor:
         top_candidate = self._find_top_candidate(doc, cache)
 
         if top_candidate is None:
-            return ArticleResult(
-                url=url,
+            return self._failure_result(
+                url,
                 title=title,
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
                 error="Could not find main content",
                 warnings=warnings,
             )
@@ -150,14 +140,9 @@ class ArticleExtractor:
             markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
             text = top_candidate.to_text(separator=" ", strip=True)
         except Exception as e:
-            return ArticleResult(
-                url=url,
+            return self._failure_result(
+                url,
                 title=title,
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
                 error=f"Failed to extract content: {e}",
                 warnings=warnings,
             )
@@ -198,6 +183,27 @@ class ArticleExtractor:
         self._remove_nodes_by_selector(doc, role_selector)
 
         return doc
+
+    def _failure_result(
+        self,
+        url: str,
+        *,
+        title: str,
+        error: str,
+        warnings: list[str] | None = None,
+    ) -> ArticleResult:
+        """Build a failed ArticleResult with a consistent empty payload."""
+        return ArticleResult(
+            url=url,
+            title=title,
+            content="",
+            markdown="",
+            excerpt="",
+            word_count=0,
+            success=False,
+            error=error,
+            warnings=warnings or [],
+        )
 
     def _remove_nodes_by_selector(self, doc: JustHTML, selector: str) -> None:
         """Remove all nodes matching a selector when they have a parent."""
