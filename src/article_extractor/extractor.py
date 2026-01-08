@@ -474,6 +474,7 @@ _TRANSIENT_CLIENT_STATUSES = frozenset({404, 410})
 
 # Minimum HTML length to consider attempting extraction on transient errors
 _MIN_HTML_LENGTH_FOR_TRANSIENT = 500
+_HTML_HEURISTIC_MARKERS = ("<article", "<main", "</p>")
 
 
 def _html_looks_extractable(html: str) -> bool:
@@ -481,7 +482,7 @@ def _html_looks_extractable(html: str) -> bool:
     if len(html) < _MIN_HTML_LENGTH_FOR_TRANSIENT:
         return False
     html_lower = html.lower()
-    return "<article" in html_lower or "<main" in html_lower or "</p>" in html_lower
+    return any(marker in html_lower for marker in _HTML_HEURISTIC_MARKERS)
 
 
 def _is_transient_error_message(error: str | None) -> bool:
