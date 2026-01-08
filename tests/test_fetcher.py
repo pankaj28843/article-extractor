@@ -409,10 +409,10 @@ class TestPlaywrightFetcherStorageQueue:
 
         original_stat = Path.stat
 
-        def _boom(self):
+        def _boom(self, *args, **kwargs):
             if self == storage_file:
                 raise OSError("boom")
-            return original_stat(self)
+            return original_stat(self, *args, **kwargs)
 
         monkeypatch.setattr(Path, "stat", _boom)
 
