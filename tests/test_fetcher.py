@@ -408,12 +408,19 @@ class TestPlaywrightFetcherStorageQueue:
         )
 
         original_stat = Path.stat
+        original_exists = Path.exists
 
         def _boom(self, *args, **kwargs):
             if self == storage_file:
                 raise OSError("boom")
             return original_stat(self, *args, **kwargs)
 
+        def _exists(self, *args, **kwargs):
+            if self == storage_file:
+                return True
+            return original_exists(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "exists", _exists)
         monkeypatch.setattr(Path, "stat", _boom)
 
         fetcher._log_storage_state("load")
