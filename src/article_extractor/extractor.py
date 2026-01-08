@@ -9,6 +9,7 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urljoin, urlparse
@@ -27,6 +28,20 @@ from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
     from justhtml.node import SimpleDomNode
+
+
+_URL_ATTR_MAP: dict[str, tuple[str, ...]] = {
+    "a": ("href",),
+    "img": ("src", "srcset"),
+    "source": ("src", "srcset"),
+    "video": ("src", "poster"),
+    "audio": ("src",),
+    "track": ("src",),
+}
+_STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
+_ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
+_SEMANTIC_CANDIDATE_TAGS = ("article", "main")
+_FALLBACK_CANDIDATE_TAGS = ("div", "section")
 
 
 class Fetcher(Protocol):
@@ -103,14 +118,9 @@ class ArticleExtractor:
         try:
             doc = JustHTML(html)
         except Exception as e:
-            return ArticleResult(
-                url=url,
+            return self._failure_result(
+                url,
                 title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
                 error=f"Failed to parse HTML: {e}",
             )
 
@@ -124,14 +134,9 @@ class ArticleExtractor:
         top_candidate = self._find_top_candidate(doc, cache)
 
         if top_candidate is None:
-            return ArticleResult(
-                url=url,
+            return self._failure_result(
+                url,
                 title=title,
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
                 error="Could not find main content",
                 warnings=warnings,
             )
@@ -149,14 +154,9 @@ class ArticleExtractor:
             markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
             text = top_candidate.to_text(separator=" ", strip=True)
         except Exception as e:
-            return ArticleResult(
-                url=url,
+            return self._failure_result(
+                url,
                 title=title,
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
                 error=f"Failed to extract content: {e}",
                 warnings=warnings,
             )
@@ -186,57 +186,76 @@ class ArticleExtractor:
 
     def _clean_document(self, doc: JustHTML) -> JustHTML:
         """Remove scripts, styles, and other non-content elements."""
-        # Build combined selector for all tags to strip
-        strip_selector = ", ".join(STRIP_TAGS)
-
-        # Remove all matching nodes in one query
-        for node in doc.query(strip_selector):
-            if hasattr(node, "parent") and node.parent:
-                node.parent.remove_child(node)
-
-        # Build combined selector for unlikely roles
-        role_selector = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
-
-        # Remove nodes with unlikely roles in one query
-        for node in doc.query(role_selector):
-            if hasattr(node, "parent") and node.parent:
-                node.parent.remove_child(node)
+        self._remove_nodes_by_selector(doc, _STRIP_SELECTOR)
+        self._remove_nodes_by_selector(doc, _ROLE_SELECTOR)
 
         return doc
+
+    def _failure_result(
+        self,
+        url: str,
+        *,
+        title: str,
+        error: str,
+        warnings: list[str] | None = None,
+    ) -> ArticleResult:
+        """Build a failed ArticleResult with a consistent empty payload."""
+        return ArticleResult(
+            url=url,
+            title=title,
+            content="",
+            markdown="",
+            excerpt="",
+            word_count=0,
+            success=False,
+            error=error,
+            warnings=warnings or [],
+        )
+
+    def _remove_nodes_by_selector(self, doc: JustHTML, selector: str) -> None:
+        """Remove all nodes matching a selector when they have a parent."""
+        for node in doc.query(selector):
+            parent = getattr(node, "parent", None)
+            if parent is not None:
+                parent.remove_child(node)
 
     def _find_candidates(
         self, doc: JustHTML, cache: ExtractionCache
     ) -> list[SimpleDomNode]:
         """Find potential content container candidates."""
         # Look for semantic article containers first (fast path)
-        candidates = [
-            node for node in doc.query("article") if not is_unlikely_candidate(node)
-        ]
-
-        # Add main elements
-        candidates.extend(
-            node for node in doc.query("main") if not is_unlikely_candidate(node)
-        )
+        candidates: list[SimpleDomNode] = []
+        for tag in _SEMANTIC_CANDIDATE_TAGS:
+            candidates.extend(self._candidate_nodes(doc, cache, tag))
 
         # If we found semantic containers, use them directly
         if candidates:
             return candidates
 
         # Fallback: scan divs and sections
-        candidates.extend(
-            node
-            for node in doc.query("div")
-            if not is_unlikely_candidate(node)
-            and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
-        )
+        for tag in _FALLBACK_CANDIDATE_TAGS:
+            candidates.extend(
+                self._candidate_nodes(doc, cache, tag, min_length=MIN_CHAR_THRESHOLD)
+            )
 
-        candidates.extend(
-            node
-            for node in doc.query("section")
-            if not is_unlikely_candidate(node)
-            and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
-        )
+        return candidates
 
+    def _candidate_nodes(
+        self,
+        doc: JustHTML,
+        cache: ExtractionCache,
+        tag: str,
+        *,
+        min_length: int | None = None,
+    ) -> list[SimpleDomNode]:
+        """Collect candidate nodes for a tag with optional length filtering."""
+        candidates: list[SimpleDomNode] = []
+        for node in doc.query(tag):
+            if is_unlikely_candidate(node):
+                continue
+            if min_length is not None and cache.get_text_length(node) <= min_length:
+                continue
+            candidates.append(node)
         return candidates
 
     def _find_top_candidate(
@@ -290,16 +309,24 @@ class ArticleExtractor:
                 return title_text
 
         # Fallback to URL
-        if url:
-            path = urlparse(url).path
-            if path and path != "/":
-                # Convert path to title-like string
-                title = (
-                    path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
-                )
-                return title.title()
+        url_title = self._title_from_url(url)
+        if url_title:
+            return url_title
 
         return "Untitled"
+
+    def _title_from_url(self, url: str) -> str | None:
+        """Build a readable title from a URL path."""
+
+        if not url:
+            return None
+
+        path = urlparse(url).path
+        if not path or path == "/":
+            return None
+
+        title = path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
+        return title.title()
 
     def _sanitize_content_node(self, node: SimpleDomNode) -> None:
         """Remove empty anchors and images without usable sources."""
@@ -308,25 +335,26 @@ class ArticleExtractor:
         self._remove_empty_images(node)
         self._remove_empty_blocks(node)
 
+    def _collect_nodes(
+        self, root: SimpleDomNode, tags: tuple[str, ...]
+    ) -> list[SimpleDomNode]:
+        """Return nodes matching tags, including the root if applicable."""
+        nodes: list[SimpleDomNode] = []
+        for tag in tags:
+            nodes.extend(root.query(tag))
+
+        root_tag = getattr(root, "name", "").lower()
+        if root_tag in tags:
+            nodes.append(root)
+
+        return nodes
+
     def _absolutize_urls(self, node: SimpleDomNode, base_url: str) -> None:
         """Rewrite relative media/anchor URLs inside the node to be absolute."""
 
-        attr_map: dict[str, tuple[str, ...]] = {
-            "a": ("href",),
-            "img": ("src", "srcset"),
-            "source": ("src", "srcset"),
-            "video": ("src", "poster"),
-            "audio": ("src",),
-            "track": ("src",),
-        }
-
-        for tag, attributes in attr_map.items():
-            for element in node.query(tag):
+        for tag, attributes in _URL_ATTR_MAP.items():
+            for element in self._collect_nodes(node, (tag,)):
                 self._rewrite_url_attributes(element, attributes, base_url)
-
-        tag_name = getattr(node, "name", "").lower()
-        if tag_name in attr_map:
-            self._rewrite_url_attributes(node, attr_map[tag_name], base_url)
 
     def _rewrite_url_attributes(
         self,
@@ -363,35 +391,29 @@ class ArticleExtractor:
     def _remove_empty_links(self, root: SimpleDomNode) -> None:
         """Drop anchor tags that would render as empty markdown links."""
 
-        anchors = list(root.query("a"))
-
-        # Handle case where root itself is an anchor
-        if getattr(root, "name", "").lower() == "a":
-            anchors.append(root)
-
-        for anchor in anchors:
-            if self._node_has_visible_content(anchor):
-                continue
-
-            parent = getattr(anchor, "parent", None)
-            if parent is not None:
-                parent.remove_child(anchor)
+        self._remove_nodes(root, ("a",), keep=self._node_has_visible_content)
 
     def _remove_empty_images(self, root: SimpleDomNode) -> None:
         """Remove <img> elements without a usable src attribute."""
 
-        images = list(root.query("img"))
+        self._remove_nodes(root, ("img",), keep=self._has_valid_image_src)
 
-        if getattr(root, "name", "").lower() == "img":
-            images.append(root)
+    def _remove_nodes(
+        self,
+        root: SimpleDomNode,
+        tags: tuple[str, ...],
+        *,
+        keep: Callable[[SimpleDomNode], bool],
+    ) -> None:
+        """Remove nodes for tags when they fail the keep predicate."""
 
-        for img in images:
-            if self._has_valid_image_src(img):
+        for node in self._collect_nodes(root, tags):
+            if keep(node):
                 continue
 
-            parent = getattr(img, "parent", None)
+            parent = getattr(node, "parent", None)
             if parent is not None:
-                parent.remove_child(img)
+                parent.remove_child(node)
 
     def _has_valid_image_src(self, node: SimpleDomNode) -> bool:
         """Check whether an image node has a non-empty src attribute."""
@@ -407,20 +429,7 @@ class ArticleExtractor:
         """Strip block-level nodes that no longer carry content."""
 
         target_tags = ("li", "p", "div")
-        nodes: list[SimpleDomNode] = []
-        for tag in target_tags:
-            nodes.extend(root.query(tag))
-
-        if getattr(root, "name", "").lower() in target_tags:
-            nodes.append(root)
-
-        for node in nodes:
-            if self._node_has_visible_content(node):
-                continue
-
-            parent = getattr(node, "parent", None)
-            if parent is not None:
-                parent.remove_child(node)
+        self._remove_nodes(root, target_tags, keep=self._node_has_visible_content)
 
     def _node_has_visible_content(self, node: SimpleDomNode) -> bool:
         """Determine whether a node contains text or media worth keeping."""
@@ -461,6 +470,7 @@ _TRANSIENT_CLIENT_STATUSES = frozenset({404, 410})
 
 # Minimum HTML length to consider attempting extraction on transient errors
 _MIN_HTML_LENGTH_FOR_TRANSIENT = 500
+_HTML_HEURISTIC_MARKERS = ("<article", "<main", "</p>")
 
 
 def _html_looks_extractable(html: str) -> bool:
@@ -468,7 +478,32 @@ def _html_looks_extractable(html: str) -> bool:
     if len(html) < _MIN_HTML_LENGTH_FOR_TRANSIENT:
         return False
     html_lower = html.lower()
-    return "<article" in html_lower or "<main" in html_lower or "</p>" in html_lower
+    return any(marker in html_lower for marker in _HTML_HEURISTIC_MARKERS)
+
+
+def _is_transient_error_message(error: str | None) -> bool:
+    """Check whether an error message corresponds to transient statuses."""
+    if not error:
+        return False
+    return any(str(code) in error for code in _TRANSIENT_CLIENT_STATUSES)
+
+
+def _http_error_result(url: str, status_code: int) -> ArticleResult:
+    return _failure_result_for_url(url, f"HTTP {status_code}")
+
+
+def _failure_result_for_url(url: str, error: str) -> ArticleResult:
+    """Return a failed ArticleResult with an empty payload."""
+    return ArticleResult(
+        url=url,
+        title="",
+        content="",
+        markdown="",
+        excerpt="",
+        word_count=0,
+        success=False,
+        error=error,
+    )
 
 
 async def extract_article_from_url(
@@ -518,16 +553,7 @@ async def extract_article_from_url(
     try:
         fetcher_class = get_default_fetcher(prefer_playwright=prefer_playwright)
     except ImportError as e:
-        return ArticleResult(
-            url=url,
-            title="",
-            content="",
-            markdown="",
-            excerpt="",
-            word_count=0,
-            success=False,
-            error=str(e),
-        )
+        return _failure_result_for_url(url, str(e))
 
     async with fetcher_class(
         network=network, diagnostics_enabled=diagnostic_logging
@@ -538,8 +564,7 @@ async def extract_article_from_url(
         if (
             not result.success
             and not prefer_playwright
-            and result.error
-            and any(str(code) in result.error for code in _TRANSIENT_CLIENT_STATUSES)
+            and _is_transient_error_message(result.error)
         ):
             from .fetcher import PlaywrightFetcher, _check_playwright
 
@@ -578,43 +603,16 @@ async def _extract_with_fetcher(
                     )
                     return result
             # Extraction failed or HTML too sparse
-            return ArticleResult(
-                url=url,
-                title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
-                error=f"HTTP {status_code}",
-            )
+            return _http_error_result(url, status_code)
 
         # Other 4xx/5xx errors: fail immediately
         if status_code >= 400:
-            return ArticleResult(
-                url=url,
-                title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
-                error=f"HTTP {status_code}",
-            )
+            return _http_error_result(url, status_code)
 
         return await _run_extraction(extractor, html, url, executor)
 
     except Exception as e:
-        return ArticleResult(
-            url=url,
-            title="",
-            content="",
-            markdown="",
-            excerpt="",
-            word_count=0,
-            success=False,
-            error=str(e),
-        )
+        return _failure_result_for_url(url, str(e))
 
 
 async def _run_extraction(

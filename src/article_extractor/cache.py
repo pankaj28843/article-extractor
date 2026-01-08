@@ -72,12 +72,10 @@ class ExtractionCache:
         if node_id in self._link_density_cache:
             return self._link_density_cache[node_id]
 
-        text = self.get_node_text(node)
-        if not text:
+        text_length = self.get_text_length(node)
+        if not text_length:
             self._link_density_cache[node_id] = 0.0
             return 0.0
-
-        text_length = len(text)
 
         # Sum up text inside all links
         link_length = 0
