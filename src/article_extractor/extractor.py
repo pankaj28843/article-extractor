@@ -210,14 +210,8 @@ class ArticleExtractor:
     ) -> list[SimpleDomNode]:
         """Find potential content container candidates."""
         # Look for semantic article containers first (fast path)
-        candidates = [
-            node for node in doc.query("article") if not is_unlikely_candidate(node)
-        ]
-
-        # Add main elements
-        candidates.extend(
-            node for node in doc.query("main") if not is_unlikely_candidate(node)
-        )
+        candidates = self._candidate_nodes(doc, cache, "article")
+        candidates.extend(self._candidate_nodes(doc, cache, "main"))
 
         # If we found semantic containers, use them directly
         if candidates:
@@ -225,19 +219,30 @@ class ArticleExtractor:
 
         # Fallback: scan divs and sections
         candidates.extend(
-            node
-            for node in doc.query("div")
-            if not is_unlikely_candidate(node)
-            and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
+            self._candidate_nodes(doc, cache, "div", min_length=MIN_CHAR_THRESHOLD)
         )
-
         candidates.extend(
-            node
-            for node in doc.query("section")
-            if not is_unlikely_candidate(node)
-            and len(cache.get_node_text(node)) > MIN_CHAR_THRESHOLD
+            self._candidate_nodes(doc, cache, "section", min_length=MIN_CHAR_THRESHOLD)
         )
 
+        return candidates
+
+    def _candidate_nodes(
+        self,
+        doc: JustHTML,
+        cache: ExtractionCache,
+        tag: str,
+        *,
+        min_length: int | None = None,
+    ) -> list[SimpleDomNode]:
+        """Collect candidate nodes for a tag with optional length filtering."""
+        candidates: list[SimpleDomNode] = []
+        for node in doc.query(tag):
+            if is_unlikely_candidate(node):
+                continue
+            if min_length is not None and len(cache.get_node_text(node)) <= min_length:
+                continue
+            candidates.append(node)
         return candidates
 
     def _find_top_candidate(

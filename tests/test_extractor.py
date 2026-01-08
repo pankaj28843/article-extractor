@@ -1344,6 +1344,23 @@ class TestExtractorEdgeCases:
 
         assert result is None
 
+    def test_candidate_nodes_respects_min_length(self):
+        from justhtml import JustHTML
+
+        from article_extractor import ArticleExtractor
+        from article_extractor.cache import ExtractionCache
+
+        doc = JustHTML(
+            "<div>hi</div><div>longer text</div><div class='sidebar'>longer</div>"
+        )
+        extractor = ArticleExtractor()
+        cache = ExtractionCache()
+
+        candidates = extractor._candidate_nodes(doc, cache, "div", min_length=5)
+
+        assert len(candidates) == 1
+        assert candidates[0].to_text(strip=True) == "longer text"
+
     def test_clean_document_skips_parentless_nodes(self):
         from article_extractor import ArticleExtractor
 
