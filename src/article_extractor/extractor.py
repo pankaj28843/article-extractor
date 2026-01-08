@@ -342,12 +342,8 @@ class ArticleExtractor:
         }
 
         for tag, attributes in attr_map.items():
-            for element in node.query(tag):
+            for element in self._collect_nodes(node, (tag,)):
                 self._rewrite_url_attributes(element, attributes, base_url)
-
-        tag_name = getattr(node, "name", "").lower()
-        if tag_name in attr_map:
-            self._rewrite_url_attributes(node, attr_map[tag_name], base_url)
 
     def _rewrite_url_attributes(
         self,
