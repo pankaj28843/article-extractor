@@ -38,6 +38,8 @@ _URL_ATTR_MAP: dict[str, tuple[str, ...]] = {
     "audio": ("src",),
     "track": ("src",),
 }
+_STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
+_ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
 
 
 class Fetcher(Protocol):
@@ -182,15 +184,8 @@ class ArticleExtractor:
 
     def _clean_document(self, doc: JustHTML) -> JustHTML:
         """Remove scripts, styles, and other non-content elements."""
-        # Build combined selector for all tags to strip
-        strip_selector = ", ".join(STRIP_TAGS)
-
-        self._remove_nodes_by_selector(doc, strip_selector)
-
-        # Build combined selector for unlikely roles
-        role_selector = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
-
-        self._remove_nodes_by_selector(doc, role_selector)
+        self._remove_nodes_by_selector(doc, _STRIP_SELECTOR)
+        self._remove_nodes_by_selector(doc, _ROLE_SELECTOR)
 
         return doc
 
