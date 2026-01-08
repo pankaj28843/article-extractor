@@ -468,6 +468,19 @@ def _html_looks_extractable(html: str) -> bool:
     return "<article" in html_lower or "<main" in html_lower or "</p>" in html_lower
 
 
+def _http_error_result(url: str, status_code: int) -> ArticleResult:
+    return ArticleResult(
+        url=url,
+        title="",
+        content="",
+        markdown="",
+        excerpt="",
+        word_count=0,
+        success=False,
+        error=f"HTTP {status_code}",
+    )
+
+
 async def extract_article_from_url(
     url: str,
     fetcher: Fetcher | None = None,
@@ -575,29 +588,11 @@ async def _extract_with_fetcher(
                     )
                     return result
             # Extraction failed or HTML too sparse
-            return ArticleResult(
-                url=url,
-                title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
-                error=f"HTTP {status_code}",
-            )
+            return _http_error_result(url, status_code)
 
         # Other 4xx/5xx errors: fail immediately
         if status_code >= 400:
-            return ArticleResult(
-                url=url,
-                title="",
-                content="",
-                markdown="",
-                excerpt="",
-                word_count=0,
-                success=False,
-                error=f"HTTP {status_code}",
-            )
+            return _http_error_result(url, status_code)
 
         return await _run_extraction(extractor, html, url, executor)
 
