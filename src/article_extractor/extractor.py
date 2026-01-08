@@ -485,6 +485,11 @@ def _html_looks_extractable(html: str) -> bool:
 
 
 def _http_error_result(url: str, status_code: int) -> ArticleResult:
+    return _failure_result_for_url(url, f"HTTP {status_code}")
+
+
+def _failure_result_for_url(url: str, error: str) -> ArticleResult:
+    """Return a failed ArticleResult with an empty payload."""
     return ArticleResult(
         url=url,
         title="",
@@ -493,7 +498,7 @@ def _http_error_result(url: str, status_code: int) -> ArticleResult:
         excerpt="",
         word_count=0,
         success=False,
-        error=f"HTTP {status_code}",
+        error=error,
     )
 
 
@@ -544,16 +549,7 @@ async def extract_article_from_url(
     try:
         fetcher_class = get_default_fetcher(prefer_playwright=prefer_playwright)
     except ImportError as e:
-        return ArticleResult(
-            url=url,
-            title="",
-            content="",
-            markdown="",
-            excerpt="",
-            word_count=0,
-            success=False,
-            error=str(e),
-        )
+        return _failure_result_for_url(url, str(e))
 
     async with fetcher_class(
         network=network, diagnostics_enabled=diagnostic_logging
@@ -613,16 +609,7 @@ async def _extract_with_fetcher(
         return await _run_extraction(extractor, html, url, executor)
 
     except Exception as e:
-        return ArticleResult(
-            url=url,
-            title="",
-            content="",
-            markdown="",
-            excerpt="",
-            word_count=0,
-            success=False,
-            error=str(e),
-        )
+        return _failure_result_for_url(url, str(e))
 
 
 async def _run_extraction(
