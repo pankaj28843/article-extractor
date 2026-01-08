@@ -241,7 +241,7 @@ class ArticleExtractor:
         for node in doc.query(tag):
             if is_unlikely_candidate(node):
                 continue
-            if min_length is not None and len(cache.get_node_text(node)) <= min_length:
+            if min_length is not None and cache.get_text_length(node) <= min_length:
                 continue
             candidates.append(node)
         return candidates
