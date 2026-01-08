@@ -484,6 +484,13 @@ def _html_looks_extractable(html: str) -> bool:
     return "<article" in html_lower or "<main" in html_lower or "</p>" in html_lower
 
 
+def _is_transient_error_message(error: str | None) -> bool:
+    """Check whether an error message corresponds to transient statuses."""
+    if not error:
+        return False
+    return any(str(code) in error for code in _TRANSIENT_CLIENT_STATUSES)
+
+
 def _http_error_result(url: str, status_code: int) -> ArticleResult:
     return _failure_result_for_url(url, f"HTTP {status_code}")
 
@@ -560,8 +567,7 @@ async def extract_article_from_url(
         if (
             not result.success
             and not prefer_playwright
-            and result.error
-            and any(str(code) in result.error for code in _TRANSIENT_CLIENT_STATUSES)
+            and _is_transient_error_message(result.error)
         ):
             from .fetcher import PlaywrightFetcher, _check_playwright
 

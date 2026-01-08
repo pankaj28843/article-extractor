@@ -662,6 +662,20 @@ class TestTitleUrlFallback:
 
 
 @pytest.mark.unit
+class TestTransientErrorDetection:
+    """Validate transient error detection helper."""
+
+    def test_detects_transient_errors(self):
+        from article_extractor.extractor import _is_transient_error_message
+
+        assert _is_transient_error_message(None) is False
+        assert _is_transient_error_message("") is False
+        assert _is_transient_error_message("HTTP 404") is True
+        assert _is_transient_error_message("HTTP 410") is True
+        assert _is_transient_error_message("HTTP 500") is False
+
+
+@pytest.mark.unit
 class TestFindCandidates:
     """Test candidate finding logic."""
 
