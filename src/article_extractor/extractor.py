@@ -308,6 +308,20 @@ class ArticleExtractor:
         self._remove_empty_images(node)
         self._remove_empty_blocks(node)
 
+    def _collect_nodes(
+        self, root: SimpleDomNode, tags: tuple[str, ...]
+    ) -> list[SimpleDomNode]:
+        """Return nodes matching tags, including the root if applicable."""
+        nodes: list[SimpleDomNode] = []
+        for tag in tags:
+            nodes.extend(root.query(tag))
+
+        root_tag = getattr(root, "name", "").lower()
+        if root_tag in tags:
+            nodes.append(root)
+
+        return nodes
+
     def _absolutize_urls(self, node: SimpleDomNode, base_url: str) -> None:
         """Rewrite relative media/anchor URLs inside the node to be absolute."""
 
@@ -363,13 +377,7 @@ class ArticleExtractor:
     def _remove_empty_links(self, root: SimpleDomNode) -> None:
         """Drop anchor tags that would render as empty markdown links."""
 
-        anchors = list(root.query("a"))
-
-        # Handle case where root itself is an anchor
-        if getattr(root, "name", "").lower() == "a":
-            anchors.append(root)
-
-        for anchor in anchors:
+        for anchor in self._collect_nodes(root, ("a",)):
             if self._node_has_visible_content(anchor):
                 continue
 
@@ -380,12 +388,7 @@ class ArticleExtractor:
     def _remove_empty_images(self, root: SimpleDomNode) -> None:
         """Remove <img> elements without a usable src attribute."""
 
-        images = list(root.query("img"))
-
-        if getattr(root, "name", "").lower() == "img":
-            images.append(root)
-
-        for img in images:
+        for img in self._collect_nodes(root, ("img",)):
             if self._has_valid_image_src(img):
                 continue
 
@@ -407,14 +410,7 @@ class ArticleExtractor:
         """Strip block-level nodes that no longer carry content."""
 
         target_tags = ("li", "p", "div")
-        nodes: list[SimpleDomNode] = []
-        for tag in target_tags:
-            nodes.extend(root.query(tag))
-
-        if getattr(root, "name", "").lower() in target_tags:
-            nodes.append(root)
-
-        for node in nodes:
+        for node in self._collect_nodes(root, target_tags):
             if self._node_has_visible_content(node):
                 continue
 
