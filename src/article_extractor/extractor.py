@@ -22,6 +22,7 @@ from .constants import (
     UNLIKELY_ROLES,
 )
 from .content_sanitizer import sanitize_content
+from .document_cleaner import clean_document
 from .scorer import is_unlikely_candidate, rank_candidates
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
 from .url_normalizer import absolutize_urls
@@ -116,7 +117,7 @@ class ArticleExtractor:
             )
 
         # Clean document
-        doc = self._clean_document(doc)
+        doc = clean_document(doc, _STRIP_SELECTOR, _ROLE_SELECTOR)
 
         # Extract title
         title = self._extract_title(doc, url)
@@ -175,13 +176,6 @@ class ArticleExtractor:
             warnings=warnings,
         )
 
-    def _clean_document(self, doc: JustHTML) -> JustHTML:
-        """Remove scripts, styles, and other non-content elements."""
-        self._remove_nodes_by_selector(doc, _STRIP_SELECTOR)
-        self._remove_nodes_by_selector(doc, _ROLE_SELECTOR)
-
-        return doc
-
     def _failure_result(
         self,
         url: str,
@@ -202,13 +196,6 @@ class ArticleExtractor:
             error=error,
             warnings=warnings or [],
         )
-
-    def _remove_nodes_by_selector(self, doc: JustHTML, selector: str) -> None:
-        """Remove all nodes matching a selector when they have a parent."""
-        for node in doc.query(selector):
-            parent = getattr(node, "parent", None)
-            if parent is not None:
-                parent.remove_child(node)
 
     def _find_candidates(
         self, doc: JustHTML, cache: ExtractionCache

@@ -1299,49 +1299,6 @@ class TestExtractorEdgeCases:
         assert len(candidates) == 1
         assert candidates[0].to_text(strip=True) == "longer text"
 
-    def test_clean_document_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Node:
-            parent = None
-
-        class _Doc:
-            def query(self, _selector):
-                return [_Node()]
-
-        extractor = ArticleExtractor()
-        extractor._clean_document(_Doc())
-
-    def test_clean_document_removes_role_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Parent:
-            def __init__(self):
-                self.removed = []
-
-            def remove_child(self, node):
-                self.removed.append(node)
-
-        class _Node:
-            def __init__(self, parent):
-                self.parent = parent
-
-        class _Doc:
-            def __init__(self, node):
-                self._node = node
-
-            def query(self, selector):
-                if 'role="' in selector:
-                    return [self._node]
-                return []
-
-        parent = _Parent()
-        node = _Node(parent)
-        extractor = ArticleExtractor()
-        extractor._clean_document(_Doc(node))
-
-        assert parent.removed == [node]
-
     def test_absolutize_urls_via_extraction(self):
         """Test URL absolutization through the public extract() API."""
         from article_extractor import extract_article
