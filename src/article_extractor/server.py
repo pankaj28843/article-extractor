@@ -62,10 +62,6 @@ def _configure_logging(settings: ServiceSettings | None = None) -> None:
 _configure_logging()
 
 
-def _read_cache_size() -> int:
-    return get_settings().cache_size
-
-
 def _determine_threadpool_size(settings: ServiceSettings | None = None) -> int:
     settings = settings or get_settings()
     return settings.determine_threadpool_size()
@@ -77,11 +73,7 @@ def _initialize_state_from_env(state) -> None:
         env_mapping = settings.build_network_env()
         state.network_defaults = resolve_network_options(env=env_mapping)
     if not hasattr(state, "prefer_playwright") or state.prefer_playwright is None:
-        state.prefer_playwright = _read_prefer_playwright_env()
-
-
-def _read_prefer_playwright_env(_default: bool = True) -> bool:
-    return get_settings().prefer_playwright
+        state.prefer_playwright = settings.prefer_playwright
 
 
 def _emit_request_metrics(
@@ -567,7 +559,7 @@ async def health_check(request: Request) -> dict:
     )
     cache_info = {
         "size": len(cache) if cache else 0,
-        "max_size": cache.max_size if cache else _read_cache_size(),
+        "max_size": cache.max_size if cache else get_settings().cache_size,
     }
     worker_info = {
         "max_workers": threadpool._max_workers

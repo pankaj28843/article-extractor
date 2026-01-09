@@ -22,8 +22,6 @@ from article_extractor.server import (
     _determine_threadpool_size,
     _initialize_state_from_env,
     _lookup_cache,
-    _read_cache_size,
-    _read_prefer_playwright_env,
     _resolve_preference,
     _resolve_request_network_options,
     _store_cache_entry,
@@ -513,36 +511,6 @@ def test_configure_helpers_store_state(monkeypatch, tmp_path):
     reload_settings()
 
 
-def test_read_prefer_playwright_env_parses_boolean(monkeypatch):
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "0")
-    reload_settings()
-
-    assert _read_prefer_playwright_env() is False
-
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "On")
-    reload_settings()
-
-    assert _read_prefer_playwright_env() is True
-
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
-    reload_settings()
-
-
-def test_read_prefer_playwright_env_warns_on_invalid(monkeypatch, caplog):
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "maybe")
-    caplog.set_level("WARNING")
-    reload_settings()
-
-    assert _read_prefer_playwright_env() is True
-    assert any(
-        "Invalid ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT" in message
-        for message in caplog.messages
-    )
-
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
-    reload_settings()
-
-
 def test_initialize_state_from_env_seeds_defaults(monkeypatch, tmp_path):
     alias_file = tmp_path / "state.json"
     monkeypatch.setenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", str(alias_file))
@@ -606,19 +574,6 @@ def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_resul
         app.state.network_defaults = original_network
         monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
         reload_settings()
-
-
-def test_read_cache_size_invalid_env(monkeypatch, caplog):
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "not-a-number")
-
-    caplog.set_level("WARNING")
-    reload_settings()
-    size = _read_cache_size()
-
-    assert size == 1000
-    assert any("Invalid ARTICLE_EXTRACTOR_CACHE_SIZE" in msg for msg in caplog.messages)
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
-    reload_settings()
 
 
 def test_determine_threadpool_size_invalid_requests(monkeypatch):
