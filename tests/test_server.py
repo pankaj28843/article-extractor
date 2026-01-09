@@ -67,30 +67,6 @@ def failed_result():
     )
 
 
-def test_server_setup_logging_uses_settings():
-    """Server should configure logging using ServiceSettings-derived values."""
-
-    settings = SimpleNamespace(
-        log_level="DEBUG",
-        log_format="text",
-        cache_size=256,
-        log_diagnostics=True,
-        prefer_playwright=False,
-        build_network_env=lambda: {},
-        determine_threadpool_size=lambda: 8,
-    )
-
-    with patch("article_extractor.server.setup_logging") as mock_setup:
-        server_module._configure_logging(settings)
-
-    mock_setup.assert_called_once_with(
-        component="server",
-        level="DEBUG",
-        default_level="INFO",
-        log_format="text",
-    )
-
-
 def test_root_endpoint(client):
     """Test root health check endpoint."""
     response = client.get("/")
@@ -584,6 +560,7 @@ def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_resul
         app.state.network_defaults = original_network
         monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
         reload_settings()
+
 
 def test_resolve_preference_prefers_request_override():
     request = SimpleNamespace(

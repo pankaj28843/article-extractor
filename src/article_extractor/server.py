@@ -37,7 +37,7 @@ from .observability import (
     strip_url,
 )
 from .request_logger import log_request_failure, log_request_success
-from .settings import ServiceSettings, get_settings
+from .settings import get_settings
 from .types import (
     CrawlConfig,
     ExtractionOptions,
@@ -46,20 +46,15 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
-
-def _configure_logging(settings: ServiceSettings | None = None) -> None:
-    """Initialize structured logging using the latest ServiceSettings."""
-
-    resolved = settings or get_settings()
-    setup_logging(
-        component="server",
-        level=resolved.log_level,
-        default_level="INFO",
-        log_format=resolved.log_format,
-    )
-
-
-_configure_logging()
+# Configure logging at module level
+_settings = get_settings()
+setup_logging(
+    component="server",
+    level=_settings.log_level,
+    default_level="INFO",
+    log_format=_settings.log_format,
+)
+del _settings
 
 
 def _initialize_state_from_env(state) -> None:
