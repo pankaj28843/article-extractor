@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
+from article_extractor.concurrency_limiter import AdaptiveConcurrencyLimiter
 from article_extractor.discovery import (
-    AdaptiveConcurrencyLimiter,
     CrawlConfig,
     EfficientCrawler,
     PageProcessResult,
