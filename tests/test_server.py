@@ -13,18 +13,15 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import article_extractor.server as server_module
-from article_extractor.lru_cache import LRUCache
+from article_extractor.extraction_cache import ExtractionCache
 from article_extractor.server import (
     ExtractionRequest,
     ExtractionResponse,
     NetworkRequest,
-    _build_cache_key,
     _determine_threadpool_size,
     _initialize_state_from_env,
-    _lookup_cache,
     _resolve_preference,
     _resolve_request_network_options,
-    _store_cache_entry,
     app,
     configure_network_defaults,
     general_exception_handler,
@@ -311,14 +308,6 @@ def _sample_response(title: str) -> ExtractionResponse:
     )
 
 
-def test_cache_evicts_oldest_entry():
-    cache = LRUCache[str, ExtractionResponse](max_size=1)
-    cache.set("first", _sample_response("first"))
-    cache.set("second", _sample_response("second"))
-
-    assert cache.get("first") is None
-    assert cache.get("second").title == "second"
-
 
 def test_cache_size_env_override(monkeypatch):
     """Cache size should respect ARTICLE_EXTRACTOR_CACHE_SIZE env overrides."""
@@ -592,64 +581,6 @@ def test_determine_threadpool_size_invalid_requests(monkeypatch):
     reload_settings()
 
 
-def test_build_cache_key_reflects_options():
-    options = ExtractionOptions(
-        min_word_count=10,
-        min_char_threshold=20,
-        include_images=False,
-        include_code_blocks=False,
-        safe_markdown=False,
-    )
-
-    key = _build_cache_key("https://example.com", options)
-
-    assert key == "https://example.com|10|20|0|0|0"
-
-
-@pytest.mark.asyncio
-async def test_cache_helpers_roundtrip():
-    cache = LRUCache[str, ExtractionResponse](max_size=2)
-    request = SimpleNamespace(
-        app=SimpleNamespace(
-            state=SimpleNamespace(cache=cache, cache_lock=asyncio.Lock())
-        )
-    )
-    response = ExtractionResponse(
-        url="https://example.com",
-        title="Cached",
-        byline=None,
-        dir="ltr",
-        content="<p>cached</p>",
-        length=12,
-        excerpt="cached",
-        siteName=None,
-        markdown="cached",
-        word_count=2,
-        success=True,
-    )
-
-    await _store_cache_entry(request, "key", response)
-    cached = await _lookup_cache(request, "key")
-
-    assert cached == response
-
-
-@pytest.mark.asyncio
-async def test_lookup_cache_without_state_returns_none():
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
-
-    assert await _lookup_cache(request, "missing") is None
-
-
-@pytest.mark.asyncio
-async def test_store_cache_entry_without_lock_is_noop():
-    cache = MagicMock(spec=LRUCache[str, ExtractionResponse])
-    state = SimpleNamespace(cache=cache, cache_lock=None)
-    request = SimpleNamespace(app=SimpleNamespace(state=state))
-
-    await _store_cache_entry(request, "sample", _sample_response("noop"))
-
-    cache.set.assert_not_called()
 
 
 def test_resolve_preference_prefers_request_override():

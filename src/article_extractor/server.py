@@ -26,8 +26,8 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
+from .extraction_cache import ExtractionCache
 from .extractor import extract_article_from_url
-from .lru_cache import LRUCache
 from .network import resolve_network_options
 from .observability import (
     build_metrics_emitter,
@@ -109,15 +109,13 @@ async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
 
     settings = get_settings()
-    cache = LRUCache[str, ExtractionResponse](max_size=settings.cache_size)
-    cache_lock = asyncio.Lock()
+    cache = ExtractionCache(max_size=settings.cache_size)
     threadpool = ThreadPoolExecutor(
         max_workers=_determine_threadpool_size(settings),
         thread_name_prefix="article-extractor",
     )
 
     app.state.cache = cache
-    app.state.cache_lock = cache_lock
     app.state.threadpool = threadpool
     app.state.log_diagnostics = settings.log_diagnostics
     app.state.metrics_emitter = build_metrics_emitter(
@@ -134,7 +132,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        cache.clear()
+        await cache.clear()
         threadpool.shutdown(wait=True)
 
 
@@ -404,45 +402,6 @@ async def root() -> dict:
     }
 
 
-def _build_cache_key(url: str, options: ExtractionOptions) -> str:
-    """Build a cache key that accounts for extraction options."""
-
-    return "|".join(
-        [
-            url,
-            str(options.min_word_count),
-            str(options.min_char_threshold),
-            "1" if options.include_images else "0",
-            "1" if options.include_code_blocks else "0",
-            "1" if options.safe_markdown else "0",
-        ]
-    )
-
-
-async def _lookup_cache(request: Request, key: str) -> ExtractionResponse | None:
-    cache: LRUCache[str, ExtractionResponse] | None = getattr(
-        request.app.state, "cache", None
-    )
-    cache_lock: asyncio.Lock | None = getattr(request.app.state, "cache_lock", None)
-    if cache is None or cache_lock is None:
-        return None
-    async with cache_lock:
-        return cache.get(key)
-
-
-async def _store_cache_entry(
-    request: Request, key: str, response: ExtractionResponse
-) -> None:
-    cache: LRUCache[str, ExtractionResponse] | None = getattr(
-        request.app.state, "cache", None
-    )
-    cache_lock: asyncio.Lock | None = getattr(request.app.state, "cache_lock", None)
-    if cache is None or cache_lock is None:
-        return
-    async with cache_lock:
-        cache.set(key, response)
-
-
 @app.post("/", response_model=ExtractionResponse, status_code=status.HTTP_200_OK)
 async def extract_article_endpoint(
     extraction_request: ExtractionRequest,
@@ -478,14 +437,14 @@ async def extract_article_endpoint(
             safe_markdown=True,
         )
 
-        cache_key = _build_cache_key(url, options)
-        cached = await _lookup_cache(request, cache_key)
+        cache: ExtractionCache | None = getattr(request.app.state, "cache", None)
+        cached = await cache.lookup(url, options) if cache else None
         if cached is not None:
             logger.debug(
                 "Cache hit",
                 extra={"url": url_hint, "request_id": request_id},
             )
-            return cached
+            return ExtractionResponse(**cached)
 
         # Extract article using default options
         network_options = _resolve_request_network_options(extraction_request, request)
@@ -522,7 +481,8 @@ async def extract_article_endpoint(
             word_count=result.word_count,
             success=result.success,
         )
-        await _store_cache_entry(request, cache_key, response)
+        if cache:
+            await cache.store(url, options, response.model_dump())
         return response
 
     except HTTPException:
@@ -544,14 +504,12 @@ async def extract_article_endpoint(
 @app.get("/health", status_code=status.HTTP_200_OK)
 async def health_check(request: Request) -> dict:
     """Kubernetes/Docker health check endpoint with metadata."""
-    cache: LRUCache[str, ExtractionResponse] | None = getattr(
-        request.app.state, "cache", None
-    )
+    cache: ExtractionCache | None = getattr(request.app.state, "cache", None)
     threadpool: ThreadPoolExecutor | None = getattr(
         request.app.state, "threadpool", None
     )
     cache_info = {
-        "size": len(cache) if cache else 0,
+        "size": cache.size() if cache else 0,
         "max_size": cache.max_size if cache else get_settings().cache_size,
     }
     worker_info = {
