@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
+from .crawl_job_store import CrawlJobStore
 from .extraction_cache import ExtractionCache
 from .extractor import extract_article_from_url
 from .network import resolve_network_options
@@ -39,8 +40,6 @@ from .request_logger import log_request_failure, log_request_success
 from .settings import ServiceSettings, get_settings
 from .types import (
     CrawlConfig,
-    CrawlJob,
-    CrawlManifest,
     ExtractionOptions,
     NetworkOptions,
 )
@@ -306,89 +305,6 @@ class CrawlJobResponse(BaseModel):
     completed_at: str | None = Field(
         default=None, description="ISO timestamp when job completed"
     )
-
-
-class CrawlJobStore:
-    """In-memory store for tracking crawl jobs."""
-
-    def __init__(self, max_concurrent: int = 1) -> None:
-        self.max_concurrent = max_concurrent
-        self._jobs: dict[str, CrawlJob] = {}
-        self._manifests: dict[str, CrawlManifest] = {}
-        self._tasks: dict[str, asyncio.Task] = {}
-        self._lock = asyncio.Lock()
-
-    async def get_job(self, job_id: str) -> CrawlJob | None:
-        async with self._lock:
-            return self._jobs.get(job_id)
-
-    async def get_manifest(self, job_id: str) -> CrawlManifest | None:
-        async with self._lock:
-            return self._manifests.get(job_id)
-
-    async def create_job(self, config: CrawlConfig) -> CrawlJob:
-        import uuid
-
-        job_id = str(uuid.uuid4())
-        job = CrawlJob(job_id=job_id, config=config, status="queued")
-        async with self._lock:
-            self._jobs[job_id] = job
-        return job
-
-    async def update_job(
-        self,
-        job_id: str,
-        *,
-        status: str | None = None,
-        progress: int | None = None,
-        total: int | None = None,
-        successful: int | None = None,
-        failed: int | None = None,
-        skipped: int | None = None,
-        error: str | None = None,
-        started_at: str | None = None,
-        completed_at: str | None = None,
-    ) -> None:
-        async with self._lock:
-            job = self._jobs.get(job_id)
-            if job is None:
-                return
-            if status is not None:
-                job.status = status
-            if progress is not None:
-                job.progress = progress
-            if total is not None:
-                job.total = total
-            if successful is not None:
-                # Store in a custom attribute since CrawlJob doesn't have these
-                job._successful = successful
-            if failed is not None:
-                job._failed = failed
-            if skipped is not None:
-                job._skipped = skipped
-            if error is not None:
-                job.error = error
-            if started_at is not None:
-                job.started_at = started_at
-            if completed_at is not None:
-                job.completed_at = completed_at
-
-    async def store_manifest(self, job_id: str, manifest: CrawlManifest) -> None:
-        async with self._lock:
-            self._manifests[job_id] = manifest
-
-    async def running_count(self) -> int:
-        async with self._lock:
-            return sum(1 for j in self._jobs.values() if j.status == "running")
-
-    async def can_start(self) -> bool:
-        return await self.running_count() < self.max_concurrent
-
-    def register_task(self, job_id: str, task: asyncio.Task) -> None:
-        self._tasks[job_id] = task
-
-    def get_task(self, job_id: str) -> asyncio.Task | None:
-        return self._tasks.get(job_id)
 
 
 @app.get("/", status_code=status.HTTP_200_OK)

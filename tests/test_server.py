@@ -13,7 +13,6 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import article_extractor.server as server_module
-from article_extractor.extraction_cache import ExtractionCache
 from article_extractor.server import (
     ExtractionRequest,
     ExtractionResponse,
@@ -29,7 +28,7 @@ from article_extractor.server import (
     set_prefer_playwright,
 )
 from article_extractor.settings import reload_settings
-from article_extractor.types import ArticleResult, ExtractionOptions, NetworkOptions
+from article_extractor.types import ArticleResult, NetworkOptions
 
 
 @pytest.fixture
@@ -308,7 +307,6 @@ def _sample_response(title: str) -> ExtractionResponse:
     )
 
 
-
 def test_cache_size_env_override(monkeypatch):
     """Cache size should respect ARTICLE_EXTRACTOR_CACHE_SIZE env overrides."""
     monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "5")
@@ -581,8 +579,6 @@ def test_determine_threadpool_size_invalid_requests(monkeypatch):
     reload_settings()
 
 
-
-
 def test_resolve_preference_prefers_request_override():
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(prefer_playwright=True))
@@ -680,7 +676,7 @@ async def test_general_exception_handler_includes_request_id():
 class TestCrawlJobStore:
     @pytest.mark.asyncio
     async def test_create_job_assigns_id(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore()
@@ -693,7 +689,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_get_job_returns_created_job(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore()
@@ -707,7 +703,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_get_job_returns_none_for_missing(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
 
         store = CrawlJobStore()
 
@@ -715,7 +711,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_update_job_updates_fields(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore()
@@ -731,7 +727,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_can_start_respects_limit(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore(max_concurrent=1)
@@ -749,7 +745,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_store_and_get_manifest(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig, CrawlManifest
 
         store = CrawlJobStore()
@@ -890,8 +886,9 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_records_metrics_and_manifest(
         self, monkeypatch, tmp_path
     ):
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.crawler import CrawlProgress
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -982,8 +979,9 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_skips_metrics_when_disabled(
         self, monkeypatch, tmp_path
     ):
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.crawler import CrawlProgress
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -1045,8 +1043,9 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_ignores_unknown_progress_status(
         self, monkeypatch, tmp_path
     ):
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.crawler import CrawlProgress
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -1105,7 +1104,8 @@ class TestCrawlJobRunner:
 
     @pytest.mark.asyncio
     async def test_run_crawl_job_handles_failure(self, monkeypatch, tmp_path):
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, NetworkOptions
 
         class _Metrics:
@@ -1143,7 +1143,8 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_failure_skips_metrics_when_disabled(
         self, monkeypatch, tmp_path
     ):
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, NetworkOptions
 
         class _Metrics:
@@ -1176,7 +1177,7 @@ class TestCrawlJobRunner:
 
 
 def test_crawl_job_store_ignores_missing_job():
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
 
     store = CrawlJobStore()
 
@@ -1184,7 +1185,7 @@ def test_crawl_job_store_ignores_missing_job():
 
 
 def test_crawl_job_store_get_task_missing():
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
 
     store = CrawlJobStore()
 
@@ -1228,7 +1229,7 @@ def test_get_crawl_status_requires_service_initialized(client, monkeypatch):
 
 
 def test_get_crawl_status_returns_job(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
@@ -1264,7 +1265,7 @@ def test_get_crawl_manifest_requires_service_initialized(client, monkeypatch):
 
 
 def test_get_crawl_manifest_rejects_incomplete_job(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
@@ -1279,7 +1280,7 @@ def test_get_crawl_manifest_rejects_incomplete_job(client, monkeypatch, tmp_path
 
 
 def test_get_crawl_manifest_missing_file(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
@@ -1294,7 +1295,7 @@ def test_get_crawl_manifest_missing_file(client, monkeypatch, tmp_path):
 
 
 def test_get_crawl_manifest_returns_file(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
