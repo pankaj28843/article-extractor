@@ -26,6 +26,7 @@ import defusedxml.ElementTree as ET
 from .extractor import ArticleExtractor
 from .fetcher import Fetcher, get_default_fetcher
 from .network import resolve_network_options
+from .retry_utils import exponential_backoff_delay
 from .types import CrawlConfig, CrawlManifest, CrawlResult, NetworkOptions
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,7 @@ class Crawler:
                         "Fetch failed after %s attempts", attempt, exc_info=exc
                     )
                     raise
-                delay = self._backoff_delay(attempt)
+                delay = exponential_backoff_delay(attempt)
                 logger.warning(
                     "Fetch attempt %s failed; retrying in %.2fs",
                     attempt,
@@ -141,10 +142,6 @@ class Crawler:
 
     def _resolve_network(self, network: NetworkOptions | None) -> NetworkOptions:
         return network if network is not None else resolve_network_options()
-
-    @staticmethod
-    def _backoff_delay(attempt: int) -> float:
-        return min(0.3 * attempt, 1.5)
 
     # ------------------------------------------------------------------
     # Queue management
