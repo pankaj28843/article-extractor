@@ -242,10 +242,6 @@ def _is_transient_error_message(error: str | None) -> bool:
     return any(str(code) in error for code in _TRANSIENT_CLIENT_STATUSES)
 
 
-def _http_error_result(url: str, status_code: int) -> ArticleResult:
-    return _failure_result_for_url(url, f"HTTP {status_code}")
-
-
 def _failure_result_for_url(url: str, error: str) -> ArticleResult:
     """Return a failed ArticleResult with an empty payload."""
     return ArticleResult(
@@ -357,11 +353,11 @@ async def _extract_with_fetcher(
                     )
                     return result
             # Extraction failed or HTML too sparse
-            return _http_error_result(url, status_code)
+            return _failure_result_for_url(url, f"HTTP {status_code}")
 
         # Other 4xx/5xx errors: fail immediately
         if status_code >= 400:
-            return _http_error_result(url, status_code)
+            return _failure_result_for_url(url, f"HTTP {status_code}")
 
         return await _run_extraction(extractor, html, url, executor)
 
