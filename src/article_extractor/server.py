@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -28,6 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
 from .extractor import extract_article_from_url
+from .lru_cache import LRUCache
 from .network import resolve_network_options
 from .observability import (
     build_metrics_emitter,
@@ -60,32 +60,6 @@ def _configure_logging(settings: ServiceSettings | None = None) -> None:
 
 
 _configure_logging()
-
-
-class ExtractionResponseCache:
-    """Simple in-memory LRU cache for extraction responses."""
-
-    def __init__(self, max_size: int) -> None:
-        self.max_size = max(1, max_size)
-        self._store: OrderedDict[str, ExtractionResponse] = OrderedDict()
-
-    def get(self, key: str) -> ExtractionResponse | None:
-        value = self._store.get(key)
-        if value is not None:
-            self._store.move_to_end(key)
-        return value
-
-    def set(self, key: str, value: ExtractionResponse) -> None:
-        self._store[key] = value
-        self._store.move_to_end(key)
-        while len(self._store) > self.max_size:
-            self._store.popitem(last=False)
-
-    def __len__(self) -> int:  # pragma: no cover - trivial
-        return len(self._store)
-
-    def clear(self) -> None:
-        self._store.clear()
 
 
 def _read_cache_size() -> int:
@@ -142,7 +116,7 @@ async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
 
     settings = get_settings()
-    cache = ExtractionResponseCache(settings.cache_size)
+    cache = LRUCache[str, ExtractionResponse](max_size=settings.cache_size)
     cache_lock = asyncio.Lock()
     threadpool = ThreadPoolExecutor(
         max_workers=_determine_threadpool_size(settings),
@@ -461,7 +435,9 @@ def _build_cache_key(url: str, options: ExtractionOptions) -> str:
 
 
 async def _lookup_cache(request: Request, key: str) -> ExtractionResponse | None:
-    cache: ExtractionResponseCache | None = getattr(request.app.state, "cache", None)
+    cache: LRUCache[str, ExtractionResponse] | None = getattr(
+        request.app.state, "cache", None
+    )
     cache_lock: asyncio.Lock | None = getattr(request.app.state, "cache_lock", None)
     if cache is None or cache_lock is None:
         return None
@@ -472,7 +448,9 @@ async def _lookup_cache(request: Request, key: str) -> ExtractionResponse | None
 async def _store_cache_entry(
     request: Request, key: str, response: ExtractionResponse
 ) -> None:
-    cache: ExtractionResponseCache | None = getattr(request.app.state, "cache", None)
+    cache: LRUCache[str, ExtractionResponse] | None = getattr(
+        request.app.state, "cache", None
+    )
     cache_lock: asyncio.Lock | None = getattr(request.app.state, "cache_lock", None)
     if cache is None or cache_lock is None:
         return
@@ -581,7 +559,9 @@ async def extract_article_endpoint(
 @app.get("/health", status_code=status.HTTP_200_OK)
 async def health_check(request: Request) -> dict:
     """Kubernetes/Docker health check endpoint with metadata."""
-    cache: ExtractionResponseCache | None = getattr(request.app.state, "cache", None)
+    cache: LRUCache[str, ExtractionResponse] | None = getattr(
+        request.app.state, "cache", None
+    )
     threadpool: ThreadPoolExecutor | None = getattr(
         request.app.state, "threadpool", None
     )

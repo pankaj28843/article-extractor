@@ -13,10 +13,10 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import article_extractor.server as server_module
+from article_extractor.lru_cache import LRUCache
 from article_extractor.server import (
     ExtractionRequest,
     ExtractionResponse,
-    ExtractionResponseCache,
     NetworkRequest,
     _build_cache_key,
     _determine_threadpool_size,
@@ -314,7 +314,7 @@ def _sample_response(title: str) -> ExtractionResponse:
 
 
 def test_cache_evicts_oldest_entry():
-    cache = ExtractionResponseCache(1)
+    cache = LRUCache[str, ExtractionResponse](max_size=1)
     cache.set("first", _sample_response("first"))
     cache.set("second", _sample_response("second"))
 
@@ -653,7 +653,7 @@ def test_build_cache_key_reflects_options():
 
 @pytest.mark.asyncio
 async def test_cache_helpers_roundtrip():
-    cache = ExtractionResponseCache(2)
+    cache = LRUCache[str, ExtractionResponse](max_size=2)
     request = SimpleNamespace(
         app=SimpleNamespace(
             state=SimpleNamespace(cache=cache, cache_lock=asyncio.Lock())
@@ -688,7 +688,7 @@ async def test_lookup_cache_without_state_returns_none():
 
 @pytest.mark.asyncio
 async def test_store_cache_entry_without_lock_is_noop():
-    cache = MagicMock(spec=ExtractionResponseCache)
+    cache = MagicMock(spec=LRUCache[str, ExtractionResponse])
     state = SimpleNamespace(cache=cache, cache_lock=None)
     request = SimpleNamespace(app=SimpleNamespace(state=state))
 
