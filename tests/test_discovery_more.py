@@ -7,11 +7,13 @@ import pytest
 
 from article_extractor.discovery import (
     AdaptiveConcurrencyLimiter,
-    AdaptiveRateLimiter,
     CrawlConfig,
     EfficientCrawler,
-    HostRateLimitState,
     PageProcessResult,
+)
+from article_extractor.rate_limiter import (
+    AdaptiveRateLimiter,
+    HostRateLimitState,
 )
 
 

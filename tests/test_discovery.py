@@ -5,9 +5,9 @@ from article_extractor.discovery import (
     AdaptiveConcurrencyLimiter,
     CrawlConfig,
     EfficientCrawler,
-    HostRateLimitState,
     PageProcessResult,
 )
+from article_extractor.rate_limiter import HostRateLimitState
 
 
 class _FakeClient:
