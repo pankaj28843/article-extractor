@@ -27,9 +27,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_nested_images(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML(
-            '<div><img src="/img/one.png"><img src="/img/two.png"></div>'
-        )
+        doc = JustHTML('<div><img src="/img/one.png"><img src="/img/two.png"></div>')
         root = doc.query("div")[0]
         absolutize_urls(root, "https://example.com/")
 
@@ -60,9 +58,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_video_elements(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML(
-            '<video src="/vid.mp4" poster="/poster.jpg"></video>'
-        )
+        doc = JustHTML('<video src="/vid.mp4" poster="/poster.jpg"></video>')
         node = doc.query("video")[0]
         absolutize_urls(node, "https://example.com/")
 

@@ -9,7 +9,6 @@ Provides:
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlparse
@@ -22,6 +21,7 @@ from .constants import (
     STRIP_TAGS,
     UNLIKELY_ROLES,
 )
+from .content_sanitizer import sanitize_content
 from .scorer import is_unlikely_candidate, rank_candidates
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
 from .url_normalizer import absolutize_urls
@@ -135,7 +135,7 @@ class ArticleExtractor:
         # Sanitize node before serialization to drop empty anchors/images
         if url:
             absolutize_urls(top_candidate, url)
-        self._sanitize_content_node(top_candidate)
+        sanitize_content(top_candidate)
 
         # Extract content
         try:
@@ -318,79 +318,6 @@ class ArticleExtractor:
 
         title = path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
         return title.title()
-
-    def _sanitize_content_node(self, node: SimpleDomNode) -> None:
-        """Remove empty anchors and images without usable sources."""
-
-        self._remove_empty_links(node)
-        self._remove_empty_images(node)
-        self._remove_empty_blocks(node)
-
-    def _collect_nodes(
-        self, root: SimpleDomNode, tags: tuple[str, ...]
-    ) -> list[SimpleDomNode]:
-        """Return nodes matching tags, including the root if applicable."""
-        nodes: list[SimpleDomNode] = []
-        for tag in tags:
-            nodes.extend(root.query(tag))
-
-        root_tag = getattr(root, "name", "").lower()
-        if root_tag in tags:
-            nodes.append(root)
-
-        return nodes
-
-    def _remove_empty_links(self, root: SimpleDomNode) -> None:
-        """Drop anchor tags that would render as empty markdown links."""
-
-        self._remove_nodes(root, ("a",), keep=self._node_has_visible_content)
-
-    def _remove_empty_images(self, root: SimpleDomNode) -> None:
-        """Remove <img> elements without a usable src attribute."""
-
-        self._remove_nodes(root, ("img",), keep=self._has_valid_image_src)
-
-    def _remove_nodes(
-        self,
-        root: SimpleDomNode,
-        tags: tuple[str, ...],
-        *,
-        keep: Callable[[SimpleDomNode], bool],
-    ) -> None:
-        """Remove nodes for tags when they fail the keep predicate."""
-
-        for node in self._collect_nodes(root, tags):
-            if keep(node):
-                continue
-
-            parent = getattr(node, "parent", None)
-            if parent is not None:
-                parent.remove_child(node)
-
-    def _has_valid_image_src(self, node: SimpleDomNode) -> bool:
-        """Check whether an image node has a non-empty src attribute."""
-
-        attrs = getattr(node, "attrs", {}) or {}
-        src = attrs.get("src")
-        if src is None:
-            return False
-
-        return bool(str(src).strip())
-
-    def _remove_empty_blocks(self, root: SimpleDomNode) -> None:
-        """Strip block-level nodes that no longer carry content."""
-
-        target_tags = ("li", "p", "div")
-        self._remove_nodes(root, target_tags, keep=self._node_has_visible_content)
-
-    def _node_has_visible_content(self, node: SimpleDomNode) -> bool:
-        """Determine whether a node contains text or media worth keeping."""
-
-        text = node.to_text(strip=True)
-        if text:
-            return True
-
-        return any(self._has_valid_image_src(img) for img in node.query("img"))
 
 
 # Convenience function for backward compatibility

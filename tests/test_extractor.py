@@ -1268,70 +1268,6 @@ class TestExtractorEdgeCases:
         assert result.success is True
         assert 'href="/docs"' in result.content
 
-    def test_remove_empty_links_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Anchor:
-            name = "a"
-            parent = None
-
-            def to_text(self, *args, **kwargs):
-                return ""
-
-            def query(self, _selector):
-                return []
-
-        class _Root:
-            name = "div"
-
-            def query(self, _selector):
-                return [_Anchor()]
-
-        extractor = ArticleExtractor()
-        extractor._remove_empty_links(_Root())
-
-    def test_remove_empty_images_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Image:
-            name = "img"
-            parent = None
-            attrs = {"src": ""}
-
-        class _Root:
-            name = "div"
-
-            def query(self, _selector):
-                return [_Image()]
-
-        extractor = ArticleExtractor()
-        extractor._remove_empty_images(_Root())
-
-    def test_remove_empty_blocks_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Block:
-            name = "p"
-            parent = None
-
-            def to_text(self, *args, **kwargs):
-                return ""
-
-            def query(self, _selector):
-                return []
-
-        class _Root:
-            name = "div"
-
-            def query(self, _selector):
-                return [_Block()]
-
-            def to_text(self, *args, **kwargs):
-                return ""
-
-        extractor = ArticleExtractor()
-        extractor._remove_empty_blocks(_Root())
-
     def test_find_top_candidate_returns_none_when_ranked_empty(self, monkeypatch):
         from justhtml import JustHTML
 
@@ -1424,46 +1360,7 @@ class TestExtractorEdgeCases:
         result = extract_article(html, url="https://example.com/page")
 
         assert result.success is True
-        assert 'https://example.com/link' in result.content
-
-    def test_remove_empty_anchor_root(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML('<div><a href="https://example.com"></a></div>')
-        node = doc.query("a")[0]
-        extractor = ArticleExtractor()
-
-        extractor._remove_empty_links(node)
-
-        assert doc.query("a") == []
-
-    def test_remove_empty_image_root(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML("<div><img></div>")
-        node = doc.query("img")[0]
-        extractor = ArticleExtractor()
-
-        extractor._remove_empty_images(node)
-
-        assert doc.query("img") == []
-
-    def test_remove_empty_block_root(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML("<div><p>   </p></div>")
-        node = doc.query("p")[0]
-        extractor = ArticleExtractor()
-
-        extractor._remove_empty_blocks(node)
-
-        assert doc.query("p") == []
+        assert "https://example.com/link" in result.content
 
 
 @pytest.mark.unit
