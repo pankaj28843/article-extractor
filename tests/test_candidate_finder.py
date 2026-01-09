@@ -1,5 +1,7 @@
 """Tests for candidate_finder module."""
 
+from unittest.mock import patch
+
 from justhtml import JustHTML
 
 from article_extractor.cache import ExtractionCache
@@ -320,3 +322,24 @@ class TestFindTopCandidate:
         assert candidate is not None
         # Should select the longer div
         assert len(candidate.to_text(strip=True)) > 50
+
+    def test_returns_none_when_rank_candidates_empty(self):
+        """Test edge case where rank_candidates returns empty list."""
+        html = """
+        <html>
+        <body>
+            <article>
+                <p>Content</p>
+            </article>
+        </body>
+        </html>
+        """
+        doc = JustHTML(html)
+        cache = ExtractionCache()
+
+        # Mock rank_candidates to return empty list
+        with patch(
+            "article_extractor.candidate_finder.rank_candidates", return_value=[]
+        ):
+            candidate = find_top_candidate(doc, cache)
+            assert candidate is None
