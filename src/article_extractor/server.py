@@ -93,6 +93,17 @@ def _emit_request_metrics(
     )
 
 
+def _get_crawl_job_store(request: Request) -> CrawlJobStore:
+    """Get crawl job store from app state, raising 503 if not initialized."""
+    job_store: CrawlJobStore | None = getattr(request.app.state, "crawl_jobs", None)
+    if job_store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Crawl service not initialized",
+        )
+    return job_store
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
@@ -582,12 +593,7 @@ async def submit_crawl_job(
         )
 
     # Check concurrent job limit
-    job_store: CrawlJobStore = getattr(request.app.state, "crawl_jobs", None)
-    if job_store is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crawl service not initialized",
-        )
+    job_store = _get_crawl_job_store(request)
 
     if not await job_store.can_start():
         raise HTTPException(
@@ -704,12 +710,7 @@ async def get_crawl_manifest(job_id: str, request: Request) -> FileResponse:
     Raises:
         HTTPException: 404 if job not found, 400 if job not completed.
     """
-    job_store: CrawlJobStore = getattr(request.app.state, "crawl_jobs", None)
-    if job_store is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crawl service not initialized",
-        )
+    job_store = _get_crawl_job_store(request)
 
     job = await job_store.get_job(job_id)
     if job is None:
