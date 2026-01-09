@@ -331,14 +331,15 @@ def test_extraction_works_without_cache(client, mock_result, monkeypatch):
                 return None
             return original_getattr(obj, name, *args)
 
-        with patch("article_extractor.server.getattr", side_effect=mock_getattr_for_cache):
+        with patch(
+            "article_extractor.server.getattr", side_effect=mock_getattr_for_cache
+        ):
             response = client.post("/", json={"url": "https://nocache.com"})
 
             assert response.status_code == 200
             assert response.json()["title"] == "Test Article Title"
             # Verify the cache.store was not called (since cache is None)
             mock_extract.assert_called_once()
-
 
 
 def test_threadpool_env_override(monkeypatch):
