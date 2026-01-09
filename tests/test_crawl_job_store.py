@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 import pytest
 
@@ -15,9 +14,9 @@ class TestCrawlJobStore:
     """Tests for CrawlJobStore class."""
 
     @pytest.mark.asyncio
-    async def test_create_job_assigns_unique_id(self):
+    async def test_create_job_assigns_unique_id(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         job = await store.create_job(config)
 
         assert job.job_id is not None
@@ -26,9 +25,9 @@ class TestCrawlJobStore:
         assert job.config == config
 
     @pytest.mark.asyncio
-    async def test_create_multiple_jobs_get_unique_ids(self):
+    async def test_create_multiple_jobs_get_unique_ids(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://test.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://test.com"])
 
         job1 = await store.create_job(config)
         job2 = await store.create_job(config)
@@ -36,9 +35,9 @@ class TestCrawlJobStore:
         assert job1.job_id != job2.job_id
 
     @pytest.mark.asyncio
-    async def test_get_job_returns_created_job(self):
+    async def test_get_job_returns_created_job(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         created = await store.create_job(config)
 
         fetched = await store.get_job(created.job_id)
@@ -53,9 +52,9 @@ class TestCrawlJobStore:
         assert await store.get_job("nonexistent-id") is None
 
     @pytest.mark.asyncio
-    async def test_update_job_updates_status(self):
+    async def test_update_job_updates_status(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         job = await store.create_job(config)
 
         await store.update_job(job.job_id, status="running")
@@ -64,9 +63,9 @@ class TestCrawlJobStore:
         assert updated.status == "running"
 
     @pytest.mark.asyncio
-    async def test_update_job_updates_progress_fields(self):
+    async def test_update_job_updates_progress_fields(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         job = await store.create_job(config)
 
         await store.update_job(job.job_id, progress=5, total=10, successful=4, failed=1)
@@ -84,9 +83,9 @@ class TestCrawlJobStore:
         await store.update_job("missing-id", status="running")
 
     @pytest.mark.asyncio
-    async def test_update_job_partial_updates(self):
+    async def test_update_job_partial_updates(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         job = await store.create_job(config)
 
         await store.update_job(job.job_id, progress=10)
@@ -100,9 +99,9 @@ class TestCrawlJobStore:
         assert updated.progress == 10  # Preserved
 
     @pytest.mark.asyncio
-    async def test_store_and_get_manifest(self):
+    async def test_store_and_get_manifest(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         job = await store.create_job(config)
         manifest = CrawlManifest(
             job_id=job.job_id,
@@ -132,9 +131,9 @@ class TestCrawlJobStore:
         assert await store.running_count() == 0
 
     @pytest.mark.asyncio
-    async def test_running_count_counts_running_jobs(self):
+    async def test_running_count_counts_running_jobs(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
 
         job1 = await store.create_job(config)
         job2 = await store.create_job(config)
@@ -147,9 +146,9 @@ class TestCrawlJobStore:
         assert await store.running_count() == 2
 
     @pytest.mark.asyncio
-    async def test_can_start_respects_max_concurrent(self):
+    async def test_can_start_respects_max_concurrent(self, tmp_path):
         store = CrawlJobStore(max_concurrent=2)
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
 
         assert await store.can_start()  # 0 running
 
@@ -162,9 +161,9 @@ class TestCrawlJobStore:
         assert not await store.can_start()  # 2 running (at limit)
 
     @pytest.mark.asyncio
-    async def test_register_and_get_task(self):
+    async def test_register_and_get_task(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
         job = await store.create_job(config)
 
         async def dummy_task():
@@ -184,9 +183,9 @@ class TestCrawlJobStore:
         assert store.get_task("nonexistent") is None
 
     @pytest.mark.asyncio
-    async def test_concurrent_operations_are_safe(self):
+    async def test_concurrent_operations_are_safe(self, tmp_path):
         store = CrawlJobStore()
-        config = CrawlConfig(output_dir=Path("/tmp"), seeds=["https://example.com"])
+        config = CrawlConfig(output_dir=tmp_path, seeds=["https://example.com"])
 
         async def create_and_update(i):
             job = await store.create_job(config)

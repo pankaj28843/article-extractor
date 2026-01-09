@@ -318,6 +318,29 @@ def test_cache_size_env_override(monkeypatch):
     reload_settings()
 
 
+def test_extraction_works_without_cache(client, mock_result, monkeypatch):
+    """Extraction should work even if cache is not available."""
+    with patch("article_extractor.server.extract_article_from_url") as mock_extract:
+        mock_extract.return_value = mock_result
+
+        # Patch getattr to return None specifically for "cache"
+        original_getattr = getattr
+
+        def mock_getattr_for_cache(obj, name, *args):
+            if name == "cache":
+                return None
+            return original_getattr(obj, name, *args)
+
+        with patch("article_extractor.server.getattr", side_effect=mock_getattr_for_cache):
+            response = client.post("/", json={"url": "https://nocache.com"})
+
+            assert response.status_code == 200
+            assert response.json()["title"] == "Test Article Title"
+            # Verify the cache.store was not called (since cache is None)
+            mock_extract.assert_called_once()
+
+
+
 def test_threadpool_env_override(monkeypatch):
     """Threadpool size should use ARTICLE_EXTRACTOR_THREADPOOL_SIZE overrides."""
 
@@ -887,8 +910,8 @@ class TestCrawlJobRunner:
         self, monkeypatch, tmp_path
     ):
         from article_extractor.crawl_job_store import CrawlJobStore
-        from article_extractor.server import _run_crawl_job
         from article_extractor.crawler import CrawlProgress
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -980,8 +1003,8 @@ class TestCrawlJobRunner:
         self, monkeypatch, tmp_path
     ):
         from article_extractor.crawl_job_store import CrawlJobStore
-        from article_extractor.server import _run_crawl_job
         from article_extractor.crawler import CrawlProgress
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -1044,8 +1067,8 @@ class TestCrawlJobRunner:
         self, monkeypatch, tmp_path
     ):
         from article_extractor.crawl_job_store import CrawlJobStore
-        from article_extractor.server import _run_crawl_job
         from article_extractor.crawler import CrawlProgress
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:

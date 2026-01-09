@@ -311,6 +311,13 @@ def test_coerce_cache_size_handles_empty():
     assert ServiceSettings._coerce_cache_size("") == 1000
 
 
+def test_coerce_cache_size_handles_invalid():
+    """Test that invalid cache size values fall back to 1000 with warning."""
+    assert ServiceSettings._coerce_cache_size("invalid") == 1000
+    assert ServiceSettings._coerce_cache_size("not-a-number") == 1000
+    assert ServiceSettings._coerce_cache_size(object()) == 1000
+
+
 def test_coerce_non_negative_float_handles_empty():
     assert _coerce_non_negative_float(None, "TEST", fallback=1.5) == 1.5
 
