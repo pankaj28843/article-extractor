@@ -62,11 +62,6 @@ def _configure_logging(settings: ServiceSettings | None = None) -> None:
 _configure_logging()
 
 
-def _determine_threadpool_size(settings: ServiceSettings | None = None) -> int:
-    settings = settings or get_settings()
-    return settings.determine_threadpool_size()
-
-
 def _initialize_state_from_env(state) -> None:
     settings = get_settings()
     if getattr(state, "network_defaults", None) is None:
@@ -110,7 +105,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     cache = ExtractionCache(max_size=settings.cache_size)
     threadpool = ThreadPoolExecutor(
-        max_workers=_determine_threadpool_size(settings),
+        max_workers=settings.determine_threadpool_size(),
         thread_name_prefix="article-extractor",
     )
 
@@ -431,7 +426,7 @@ async def health_check(request: Request) -> dict:
     worker_info = {
         "max_workers": threadpool._max_workers
         if threadpool
-        else _determine_threadpool_size(),
+        else get_settings().determine_threadpool_size(),
     }
     return {
         "status": "healthy",

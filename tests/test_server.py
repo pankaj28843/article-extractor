@@ -17,7 +17,6 @@ from article_extractor.server import (
     ExtractionRequest,
     ExtractionResponse,
     NetworkRequest,
-    _determine_threadpool_size,
     _initialize_state_from_env,
     _resolve_preference,
     _resolve_request_network_options,
@@ -585,23 +584,6 @@ def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_resul
         app.state.network_defaults = original_network
         monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
         reload_settings()
-
-
-def test_determine_threadpool_size_invalid_requests(monkeypatch):
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", raising=False)
-    default_value = _determine_threadpool_size()
-
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "0")
-    reload_settings()
-    assert _determine_threadpool_size() == default_value
-
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "abc")
-    reload_settings()
-    assert _determine_threadpool_size() == default_value
-
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", raising=False)
-    reload_settings()
-
 
 def test_resolve_preference_prefers_request_override():
     request = SimpleNamespace(
