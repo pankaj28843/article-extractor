@@ -35,6 +35,7 @@ from .observability import (
     setup_logging,
     strip_url,
 )
+from .request_logger import log_request_failure, log_request_success
 from .settings import ServiceSettings, get_settings
 from .types import (
     CrawlConfig,
@@ -157,17 +158,13 @@ async def request_context_logging(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception:
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        logger.exception(
-            "Request failed",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "duration_ms": duration_ms,
-                "url": url_hint,
-            },
+        duration_ms = log_request_failure(
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            url_hint=url_hint,
+            start_time=start,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
         _emit_request_metrics(
             request.app.state,
@@ -178,18 +175,14 @@ async def request_context_logging(request: Request, call_next):
         )
         raise
 
-    duration_ms = round((time.perf_counter() - start) * 1000, 2)
     response.headers["X-Request-ID"] = request_id
-    logger.info(
-        "Request complete",
-        extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": request.url.path,
-            "status_code": response.status_code,
-            "duration_ms": duration_ms,
-            "url": url_hint,
-        },
+    duration_ms = log_request_success(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        url_hint=url_hint,
+        start_time=start,
+        status_code=response.status_code,
     )
     _emit_request_metrics(
         request.app.state,

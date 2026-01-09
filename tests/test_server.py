@@ -476,7 +476,7 @@ async def test_request_context_logging_exception_path_emits_metrics():
         raise RuntimeError("boom")
 
     with (
-        patch("article_extractor.server.logger") as mock_logger,
+        patch("article_extractor.request_logger.logger") as mock_logger,
         patch("article_extractor.server._emit_request_metrics") as mock_emit,
         pytest.raises(RuntimeError),
     ):
