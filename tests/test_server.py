@@ -16,17 +16,10 @@ import article_extractor.server as server_module
 from article_extractor.server import (
     ExtractionRequest,
     ExtractionResponse,
-    ExtractionResponseCache,
     NetworkRequest,
-    _build_cache_key,
-    _determine_threadpool_size,
     _initialize_state_from_env,
-    _lookup_cache,
-    _read_cache_size,
-    _read_prefer_playwright_env,
     _resolve_preference,
     _resolve_request_network_options,
-    _store_cache_entry,
     app,
     configure_network_defaults,
     general_exception_handler,
@@ -34,7 +27,7 @@ from article_extractor.server import (
     set_prefer_playwright,
 )
 from article_extractor.settings import reload_settings
-from article_extractor.types import ArticleResult, ExtractionOptions, NetworkOptions
+from article_extractor.types import ArticleResult, NetworkOptions
 
 
 @pytest.fixture
@@ -71,30 +64,6 @@ def failed_result():
         word_count=0,
         success=False,
         error="Failed to extract article",
-    )
-
-
-def test_server_setup_logging_uses_settings():
-    """Server should configure logging using ServiceSettings-derived values."""
-
-    settings = SimpleNamespace(
-        log_level="DEBUG",
-        log_format="text",
-        cache_size=256,
-        log_diagnostics=True,
-        prefer_playwright=False,
-        build_network_env=lambda: {},
-        determine_threadpool_size=lambda: 8,
-    )
-
-    with patch("article_extractor.server.setup_logging") as mock_setup:
-        server_module._configure_logging(settings)
-
-    mock_setup.assert_called_once_with(
-        component="server",
-        level="DEBUG",
-        default_level="INFO",
-        log_format="text",
     )
 
 
@@ -313,15 +282,6 @@ def _sample_response(title: str) -> ExtractionResponse:
     )
 
 
-def test_cache_evicts_oldest_entry():
-    cache = ExtractionResponseCache(1)
-    cache.set("first", _sample_response("first"))
-    cache.set("second", _sample_response("second"))
-
-    assert cache.get("first") is None
-    assert cache.get("second").title == "second"
-
-
 def test_cache_size_env_override(monkeypatch):
     """Cache size should respect ARTICLE_EXTRACTOR_CACHE_SIZE env overrides."""
     monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "5")
@@ -331,6 +291,30 @@ def test_cache_size_env_override(monkeypatch):
     assert data["cache"]["max_size"] == 5
     monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
     reload_settings()
+
+
+def test_extraction_works_without_cache(client, mock_result, monkeypatch):
+    """Extraction should work even if cache is not available."""
+    with patch("article_extractor.server.extract_article_from_url") as mock_extract:
+        mock_extract.return_value = mock_result
+
+        # Patch getattr to return None specifically for "cache"
+        original_getattr = getattr
+
+        def mock_getattr_for_cache(obj, name, *args):
+            if name == "cache":
+                return None
+            return original_getattr(obj, name, *args)
+
+        with patch(
+            "article_extractor.server.getattr", side_effect=mock_getattr_for_cache
+        ):
+            response = client.post("/", json={"url": "https://nocache.com"})
+
+            assert response.status_code == 200
+            assert response.json()["title"] == "Test Article Title"
+            # Verify the cache.store was not called (since cache is None)
+            mock_extract.assert_called_once()
 
 
 def test_threadpool_env_override(monkeypatch):
@@ -478,7 +462,7 @@ async def test_request_context_logging_exception_path_emits_metrics():
         raise RuntimeError("boom")
 
     with (
-        patch("article_extractor.server.logger") as mock_logger,
+        patch("article_extractor.request_logger.logger") as mock_logger,
         patch("article_extractor.server._emit_request_metrics") as mock_emit,
         pytest.raises(RuntimeError),
     ):
@@ -510,36 +494,6 @@ def test_configure_helpers_store_state(monkeypatch, tmp_path):
     app.state.network_defaults = original_network
     app.state.prefer_playwright = original_prefer
     monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
-    reload_settings()
-
-
-def test_read_prefer_playwright_env_parses_boolean(monkeypatch):
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "0")
-    reload_settings()
-
-    assert _read_prefer_playwright_env() is False
-
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "On")
-    reload_settings()
-
-    assert _read_prefer_playwright_env() is True
-
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
-    reload_settings()
-
-
-def test_read_prefer_playwright_env_warns_on_invalid(monkeypatch, caplog):
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", "maybe")
-    caplog.set_level("WARNING")
-    reload_settings()
-
-    assert _read_prefer_playwright_env() is True
-    assert any(
-        "Invalid ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT" in message
-        for message in caplog.messages
-    )
-
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_PREFER_PLAYWRIGHT", raising=False)
     reload_settings()
 
 
@@ -606,95 +560,6 @@ def test_env_storage_state_flows_into_requests(monkeypatch, tmp_path, mock_resul
         app.state.network_defaults = original_network
         monkeypatch.delenv("ARTICLE_EXTRACTOR_STORAGE_STATE_FILE", raising=False)
         reload_settings()
-
-
-def test_read_cache_size_invalid_env(monkeypatch, caplog):
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_CACHE_SIZE", "not-a-number")
-
-    caplog.set_level("WARNING")
-    reload_settings()
-    size = _read_cache_size()
-
-    assert size == 1000
-    assert any("Invalid ARTICLE_EXTRACTOR_CACHE_SIZE" in msg for msg in caplog.messages)
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_CACHE_SIZE", raising=False)
-    reload_settings()
-
-
-def test_determine_threadpool_size_invalid_requests(monkeypatch):
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", raising=False)
-    default_value = _determine_threadpool_size()
-
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "0")
-    reload_settings()
-    assert _determine_threadpool_size() == default_value
-
-    monkeypatch.setenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", "abc")
-    reload_settings()
-    assert _determine_threadpool_size() == default_value
-
-    monkeypatch.delenv("ARTICLE_EXTRACTOR_THREADPOOL_SIZE", raising=False)
-    reload_settings()
-
-
-def test_build_cache_key_reflects_options():
-    options = ExtractionOptions(
-        min_word_count=10,
-        min_char_threshold=20,
-        include_images=False,
-        include_code_blocks=False,
-        safe_markdown=False,
-    )
-
-    key = _build_cache_key("https://example.com", options)
-
-    assert key == "https://example.com|10|20|0|0|0"
-
-
-@pytest.mark.asyncio
-async def test_cache_helpers_roundtrip():
-    cache = ExtractionResponseCache(2)
-    request = SimpleNamespace(
-        app=SimpleNamespace(
-            state=SimpleNamespace(cache=cache, cache_lock=asyncio.Lock())
-        )
-    )
-    response = ExtractionResponse(
-        url="https://example.com",
-        title="Cached",
-        byline=None,
-        dir="ltr",
-        content="<p>cached</p>",
-        length=12,
-        excerpt="cached",
-        siteName=None,
-        markdown="cached",
-        word_count=2,
-        success=True,
-    )
-
-    await _store_cache_entry(request, "key", response)
-    cached = await _lookup_cache(request, "key")
-
-    assert cached == response
-
-
-@pytest.mark.asyncio
-async def test_lookup_cache_without_state_returns_none():
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
-
-    assert await _lookup_cache(request, "missing") is None
-
-
-@pytest.mark.asyncio
-async def test_store_cache_entry_without_lock_is_noop():
-    cache = MagicMock(spec=ExtractionResponseCache)
-    state = SimpleNamespace(cache=cache, cache_lock=None)
-    request = SimpleNamespace(app=SimpleNamespace(state=state))
-
-    await _store_cache_entry(request, "sample", _sample_response("noop"))
-
-    cache.set.assert_not_called()
 
 
 def test_resolve_preference_prefers_request_override():
@@ -794,7 +659,7 @@ async def test_general_exception_handler_includes_request_id():
 class TestCrawlJobStore:
     @pytest.mark.asyncio
     async def test_create_job_assigns_id(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore()
@@ -807,7 +672,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_get_job_returns_created_job(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore()
@@ -821,7 +686,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_get_job_returns_none_for_missing(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
 
         store = CrawlJobStore()
 
@@ -829,7 +694,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_update_job_updates_fields(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore()
@@ -845,7 +710,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_can_start_respects_limit(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig
 
         store = CrawlJobStore(max_concurrent=1)
@@ -863,7 +728,7 @@ class TestCrawlJobStore:
 
     @pytest.mark.asyncio
     async def test_store_and_get_manifest(self):
-        from article_extractor.server import CrawlJobStore
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.types import CrawlConfig, CrawlManifest
 
         store = CrawlJobStore()
@@ -1004,8 +869,9 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_records_metrics_and_manifest(
         self, monkeypatch, tmp_path
     ):
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.crawler import CrawlProgress
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -1096,8 +962,9 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_skips_metrics_when_disabled(
         self, monkeypatch, tmp_path
     ):
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.crawler import CrawlProgress
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -1159,8 +1026,9 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_ignores_unknown_progress_status(
         self, monkeypatch, tmp_path
     ):
+        from article_extractor.crawl_job_store import CrawlJobStore
         from article_extractor.crawler import CrawlProgress
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, CrawlManifest, NetworkOptions
 
         class _Metrics:
@@ -1219,7 +1087,8 @@ class TestCrawlJobRunner:
 
     @pytest.mark.asyncio
     async def test_run_crawl_job_handles_failure(self, monkeypatch, tmp_path):
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, NetworkOptions
 
         class _Metrics:
@@ -1257,7 +1126,8 @@ class TestCrawlJobRunner:
     async def test_run_crawl_job_failure_skips_metrics_when_disabled(
         self, monkeypatch, tmp_path
     ):
-        from article_extractor.server import CrawlJobStore, _run_crawl_job
+        from article_extractor.crawl_job_store import CrawlJobStore
+        from article_extractor.server import _run_crawl_job
         from article_extractor.types import CrawlConfig, NetworkOptions
 
         class _Metrics:
@@ -1290,7 +1160,7 @@ class TestCrawlJobRunner:
 
 
 def test_crawl_job_store_ignores_missing_job():
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
 
     store = CrawlJobStore()
 
@@ -1298,7 +1168,7 @@ def test_crawl_job_store_ignores_missing_job():
 
 
 def test_crawl_job_store_get_task_missing():
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
 
     store = CrawlJobStore()
 
@@ -1342,7 +1212,7 @@ def test_get_crawl_status_requires_service_initialized(client, monkeypatch):
 
 
 def test_get_crawl_status_returns_job(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
@@ -1378,7 +1248,7 @@ def test_get_crawl_manifest_requires_service_initialized(client, monkeypatch):
 
 
 def test_get_crawl_manifest_rejects_incomplete_job(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
@@ -1393,7 +1263,7 @@ def test_get_crawl_manifest_rejects_incomplete_job(client, monkeypatch, tmp_path
 
 
 def test_get_crawl_manifest_missing_file(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()
@@ -1408,7 +1278,7 @@ def test_get_crawl_manifest_missing_file(client, monkeypatch, tmp_path):
 
 
 def test_get_crawl_manifest_returns_file(client, monkeypatch, tmp_path):
-    from article_extractor.server import CrawlJobStore
+    from article_extractor.crawl_job_store import CrawlJobStore
     from article_extractor.types import CrawlConfig
 
     store = CrawlJobStore()

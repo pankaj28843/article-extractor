@@ -5,13 +5,15 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
+from article_extractor.concurrency_limiter import AdaptiveConcurrencyLimiter
 from article_extractor.discovery import (
-    AdaptiveConcurrencyLimiter,
-    AdaptiveRateLimiter,
     CrawlConfig,
     EfficientCrawler,
-    HostRateLimitState,
     PageProcessResult,
+)
+from article_extractor.rate_limiter import (
+    AdaptiveRateLimiter,
+    HostRateLimitState,
 )
 
 

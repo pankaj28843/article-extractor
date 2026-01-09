@@ -18,15 +18,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
+from .crawl_job_store import CrawlJobStore
+from .extraction_cache import ExtractionCache
 from .extractor import extract_article_from_url
 from .network import resolve_network_options
 from .observability import (
@@ -35,66 +36,25 @@ from .observability import (
     setup_logging,
     strip_url,
 )
-from .settings import ServiceSettings, get_settings
+from .request_logger import log_request_failure, log_request_success
+from .settings import get_settings
 from .types import (
     CrawlConfig,
-    CrawlJob,
-    CrawlManifest,
     ExtractionOptions,
     NetworkOptions,
 )
 
 logger = logging.getLogger(__name__)
 
-
-def _configure_logging(settings: ServiceSettings | None = None) -> None:
-    """Initialize structured logging using the latest ServiceSettings."""
-
-    resolved = settings or get_settings()
-    setup_logging(
-        component="server",
-        level=resolved.log_level,
-        default_level="INFO",
-        log_format=resolved.log_format,
-    )
-
-
-_configure_logging()
-
-
-class ExtractionResponseCache:
-    """Simple in-memory LRU cache for extraction responses."""
-
-    def __init__(self, max_size: int) -> None:
-        self.max_size = max(1, max_size)
-        self._store: OrderedDict[str, ExtractionResponse] = OrderedDict()
-
-    def get(self, key: str) -> ExtractionResponse | None:
-        value = self._store.get(key)
-        if value is not None:
-            self._store.move_to_end(key)
-        return value
-
-    def set(self, key: str, value: ExtractionResponse) -> None:
-        self._store[key] = value
-        self._store.move_to_end(key)
-        while len(self._store) > self.max_size:
-            self._store.popitem(last=False)
-
-    def __len__(self) -> int:  # pragma: no cover - trivial
-        return len(self._store)
-
-    def clear(self) -> None:
-        self._store.clear()
-
-
-def _read_cache_size() -> int:
-    return get_settings().cache_size
-
-
-def _determine_threadpool_size(settings: ServiceSettings | None = None) -> int:
-    settings = settings or get_settings()
-    return settings.determine_threadpool_size()
+# Configure logging at module level
+_settings = get_settings()
+setup_logging(
+    component="server",
+    level=_settings.log_level,
+    default_level="INFO",
+    log_format=_settings.log_format,
+)
+del _settings
 
 
 def _initialize_state_from_env(state) -> None:
@@ -103,11 +63,7 @@ def _initialize_state_from_env(state) -> None:
         env_mapping = settings.build_network_env()
         state.network_defaults = resolve_network_options(env=env_mapping)
     if not hasattr(state, "prefer_playwright") or state.prefer_playwright is None:
-        state.prefer_playwright = _read_prefer_playwright_env()
-
-
-def _read_prefer_playwright_env(_default: bool = True) -> bool:
-    return get_settings().prefer_playwright
+        state.prefer_playwright = settings.prefer_playwright
 
 
 def _emit_request_metrics(
@@ -137,20 +93,40 @@ def _emit_request_metrics(
     )
 
 
+def _get_crawl_job_store(request: Request) -> CrawlJobStore:
+    """Get crawl job store from app state, raising 503 if not initialized."""
+    job_store: CrawlJobStore | None = getattr(request.app.state, "crawl_jobs", None)
+    if job_store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Crawl service not initialized",
+        )
+    return job_store
+
+
+async def _get_crawl_job(job_store: CrawlJobStore, job_id: str):
+    """Get job by ID, raising 404 if not found."""
+    job = await job_store.get_job(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} not found",
+        )
+    return job
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
 
     settings = get_settings()
-    cache = ExtractionResponseCache(settings.cache_size)
-    cache_lock = asyncio.Lock()
+    cache = ExtractionCache(max_size=settings.cache_size)
     threadpool = ThreadPoolExecutor(
-        max_workers=_determine_threadpool_size(settings),
+        max_workers=settings.determine_threadpool_size(),
         thread_name_prefix="article-extractor",
     )
 
     app.state.cache = cache
-    app.state.cache_lock = cache_lock
     app.state.threadpool = threadpool
     app.state.log_diagnostics = settings.log_diagnostics
     app.state.metrics_emitter = build_metrics_emitter(
@@ -167,7 +143,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        cache.clear()
+        await cache.clear()
         threadpool.shutdown(wait=True)
 
 
@@ -191,17 +167,13 @@ async def request_context_logging(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception:
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        logger.exception(
-            "Request failed",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "duration_ms": duration_ms,
-                "url": url_hint,
-            },
+        duration_ms = log_request_failure(
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            url_hint=url_hint,
+            start_time=start,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
         _emit_request_metrics(
             request.app.state,
@@ -212,18 +184,14 @@ async def request_context_logging(request: Request, call_next):
         )
         raise
 
-    duration_ms = round((time.perf_counter() - start) * 1000, 2)
     response.headers["X-Request-ID"] = request_id
-    logger.info(
-        "Request complete",
-        extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": request.url.path,
-            "status_code": response.status_code,
-            "duration_ms": duration_ms,
-            "url": url_hint,
-        },
+    duration_ms = log_request_success(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        url_hint=url_hint,
+        start_time=start,
+        status_code=response.status_code,
     )
     _emit_request_metrics(
         request.app.state,
@@ -351,89 +319,6 @@ class CrawlJobResponse(BaseModel):
     )
 
 
-class CrawlJobStore:
-    """In-memory store for tracking crawl jobs."""
-
-    def __init__(self, max_concurrent: int = 1) -> None:
-        self.max_concurrent = max_concurrent
-        self._jobs: dict[str, CrawlJob] = {}
-        self._manifests: dict[str, CrawlManifest] = {}
-        self._tasks: dict[str, asyncio.Task] = {}
-        self._lock = asyncio.Lock()
-
-    async def get_job(self, job_id: str) -> CrawlJob | None:
-        async with self._lock:
-            return self._jobs.get(job_id)
-
-    async def get_manifest(self, job_id: str) -> CrawlManifest | None:
-        async with self._lock:
-            return self._manifests.get(job_id)
-
-    async def create_job(self, config: CrawlConfig) -> CrawlJob:
-        import uuid
-
-        job_id = str(uuid.uuid4())
-        job = CrawlJob(job_id=job_id, config=config, status="queued")
-        async with self._lock:
-            self._jobs[job_id] = job
-        return job
-
-    async def update_job(
-        self,
-        job_id: str,
-        *,
-        status: str | None = None,
-        progress: int | None = None,
-        total: int | None = None,
-        successful: int | None = None,
-        failed: int | None = None,
-        skipped: int | None = None,
-        error: str | None = None,
-        started_at: str | None = None,
-        completed_at: str | None = None,
-    ) -> None:
-        async with self._lock:
-            job = self._jobs.get(job_id)
-            if job is None:
-                return
-            if status is not None:
-                job.status = status
-            if progress is not None:
-                job.progress = progress
-            if total is not None:
-                job.total = total
-            if successful is not None:
-                # Store in a custom attribute since CrawlJob doesn't have these
-                job._successful = successful
-            if failed is not None:
-                job._failed = failed
-            if skipped is not None:
-                job._skipped = skipped
-            if error is not None:
-                job.error = error
-            if started_at is not None:
-                job.started_at = started_at
-            if completed_at is not None:
-                job.completed_at = completed_at
-
-    async def store_manifest(self, job_id: str, manifest: CrawlManifest) -> None:
-        async with self._lock:
-            self._manifests[job_id] = manifest
-
-    async def running_count(self) -> int:
-        async with self._lock:
-            return sum(1 for j in self._jobs.values() if j.status == "running")
-
-    async def can_start(self) -> bool:
-        return await self.running_count() < self.max_concurrent
-
-    def register_task(self, job_id: str, task: asyncio.Task) -> None:
-        self._tasks[job_id] = task
-
-    def get_task(self, job_id: str) -> asyncio.Task | None:
-        return self._tasks.get(job_id)
-
-
 @app.get("/", status_code=status.HTTP_200_OK)
 async def root() -> dict:
     """Health check endpoint."""
@@ -443,41 +328,6 @@ async def root() -> dict:
         "version": "0.1.2",
         "description": "Pure-Python replacement for readability-js-server",
     }
-
-
-def _build_cache_key(url: str, options: ExtractionOptions) -> str:
-    """Build a cache key that accounts for extraction options."""
-
-    return "|".join(
-        [
-            url,
-            str(options.min_word_count),
-            str(options.min_char_threshold),
-            "1" if options.include_images else "0",
-            "1" if options.include_code_blocks else "0",
-            "1" if options.safe_markdown else "0",
-        ]
-    )
-
-
-async def _lookup_cache(request: Request, key: str) -> ExtractionResponse | None:
-    cache: ExtractionResponseCache | None = getattr(request.app.state, "cache", None)
-    cache_lock: asyncio.Lock | None = getattr(request.app.state, "cache_lock", None)
-    if cache is None or cache_lock is None:
-        return None
-    async with cache_lock:
-        return cache.get(key)
-
-
-async def _store_cache_entry(
-    request: Request, key: str, response: ExtractionResponse
-) -> None:
-    cache: ExtractionResponseCache | None = getattr(request.app.state, "cache", None)
-    cache_lock: asyncio.Lock | None = getattr(request.app.state, "cache_lock", None)
-    if cache is None or cache_lock is None:
-        return
-    async with cache_lock:
-        cache.set(key, response)
 
 
 @app.post("/", response_model=ExtractionResponse, status_code=status.HTTP_200_OK)
@@ -515,14 +365,14 @@ async def extract_article_endpoint(
             safe_markdown=True,
         )
 
-        cache_key = _build_cache_key(url, options)
-        cached = await _lookup_cache(request, cache_key)
+        cache: ExtractionCache | None = getattr(request.app.state, "cache", None)
+        cached = await cache.lookup(url, options) if cache else None
         if cached is not None:
             logger.debug(
                 "Cache hit",
                 extra={"url": url_hint, "request_id": request_id},
             )
-            return cached
+            return ExtractionResponse(**cached)
 
         # Extract article using default options
         network_options = _resolve_request_network_options(extraction_request, request)
@@ -559,7 +409,8 @@ async def extract_article_endpoint(
             word_count=result.word_count,
             success=result.success,
         )
-        await _store_cache_entry(request, cache_key, response)
+        if cache:
+            await cache.store(url, options, response.model_dump())
         return response
 
     except HTTPException:
@@ -581,18 +432,18 @@ async def extract_article_endpoint(
 @app.get("/health", status_code=status.HTTP_200_OK)
 async def health_check(request: Request) -> dict:
     """Kubernetes/Docker health check endpoint with metadata."""
-    cache: ExtractionResponseCache | None = getattr(request.app.state, "cache", None)
+    cache: ExtractionCache | None = getattr(request.app.state, "cache", None)
     threadpool: ThreadPoolExecutor | None = getattr(
         request.app.state, "threadpool", None
     )
     cache_info = {
-        "size": len(cache) if cache else 0,
-        "max_size": cache.max_size if cache else _read_cache_size(),
+        "size": cache.size() if cache else 0,
+        "max_size": cache.max_size if cache else get_settings().cache_size,
     }
     worker_info = {
         "max_workers": threadpool._max_workers
         if threadpool
-        else _determine_threadpool_size(),
+        else get_settings().determine_threadpool_size(),
     }
     return {
         "status": "healthy",
@@ -753,12 +604,7 @@ async def submit_crawl_job(
         )
 
     # Check concurrent job limit
-    job_store: CrawlJobStore = getattr(request.app.state, "crawl_jobs", None)
-    if job_store is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crawl service not initialized",
-        )
+    job_store = _get_crawl_job_store(request)
 
     if not await job_store.can_start():
         raise HTTPException(
@@ -834,19 +680,8 @@ async def get_crawl_job_status(job_id: str, request: Request) -> CrawlJobRespons
     Raises:
         HTTPException: 404 if job not found.
     """
-    job_store: CrawlJobStore = getattr(request.app.state, "crawl_jobs", None)
-    if job_store is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crawl service not initialized",
-        )
-
-    job = await job_store.get_job(job_id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job {job_id} not found",
-        )
+    job_store = _get_crawl_job_store(request)
+    job = await _get_crawl_job(job_store, job_id)
 
     return CrawlJobResponse(
         job_id=job.job_id,
@@ -875,19 +710,8 @@ async def get_crawl_manifest(job_id: str, request: Request) -> FileResponse:
     Raises:
         HTTPException: 404 if job not found, 400 if job not completed.
     """
-    job_store: CrawlJobStore = getattr(request.app.state, "crawl_jobs", None)
-    if job_store is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crawl service not initialized",
-        )
-
-    job = await job_store.get_job(job_id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job {job_id} not found",
-        )
+    job_store = _get_crawl_job_store(request)
+    job = await _get_crawl_job(job_store, job_id)
 
     if job.status != "completed":
         raise HTTPException(
@@ -910,35 +734,44 @@ async def get_crawl_manifest(job_id: str, request: Request) -> FileResponse:
 
 
 # Error handlers
+def _build_error_response(
+    request: Request,
+    *,
+    status_code: int,
+    content: dict[str, Any],
+) -> JSONResponse:
+    """Build JSON error response with request ID headers."""
+    state = getattr(request, "state", None)
+    request_id = getattr(state, "request_id", None) if state else None
+
+    if request_id:
+        content["request_id"] = request_id
+
+    headers = {"X-Request-ID": request_id} if request_id else None
+    return JSONResponse(
+        status_code=status_code,
+        content=content,
+        headers=headers,
+    )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle HTTP exceptions."""
-    state = getattr(request, "state", None)
-    request_id = getattr(state, "request_id", None) if state else None
-    content = {"detail": exc.detail, "url": str(request.url)}
-    if request_id:
-        content["request_id"] = request_id
-    headers = {"X-Request-ID": request_id} if request_id else None
-    return JSONResponse(
+    return _build_error_response(
+        request,
         status_code=exc.status_code,
-        content=content,
-        headers=headers,
+        content={"detail": exc.detail, "url": str(request.url)},
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
-    state = getattr(request, "state", None)
-    request_id = getattr(state, "request_id", None) if state else None
-    content = {"detail": "Internal server error", "error": f"{exc!s}"}
-    if request_id:
-        content["request_id"] = request_id
-    headers = {"X-Request-ID": request_id} if request_id else None
-    return JSONResponse(
+    return _build_error_response(
+        request,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=content,
-        headers=headers,
+        content={"detail": "Internal server error", "error": f"{exc!s}"},
     )
 
 

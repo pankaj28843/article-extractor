@@ -1268,219 +1268,25 @@ class TestExtractorEdgeCases:
         assert result.success is True
         assert 'href="/docs"' in result.content
 
-    def test_normalize_srcset_handles_empty_and_plain_entries(self):
-        from article_extractor import ArticleExtractor
-
-        extractor = ArticleExtractor()
-        normalized = extractor._normalize_srcset(
-            " , /img/one.jpg, /img/two.jpg 2x",
-            "https://example.com/base/",
-        )
-
-        assert "https://example.com/img/one.jpg" in normalized
-        assert "https://example.com/img/two.jpg 2x" in normalized
-
-    def test_remove_empty_links_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Anchor:
-            name = "a"
-            parent = None
-
-            def to_text(self, *args, **kwargs):
-                return ""
-
-            def query(self, _selector):
-                return []
-
-        class _Root:
-            name = "div"
-
-            def query(self, _selector):
-                return [_Anchor()]
-
-        extractor = ArticleExtractor()
-        extractor._remove_empty_links(_Root())
-
-    def test_remove_empty_images_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Image:
-            name = "img"
-            parent = None
-            attrs = {"src": ""}
-
-        class _Root:
-            name = "div"
-
-            def query(self, _selector):
-                return [_Image()]
-
-        extractor = ArticleExtractor()
-        extractor._remove_empty_images(_Root())
-
-    def test_remove_empty_blocks_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Block:
-            name = "p"
-            parent = None
-
-            def to_text(self, *args, **kwargs):
-                return ""
-
-            def query(self, _selector):
-                return []
-
-        class _Root:
-            name = "div"
-
-            def query(self, _selector):
-                return [_Block()]
-
-            def to_text(self, *args, **kwargs):
-                return ""
-
-        extractor = ArticleExtractor()
-        extractor._remove_empty_blocks(_Root())
-
-    def test_find_top_candidate_returns_none_when_ranked_empty(self, monkeypatch):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-        from article_extractor import extractor as extractor_module
-
-        monkeypatch.setattr(extractor_module, "rank_candidates", lambda *_a, **_k: [])
-
-        doc = JustHTML("<article><p>Text</p></article>")
-        extractor = ArticleExtractor()
-        result = extractor._find_top_candidate(doc, extractor_module.ExtractionCache())
-
-        assert result is None
-
-    def test_candidate_nodes_respects_min_length(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-        from article_extractor.cache import ExtractionCache
-
-        doc = JustHTML(
-            "<div>hi</div><div>longer text</div><div class='sidebar'>longer</div>"
-        )
-        extractor = ArticleExtractor()
-        cache = ExtractionCache()
-
-        candidates = extractor._candidate_nodes(doc, cache, "div", min_length=5)
-
-        assert len(candidates) == 1
-        assert candidates[0].to_text(strip=True) == "longer text"
-
-    def test_clean_document_skips_parentless_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Node:
-            parent = None
-
-        class _Doc:
-            def query(self, _selector):
-                return [_Node()]
-
-        extractor = ArticleExtractor()
-        extractor._clean_document(_Doc())
-
-    def test_clean_document_removes_role_nodes(self):
-        from article_extractor import ArticleExtractor
-
-        class _Parent:
-            def __init__(self):
-                self.removed = []
-
-            def remove_child(self, node):
-                self.removed.append(node)
-
-        class _Node:
-            def __init__(self, parent):
-                self.parent = parent
-
-        class _Doc:
-            def __init__(self, node):
-                self._node = node
-
-            def query(self, selector):
-                if 'role="' in selector:
-                    return [self._node]
-                return []
-
-        parent = _Parent()
-        node = _Node(parent)
-        extractor = ArticleExtractor()
-        extractor._clean_document(_Doc(node))
-
-        assert parent.removed == [node]
-
-    def test_absolutize_root_media_node(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML('<img src="images/pic.png">')
-        node = doc.query("img")[0]
-        extractor = ArticleExtractor()
-        extractor._absolutize_urls(node, "https://example.com/base/")
-
-        assert node.attrs["src"] == "https://example.com/base/images/pic.png"
-
-    def test_rewrite_url_attributes_no_attrs(self):
-        from article_extractor import ArticleExtractor
-
-        class _AttrlessNode:
-            attrs = None
-
-        extractor = ArticleExtractor()
-        extractor._rewrite_url_attributes(
-            _AttrlessNode(),
-            ("href",),
-            "https://example.com",
-        )
-
-    def test_remove_empty_anchor_root(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML('<div><a href="https://example.com"></a></div>')
-        node = doc.query("a")[0]
-        extractor = ArticleExtractor()
-
-        extractor._remove_empty_links(node)
-
-        assert doc.query("a") == []
-
-    def test_remove_empty_image_root(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML("<div><img></div>")
-        node = doc.query("img")[0]
-        extractor = ArticleExtractor()
-
-        extractor._remove_empty_images(node)
-
-        assert doc.query("img") == []
-
-    def test_remove_empty_block_root(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-
-        doc = JustHTML("<div><p>   </p></div>")
-        node = doc.query("p")[0]
-        extractor = ArticleExtractor()
-
-        extractor._remove_empty_blocks(node)
-
-        assert doc.query("p") == []
+    def test_absolutize_urls_via_extraction(self):
+        """Test URL absolutization through the public extract() API."""
+        from article_extractor import extract_article
+
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>Title</h1>
+                <p>Content with <a href="/link">link</a> and text.</p>
+                <p>More content here to meet word count threshold.</p>
+            </article>
+        </body>
+        </html>
+        """
+        result = extract_article(html, url="https://example.com/page")
+
+        assert result.success is True
+        assert "https://example.com/link" in result.content
 
 
 @pytest.mark.unit

@@ -1,13 +1,13 @@
 import httpx
 import pytest
 
+from article_extractor.concurrency_limiter import AdaptiveConcurrencyLimiter
 from article_extractor.discovery import (
-    AdaptiveConcurrencyLimiter,
     CrawlConfig,
     EfficientCrawler,
-    HostRateLimitState,
     PageProcessResult,
 )
+from article_extractor.rate_limiter import HostRateLimitState
 
 
 class _FakeClient:

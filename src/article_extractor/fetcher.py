@@ -29,6 +29,7 @@ from urllib.parse import urlparse
 
 from .network import host_matches_no_proxy, resolve_network_options
 from .observability import build_url_log_context
+from .retry_utils import exponential_backoff_delay
 from .storage_queue import (
     QueueStats,
     StorageQueue,
@@ -772,10 +773,6 @@ class HttpxFetcher:
             return True
         return status_code in {408, 429}
 
-    @staticmethod
-    def _backoff_delay(attempt: int) -> float:
-        return min(0.3 * attempt, 1.5)
-
     async def __aenter__(self) -> HttpxFetcher:
         """Create httpx client."""
         if not _check_httpx():
@@ -866,7 +863,7 @@ class HttpxFetcher:
                     ),
                     level=logging.WARNING,
                 )
-                await asyncio.sleep(self._backoff_delay(attempt))
+                await asyncio.sleep(exponential_backoff_delay(attempt))
                 attempt += 1
                 continue
 
@@ -885,7 +882,7 @@ class HttpxFetcher:
                         via_proxy=routed_via_proxy,
                     ),
                 )
-                await asyncio.sleep(self._backoff_delay(attempt))
+                await asyncio.sleep(exponential_backoff_delay(attempt))
                 attempt += 1
                 continue
 
