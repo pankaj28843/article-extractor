@@ -15,25 +15,22 @@ from typing import TYPE_CHECKING, Protocol
 from justhtml import JustHTML
 
 from .cache import ExtractionCache
+from .candidate_finder import find_top_candidate
 from .constants import (
-    MIN_CHAR_THRESHOLD,
     STRIP_TAGS,
     UNLIKELY_ROLES,
 )
 from .content_sanitizer import sanitize_content
 from .document_cleaner import clean_document
-from .scorer import is_unlikely_candidate, rank_candidates
 from .title_extractor import extract_title
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
 from .url_normalizer import absolutize_urls
 from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
-    from justhtml.node import SimpleDomNode
+    pass
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
-_SEMANTIC_CANDIDATE_TAGS = ("article", "main")
-_FALLBACK_CANDIDATE_TAGS = ("div", "section")
 
 
 class Fetcher(Protocol):
@@ -123,7 +120,7 @@ class ArticleExtractor:
         title = extract_title(doc, url)
 
         # Find main content
-        top_candidate = self._find_top_candidate(doc, cache)
+        top_candidate = find_top_candidate(doc, cache)
 
         if top_candidate is None:
             return self._failure_result(
@@ -196,69 +193,6 @@ class ArticleExtractor:
             error=error,
             warnings=warnings or [],
         )
-
-    def _find_candidates(
-        self, doc: JustHTML, cache: ExtractionCache
-    ) -> list[SimpleDomNode]:
-        """Find potential content container candidates."""
-        # Look for semantic article containers first (fast path)
-        candidates: list[SimpleDomNode] = []
-        for tag in _SEMANTIC_CANDIDATE_TAGS:
-            candidates.extend(self._candidate_nodes(doc, cache, tag))
-
-        # If we found semantic containers, use them directly
-        if candidates:
-            return candidates
-
-        # Fallback: scan divs and sections
-        for tag in _FALLBACK_CANDIDATE_TAGS:
-            candidates.extend(
-                self._candidate_nodes(doc, cache, tag, min_length=MIN_CHAR_THRESHOLD)
-            )
-
-        return candidates
-
-    def _candidate_nodes(
-        self,
-        doc: JustHTML,
-        cache: ExtractionCache,
-        tag: str,
-        *,
-        min_length: int | None = None,
-    ) -> list[SimpleDomNode]:
-        """Collect candidate nodes for a tag with optional length filtering."""
-        candidates: list[SimpleDomNode] = []
-        for node in doc.query(tag):
-            if is_unlikely_candidate(node):
-                continue
-            if min_length is not None and cache.get_text_length(node) <= min_length:
-                continue
-            candidates.append(node)
-        return candidates
-
-    def _find_top_candidate(
-        self, doc: JustHTML, cache: ExtractionCache
-    ) -> SimpleDomNode | None:
-        """Find the best content container using Readability algorithm."""
-        candidates = self._find_candidates(doc, cache)
-
-        if not candidates:
-            # Fallback: look for body
-            body_nodes = doc.query("body")
-            if body_nodes:
-                candidates = [body_nodes[0]]
-
-        if not candidates:
-            return None
-
-        # Rank candidates by content score
-        ranked = rank_candidates(candidates, cache)
-
-        if not ranked:
-            return None
-
-        # Return the top candidate
-        return ranked[0].node
 
 
 # Convenience function for backward compatibility

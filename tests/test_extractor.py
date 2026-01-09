@@ -1268,37 +1268,6 @@ class TestExtractorEdgeCases:
         assert result.success is True
         assert 'href="/docs"' in result.content
 
-    def test_find_top_candidate_returns_none_when_ranked_empty(self, monkeypatch):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-        from article_extractor import extractor as extractor_module
-
-        monkeypatch.setattr(extractor_module, "rank_candidates", lambda *_a, **_k: [])
-
-        doc = JustHTML("<article><p>Text</p></article>")
-        extractor = ArticleExtractor()
-        result = extractor._find_top_candidate(doc, extractor_module.ExtractionCache())
-
-        assert result is None
-
-    def test_candidate_nodes_respects_min_length(self):
-        from justhtml import JustHTML
-
-        from article_extractor import ArticleExtractor
-        from article_extractor.cache import ExtractionCache
-
-        doc = JustHTML(
-            "<div>hi</div><div>longer text</div><div class='sidebar'>longer</div>"
-        )
-        extractor = ArticleExtractor()
-        cache = ExtractionCache()
-
-        candidates = extractor._candidate_nodes(doc, cache, "div", min_length=5)
-
-        assert len(candidates) == 1
-        assert candidates[0].to_text(strip=True) == "longer text"
-
     def test_absolutize_urls_via_extraction(self):
         """Test URL absolutization through the public extract() API."""
         from article_extractor import extract_article
