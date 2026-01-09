@@ -158,7 +158,7 @@ class TestFindTopCandidate:
         assert candidate is not None
         assert candidate.name == "body"
 
-    def test_handles_nested_candidates(self):
+    def test_selects_highest_scoring_candidate(self):
         html = """
         <html>
         <body>
