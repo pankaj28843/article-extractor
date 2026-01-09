@@ -29,10 +29,22 @@ class TestExponentialBackoffDelay:
         assert abs(delay - 2.0) < 1e-9
 
     def test_custom_base_and_max(self):
-        assert abs(exponential_backoff_delay(1, base_delay=1.0, max_delay=3.0) - 1.0) < 1e-9
-        assert abs(exponential_backoff_delay(2, base_delay=1.0, max_delay=3.0) - 2.0) < 1e-9
-        assert abs(exponential_backoff_delay(3, base_delay=1.0, max_delay=3.0) - 3.0) < 1e-9
-        assert abs(exponential_backoff_delay(4, base_delay=1.0, max_delay=3.0) - 3.0) < 1e-9
+        assert (
+            abs(exponential_backoff_delay(1, base_delay=1.0, max_delay=3.0) - 1.0)
+            < 1e-9
+        )
+        assert (
+            abs(exponential_backoff_delay(2, base_delay=1.0, max_delay=3.0) - 2.0)
+            < 1e-9
+        )
+        assert (
+            abs(exponential_backoff_delay(3, base_delay=1.0, max_delay=3.0) - 3.0)
+            < 1e-9
+        )
+        assert (
+            abs(exponential_backoff_delay(4, base_delay=1.0, max_delay=3.0) - 3.0)
+            < 1e-9
+        )
 
     def test_zero_attempt(self):
         delay = exponential_backoff_delay(0)
