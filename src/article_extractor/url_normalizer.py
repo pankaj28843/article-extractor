@@ -39,13 +39,8 @@ def absolutize_urls(node: SimpleDomNode, base_url: str) -> None:
         >>> absolutize_urls(content_node, "https://example.com/page")
     """
     for tag, attributes in _URL_ATTR_MAP.items():
-        for element in _collect_nodes(node, (tag,)):
+        for element in collect_nodes_by_tags(node, (tag,)):
             _rewrite_url_attributes(element, attributes, base_url)
-
-
-def _collect_nodes(root: SimpleDomNode, tags: tuple[str, ...]) -> list[SimpleDomNode]:
-    """Return nodes matching tags, including the root if applicable."""
-    return collect_nodes_by_tags(root, tags)
 
 
 def _rewrite_url_attributes(
