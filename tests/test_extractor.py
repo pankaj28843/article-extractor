@@ -1268,18 +1268,6 @@ class TestExtractorEdgeCases:
         assert result.success is True
         assert 'href="/docs"' in result.content
 
-    def test_normalize_srcset_handles_empty_and_plain_entries(self):
-        from article_extractor import ArticleExtractor
-
-        extractor = ArticleExtractor()
-        normalized = extractor._normalize_srcset(
-            " , /img/one.jpg, /img/two.jpg 2x",
-            "https://example.com/base/",
-        )
-
-        assert "https://example.com/img/one.jpg" in normalized
-        assert "https://example.com/img/two.jpg 2x" in normalized
-
     def test_remove_empty_links_skips_parentless_nodes(self):
         from article_extractor import ArticleExtractor
 
@@ -1418,30 +1406,25 @@ class TestExtractorEdgeCases:
 
         assert parent.removed == [node]
 
-    def test_absolutize_root_media_node(self):
-        from justhtml import JustHTML
+    def test_absolutize_urls_via_extraction(self):
+        """Test URL absolutization through the public extract() API."""
+        from article_extractor import extract_article
 
-        from article_extractor import ArticleExtractor
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>Title</h1>
+                <p>Content with <a href="/link">link</a> and text.</p>
+                <p>More content here to meet word count threshold.</p>
+            </article>
+        </body>
+        </html>
+        """
+        result = extract_article(html, url="https://example.com/page")
 
-        doc = JustHTML('<img src="images/pic.png">')
-        node = doc.query("img")[0]
-        extractor = ArticleExtractor()
-        extractor._absolutize_urls(node, "https://example.com/base/")
-
-        assert node.attrs["src"] == "https://example.com/base/images/pic.png"
-
-    def test_rewrite_url_attributes_no_attrs(self):
-        from article_extractor import ArticleExtractor
-
-        class _AttrlessNode:
-            attrs = None
-
-        extractor = ArticleExtractor()
-        extractor._rewrite_url_attributes(
-            _AttrlessNode(),
-            ("href",),
-            "https://example.com",
-        )
+        assert result.success is True
+        assert 'https://example.com/link' in result.content
 
     def test_remove_empty_anchor_root(self):
         from justhtml import JustHTML

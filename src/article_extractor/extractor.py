@@ -12,7 +12,7 @@ import asyncio
 from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 from justhtml import JustHTML
 
@@ -24,20 +24,11 @@ from .constants import (
 )
 from .scorer import is_unlikely_candidate, rank_candidates
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
+from .url_normalizer import absolutize_urls
 from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
     from justhtml.node import SimpleDomNode
-
-
-_URL_ATTR_MAP: dict[str, tuple[str, ...]] = {
-    "a": ("href",),
-    "img": ("src", "srcset"),
-    "source": ("src", "srcset"),
-    "video": ("src", "poster"),
-    "audio": ("src",),
-    "track": ("src",),
-}
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
 _SEMANTIC_CANDIDATE_TAGS = ("article", "main")
@@ -143,7 +134,7 @@ class ArticleExtractor:
 
         # Sanitize node before serialization to drop empty anchors/images
         if url:
-            self._absolutize_urls(top_candidate, url)
+            absolutize_urls(top_candidate, url)
         self._sanitize_content_node(top_candidate)
 
         # Extract content
@@ -348,45 +339,6 @@ class ArticleExtractor:
             nodes.append(root)
 
         return nodes
-
-    def _absolutize_urls(self, node: SimpleDomNode, base_url: str) -> None:
-        """Rewrite relative media/anchor URLs inside the node to be absolute."""
-
-        for tag, attributes in _URL_ATTR_MAP.items():
-            for element in self._collect_nodes(node, (tag,)):
-                self._rewrite_url_attributes(element, attributes, base_url)
-
-    def _rewrite_url_attributes(
-        self,
-        element: SimpleDomNode,
-        attributes: tuple[str, ...],
-        base_url: str,
-    ) -> None:
-        attrs = getattr(element, "attrs", None)
-        if not attrs:
-            return
-
-        for attribute in attributes:
-            value = attrs.get(attribute)
-            if not value:
-                continue
-            if attribute == "srcset":
-                attrs[attribute] = self._normalize_srcset(value, base_url)
-            else:
-                attrs[attribute] = urljoin(base_url, str(value))
-
-    def _normalize_srcset(self, value: str, base_url: str) -> str:
-        entries: list[str] = []
-        for raw_entry in str(value).split(","):
-            candidate = raw_entry.strip()
-            if not candidate:
-                continue
-            if " " in candidate:
-                url_part, descriptor = candidate.split(None, 1)
-                entries.append(f"{urljoin(base_url, url_part)} {descriptor.strip()}")
-            else:
-                entries.append(urljoin(base_url, candidate))
-        return ", ".join(entries)
 
     def _remove_empty_links(self, root: SimpleDomNode) -> None:
         """Drop anchor tags that would render as empty markdown links."""
