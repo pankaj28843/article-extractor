@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
-from urllib.parse import urlparse
 
 from justhtml import JustHTML
 
@@ -24,6 +23,7 @@ from .constants import (
 from .content_sanitizer import sanitize_content
 from .document_cleaner import clean_document
 from .scorer import is_unlikely_candidate, rank_candidates
+from .title_extractor import extract_title
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
 from .url_normalizer import absolutize_urls
 from .utils import extract_excerpt, get_word_count
@@ -120,7 +120,7 @@ class ArticleExtractor:
         doc = clean_document(doc, _STRIP_SELECTOR, _ROLE_SELECTOR)
 
         # Extract title
-        title = self._extract_title(doc, url)
+        title = extract_title(doc, url)
 
         # Find main content
         top_candidate = self._find_top_candidate(doc, cache)
@@ -259,52 +259,6 @@ class ArticleExtractor:
 
         # Return the top candidate
         return ranked[0].node
-
-    def _extract_title(self, doc: JustHTML, url: str = "") -> str:
-        """Extract title using cascading fallbacks."""
-        # Try og:title
-        og_title = doc.query('meta[property="og:title"]')
-        if og_title:
-            content = og_title[0].attrs.get("content", "")
-            if content:
-                return str(content)
-
-        # Try first h1
-        h1_nodes = doc.query("h1")
-        if h1_nodes:
-            h1_text = h1_nodes[0].to_text(strip=True)
-            if h1_text:
-                return h1_text
-
-        # Try <title> tag
-        title_nodes = doc.query("title")
-        if title_nodes:
-            title_text = title_nodes[0].to_text(strip=True)
-            if title_text:
-                # Clean common suffixes like " - Site Name"
-                if " - " in title_text:
-                    title_text = title_text.split(" - ")[0].strip()
-                return title_text
-
-        # Fallback to URL
-        url_title = self._title_from_url(url)
-        if url_title:
-            return url_title
-
-        return "Untitled"
-
-    def _title_from_url(self, url: str) -> str | None:
-        """Build a readable title from a URL path."""
-
-        if not url:
-            return None
-
-        path = urlparse(url).path
-        if not path or path == "/":
-            return None
-
-        title = path.strip("/").split("/")[-1].replace("-", " ").replace("_", " ")
-        return title.title()
 
 
 # Convenience function for backward compatibility

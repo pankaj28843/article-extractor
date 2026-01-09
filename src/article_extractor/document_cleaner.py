@@ -44,7 +44,7 @@ def _remove_nodes_by_selector(doc: JustHTML, selector: str) -> None:
     """
     if not selector or not selector.strip():
         return
-        
+
     for node in doc.query(selector):
         parent = getattr(node, "parent", None)
         if parent is not None:
