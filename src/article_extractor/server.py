@@ -104,6 +104,17 @@ def _get_crawl_job_store(request: Request) -> CrawlJobStore:
     return job_store
 
 
+async def _get_crawl_job(job_store: CrawlJobStore, job_id: str):
+    """Get job by ID, raising 404 if not found."""
+    job = await job_store.get_job(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} not found",
+        )
+    return job
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources like cache and threadpool."""
@@ -669,19 +680,8 @@ async def get_crawl_job_status(job_id: str, request: Request) -> CrawlJobRespons
     Raises:
         HTTPException: 404 if job not found.
     """
-    job_store: CrawlJobStore = getattr(request.app.state, "crawl_jobs", None)
-    if job_store is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crawl service not initialized",
-        )
-
-    job = await job_store.get_job(job_id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job {job_id} not found",
-        )
+    job_store = _get_crawl_job_store(request)
+    job = await _get_crawl_job(job_store, job_id)
 
     return CrawlJobResponse(
         job_id=job.job_id,
@@ -711,13 +711,7 @@ async def get_crawl_manifest(job_id: str, request: Request) -> FileResponse:
         HTTPException: 404 if job not found, 400 if job not completed.
     """
     job_store = _get_crawl_job_store(request)
-
-    job = await job_store.get_job(job_id)
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job {job_id} not found",
-        )
+    job = await _get_crawl_job(job_store, job_id)
 
     if job.status != "completed":
         raise HTTPException(
