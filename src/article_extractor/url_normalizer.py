@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
+from .dom_utils import collect_nodes_by_tags
+
 if TYPE_CHECKING:
     from justhtml.node import SimpleDomNode
 
@@ -43,15 +45,7 @@ def absolutize_urls(node: SimpleDomNode, base_url: str) -> None:
 
 def _collect_nodes(root: SimpleDomNode, tags: tuple[str, ...]) -> list[SimpleDomNode]:
     """Return nodes matching tags, including the root if applicable."""
-    nodes: list[SimpleDomNode] = []
-    for tag in tags:
-        nodes.extend(root.query(tag))
-
-    root_tag = getattr(root, "name", "").lower()
-    if root_tag in tags:
-        nodes.append(root)
-
-    return nodes
+    return collect_nodes_by_tags(root, tags)
 
 
 def _rewrite_url_attributes(
