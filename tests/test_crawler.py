@@ -12,13 +12,15 @@ from article_extractor.crawler import (
     CrawlProgress,
     check_disk_space,
     extract_links,
-    is_sitemap_index,
     load_manifest,
-    load_sitemap,
-    parse_sitemap_xml,
     run_crawl,
     validate_output_dir,
     write_manifest,
+)
+from article_extractor.sitemap_parser import (
+    is_sitemap_index,
+    load_sitemap,
+    parse_sitemap_xml,
 )
 from article_extractor.types import (
     CrawlConfig,
