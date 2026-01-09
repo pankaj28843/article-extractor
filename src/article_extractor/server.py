@@ -20,7 +20,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, JSONResponse
@@ -739,35 +739,44 @@ async def get_crawl_manifest(job_id: str, request: Request) -> FileResponse:
 
 
 # Error handlers
+def _build_error_response(
+    request: Request,
+    *,
+    status_code: int,
+    content: dict[str, Any],
+) -> JSONResponse:
+    """Build JSON error response with request ID headers."""
+    state = getattr(request, "state", None)
+    request_id = getattr(state, "request_id", None) if state else None
+
+    if request_id:
+        content["request_id"] = request_id
+
+    headers = {"X-Request-ID": request_id} if request_id else None
+    return JSONResponse(
+        status_code=status_code,
+        content=content,
+        headers=headers,
+    )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle HTTP exceptions."""
-    state = getattr(request, "state", None)
-    request_id = getattr(state, "request_id", None) if state else None
-    content = {"detail": exc.detail, "url": str(request.url)}
-    if request_id:
-        content["request_id"] = request_id
-    headers = {"X-Request-ID": request_id} if request_id else None
-    return JSONResponse(
+    return _build_error_response(
+        request,
         status_code=exc.status_code,
-        content=content,
-        headers=headers,
+        content={"detail": exc.detail, "url": str(request.url)},
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions."""
-    state = getattr(request, "state", None)
-    request_id = getattr(state, "request_id", None) if state else None
-    content = {"detail": "Internal server error", "error": f"{exc!s}"}
-    if request_id:
-        content["request_id"] = request_id
-    headers = {"X-Request-ID": request_id} if request_id else None
-    return JSONResponse(
+    return _build_error_response(
+        request,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=content,
-        headers=headers,
+        content={"detail": "Internal server error", "error": f"{exc!s}"},
     )
 
 
