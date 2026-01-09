@@ -58,18 +58,13 @@ def _remove_nodes(
     keep: Callable[[SimpleDomNode], bool],
 ) -> None:
     """Remove nodes for tags when they fail the keep predicate."""
-    for node in _collect_nodes(root, tags):
+    for node in collect_nodes_by_tags(root, tags):
         if keep(node):
             continue
 
         parent = getattr(node, "parent", None)
         if parent is not None:
             parent.remove_child(node)
-
-
-def _collect_nodes(root: SimpleDomNode, tags: tuple[str, ...]) -> list[SimpleDomNode]:
-    """Return nodes matching tags, including the root if applicable."""
-    return collect_nodes_by_tags(root, tags)
 
 
 def _has_valid_image_src(node: SimpleDomNode) -> bool:

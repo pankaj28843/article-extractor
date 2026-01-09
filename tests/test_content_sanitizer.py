@@ -294,23 +294,3 @@ class TestNodeHasVisibleContent:
         doc = JustHTML("<p><img></p>")
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is False
-
-
-@pytest.mark.unit
-class TestCollectNodes:
-    def test_collect_nodes_from_sanitizer(self):
-        from article_extractor.content_sanitizer import _collect_nodes
-
-        doc = JustHTML("<div><p></p><p></p></div>")
-        root = doc.query("div")[0]
-        nodes = _collect_nodes(root, ("p",))
-        assert len(nodes) == 2
-
-    def test_collect_nodes_includes_root(self):
-        from article_extractor.content_sanitizer import _collect_nodes
-
-        doc = JustHTML("<p><span></span></p>")
-        root = doc.query("p")[0]
-        nodes = _collect_nodes(root, ("p",))
-        assert len(nodes) == 1
-        assert nodes[0] == root
