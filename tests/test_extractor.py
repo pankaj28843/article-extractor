@@ -88,7 +88,7 @@ class TestExtractionOptions:
     def test_default_options(self):
         """Default options should have sensible defaults."""
         opts = ExtractionOptions()
-        assert opts.min_word_count == 150
+        assert opts.min_word_count == 50
         assert opts.min_char_threshold == 500
         assert opts.include_images is True
 
@@ -474,7 +474,7 @@ class TestArticleExtractorClass:
 
         extractor = ArticleExtractor()
         assert isinstance(extractor.options, ExtractionOptions)
-        assert extractor.options.min_word_count == 150
+        assert extractor.options.min_word_count == 50
 
     def test_extractor_custom_options(self):
         """ArticleExtractor should accept custom options."""

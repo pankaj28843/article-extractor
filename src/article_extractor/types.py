@@ -35,7 +35,7 @@ class ArticleResult:
 class ExtractionOptions:
     """Options for article extraction."""
 
-    min_word_count: int = 150
+    min_word_count: int = 50
     min_char_threshold: int = 500
     include_images: bool = True
     include_code_blocks: bool = True

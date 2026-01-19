@@ -218,6 +218,43 @@ class TestHasValidImageSrc:
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
+    def test_data_url_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML(
+            '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">'
+        )
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_absolute_url_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="https://example.com/image.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_relative_path_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="/images/photo.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_tracking_pixel_rejected(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="https://tracking.example.com/pixel.gif">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is False
+
+    def test_spacer_image_rejected(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="spacer.gif">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is False
+
     def test_empty_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 

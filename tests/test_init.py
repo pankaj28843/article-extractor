@@ -143,7 +143,7 @@ class TestDirectInstantiation:
         from article_extractor import ExtractionOptions
 
         opts = ExtractionOptions()
-        assert opts.min_word_count == 150
+        assert opts.min_word_count == 50
         assert opts.min_char_threshold == 500
 
     def test_extraction_options_custom_values(self):

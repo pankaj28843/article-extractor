@@ -74,7 +74,24 @@ def _has_valid_image_src(node: SimpleDomNode) -> bool:
     if src is None:
         return False
 
-    return bool(str(src).strip())
+    src_str = str(src).strip()
+    if not src_str:
+        return False
+
+    # Reject common tracking pixels and placeholders first
+    src_lower = src_str.lower()
+    if any(
+        pattern in src_lower
+        for pattern in ["pixel", "tracking", "beacon", "1x1", "spacer", "blank"]
+    ):
+        return False
+
+    # Keep images with data URLs, relative paths, or absolute URLs
+    if src_str.startswith(("data:", "http", "/", "./")):
+        return True
+
+    # Keep other relative image paths with reasonable length
+    return len(src_str) > 3  # Minimum reasonable filename length
 
 
 def _node_has_visible_content(node: SimpleDomNode) -> bool:
