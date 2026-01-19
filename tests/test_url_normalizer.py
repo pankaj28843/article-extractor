@@ -74,6 +74,42 @@ class TestAbsolutizeUrls:
 
         assert node.attrs["src"] == "https://cdn.example.com/img.png"
 
+    def test_absolutize_link_href(self):
+        from article_extractor.url_normalizer import absolutize_urls
+
+        doc = JustHTML('<link rel="stylesheet" href="/styles/main.css">')
+        node = doc.query("link")[0]
+        absolutize_urls(node, "https://example.com/")
+
+        assert node.attrs["href"] == "https://example.com/styles/main.css"
+
+    def test_absolutize_iframe_src(self):
+        from article_extractor.url_normalizer import absolutize_urls
+
+        doc = JustHTML('<iframe src="/embed/video.html"></iframe>')
+        node = doc.query("iframe")[0]
+        absolutize_urls(node, "https://example.com/")
+
+        assert node.attrs["src"] == "https://example.com/embed/video.html"
+
+    def test_absolutize_embed_src(self):
+        from article_extractor.url_normalizer import absolutize_urls
+
+        doc = JustHTML('<embed src="/media/flash.swf">')
+        node = doc.query("embed")[0]
+        absolutize_urls(node, "https://example.com/")
+
+        assert node.attrs["src"] == "https://example.com/media/flash.swf"
+
+    def test_absolutize_object_data(self):
+        from article_extractor.url_normalizer import absolutize_urls
+
+        doc = JustHTML('<object data="/files/document.pdf"></object>')
+        node = doc.query("object")[0]
+        absolutize_urls(node, "https://example.com/")
+
+        assert node.attrs["data"] == "https://example.com/files/document.pdf"
+
 
 @pytest.mark.unit
 class TestNormalizeSrcset:

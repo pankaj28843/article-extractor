@@ -265,6 +265,11 @@ class TestHasValidImageSrc:
             "pixel-perfect-design.svg",
             "beacon-hill-photo.jpg",
             "spacer-component.png",
+            # Dimension patterns in legitimate filenames
+            "image-1x1-grid.jpg",
+            "photo-1x1-ratio.png",
+            "section-0x0a.jpg",
+            "grid-1x1-layout.svg",
         ]
 
         for src in legitimate_images:

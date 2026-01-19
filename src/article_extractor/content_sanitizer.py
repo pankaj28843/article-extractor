@@ -96,9 +96,6 @@ def _has_valid_image_src(node: SimpleDomNode) -> bool:
         "tracking.",
         "analytics.",
         "metrics.",
-        # Dimension patterns combined with tracking terms
-        "1x1",
-        "0x0",
     ]
 
     if any(pattern in src_lower for pattern in tracking_patterns):

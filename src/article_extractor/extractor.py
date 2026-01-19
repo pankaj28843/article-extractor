@@ -130,8 +130,8 @@ class ArticleExtractor:
                 warnings=warnings,
             )
 
-        # Sanitize node before serialization to drop empty anchors/images
-        # Always absolutize URLs when base URL is available
+        # Absolutize URLs (when base URL is available), then sanitize to drop
+        # empty anchors/images before serialization
         if url:
             absolutize_urls(top_candidate, url)
         sanitize_content(top_candidate)
