@@ -20,15 +20,75 @@ from .constants import (
     STRIP_TAGS,
     UNLIKELY_ROLES,
 )
-from .content_sanitizer import sanitize_content
+from .content_sanitizer import _is_safe_image_data_url, sanitize_content
 from .document_cleaner import clean_document
 from .title_extractor import extract_title
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
-from .url_normalizer import absolutize_urls
+from .url_normalizer import _URL_ATTR_MAP, absolutize_urls
 from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
-    pass
+    from justhtml.node import SimpleDomNode
+
+
+def _extract_url_map(node: SimpleDomNode) -> dict[str, str]:
+    """Extract URLs from elements before safe mode processing."""
+    import uuid
+
+    from .dom_utils import collect_nodes_by_tags
+
+    url_map = {}
+
+    for tag, attributes in _URL_ATTR_MAP.items():
+        for element in collect_nodes_by_tags(node, (tag,)):
+            attrs = getattr(element, "attrs", None)
+            if not attrs:
+                continue
+
+            for attr in attributes:
+                value = attrs.get(attr)
+                if not value:
+                    continue
+
+                url_str = str(value)
+                url_lower = url_str.lower()
+                if (
+                    tag in {"img", "source"}
+                    and attr in {"src", "srcset"}
+                    and url_lower.startswith("data:")
+                    and _is_safe_image_data_url(url_lower)
+                ):
+                    placeholder = f"__URL_PLACEHOLDER_{uuid.uuid4().hex[:8]}__"
+                    url_map[placeholder] = url_str
+                    attrs[attr] = placeholder
+                    continue
+
+                if _is_safe_url(url_lower) and url_lower.startswith(
+                    ("http://", "https://", "//")
+                ):
+                    # Generate unique placeholder
+                    placeholder = f"__URL_PLACEHOLDER_{uuid.uuid4().hex[:8]}__"
+                    url_map[placeholder] = url_str
+                    # Replace with placeholder that safe mode will preserve
+                    attrs[attr] = placeholder
+
+    return url_map
+
+
+def _restore_urls_in_html(html: str, url_map: dict[str, str]) -> str:
+    """Restore URLs in HTML output after safe mode processing."""
+    for placeholder, original_url in url_map.items():
+        html = html.replace(placeholder, original_url)
+    return html
+
+
+def _is_safe_url(url: str) -> bool:
+    """Check if URL is safe (not javascript:, vbscript:, etc.)."""
+    url_lower = url.lower().strip()
+    dangerous_schemes = ["javascript:", "vbscript:", "data:text/html"]
+    return not any(url_lower.startswith(scheme) for scheme in dangerous_schemes)
+
+
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
 
@@ -130,18 +190,28 @@ class ArticleExtractor:
                 warnings=warnings,
             )
 
-        # Sanitize node before serialization to drop empty anchors/images
+        # Absolutize URLs (when base URL is available), then sanitize to drop
+        # empty anchors/images before serialization
         if url:
             absolutize_urls(top_candidate, url)
         sanitize_content(top_candidate)
 
         # Extract content
         try:
+            # Store original URLs before safe mode processing
+            url_map = _extract_url_map(top_candidate)
+
             content_html = top_candidate.to_html(
                 indent=2, safe=self.options.safe_markdown
             )
+
             markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
             text = top_candidate.to_text(separator=" ", strip=True)
+
+            # Restore URLs in both HTML and markdown output if URL map exists
+            if url_map:
+                content_html = _restore_urls_in_html(content_html, url_map)
+                markdown = _restore_urls_in_html(markdown, url_map)
         except Exception as e:
             return self._failure_result(
                 url,

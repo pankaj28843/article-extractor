@@ -218,6 +218,175 @@ class TestHasValidImageSrc:
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
+    def test_data_url_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML(
+            '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">'
+        )
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_data_url_rejects_non_image(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML(
+            '<img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">'
+        )
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is False
+
+    def test_absolute_url_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="https://example.com/image.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_relative_path_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="/images/photo.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_parent_relative_path_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="../images/photo.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_protocol_relative_url_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="//cdn.example.com/image.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_legitimate_images_with_tracking_keywords_accepted(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # These should NOT be rejected despite containing tracking keywords
+        legitimate_images = [
+            "my-pixel-art.png",
+            "tracking-dashboard.jpg",
+            "pixel-perfect-design.svg",
+            "beacon-hill-photo.jpg",
+            "spacer-component.png",
+            "https://example.com/assets/my-pixel.gif",
+            # Dimension patterns in legitimate filenames
+            "image-1x1-grid.jpg",
+            "photo-1x1-ratio.png",
+            "section-0x0a.jpg",
+            "grid-1x1-layout.svg",
+        ]
+
+        for src in legitimate_images:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            assert _has_valid_image_src(node) is True, (
+                f"Should accept legitimate image: {src}"
+            )
+
+    def test_specific_tracking_patterns_rejected(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # These should be rejected as they match specific tracking patterns
+        tracking_images = [
+            "/pixel.gif",
+            "/1x1.png",
+            "https://tracking.example.com/image.jpg",
+            "https://analytics.site.com/beacon.gif",
+            "https://cdn.example.com/t.gif",
+            "https://cdn.example.com/p.png",
+            "https://cdn.example.com/x.jpg",
+            # Short tracking filenames
+            "t.gif",
+            "p.png",
+            "x.jpg",
+        ]
+
+        for src in tracking_images:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            assert _has_valid_image_src(node) is False, (
+                f"Should reject tracking image: {src}"
+            )
+
+    def test_domain_tracking_edge_cases(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # Test edge cases with tracking keywords in domains
+        test_cases = [
+            ("https://tracking.example.com/image.jpg", False),  # tracking subdomain
+            (
+                "https://example.tracking.com/image.jpg",
+                True,
+            ),  # tracking in middle of domain
+            ("//tracking.example.com/image.jpg", False),  # protocol-relative tracking
+            ("https://analytics.cdn.com/image.jpg", False),  # analytics subdomain
+            ("https://myanalytics.com/image.jpg", True),  # analytics in domain name
+        ]
+
+        for src, should_accept in test_cases:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            result = _has_valid_image_src(node)
+            assert result == should_accept, (
+                f"URL {src} should be {'accepted' if should_accept else 'rejected'}"
+            )
+
+    def test_malformed_url_handling(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # Test malformed URLs that could cause exceptions
+        malformed_urls = [
+            "://invalid-url",  # Missing protocol
+            "http://",  # No domain
+            "https://domain",  # Domain without path, no slash
+        ]
+
+        for src in malformed_urls:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            # Should not crash and should handle gracefully
+            result = _has_valid_image_src(node)
+            assert isinstance(result, bool)
+
+    def test_filename_validation_edge_cases(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # Test filename validation edge cases
+        test_cases = [
+            ("file.txt", False),  # Invalid extension
+            ("image", False),  # No extension
+            ("image.", False),  # Empty extension
+            ("image.unknown", False),  # Unknown extension
+        ]
+
+        for src, should_accept in test_cases:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            result = _has_valid_image_src(node)
+            assert result == should_accept, (
+                f"Filename {src} should be {'accepted' if should_accept else 'rejected'}"
+            )
+
+    def test_tracking_pixel_rejected(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="/pixel.gif">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is False
+
+    def test_spacer_image_rejected(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="/spacer.gif">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is False
+
     def test_empty_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
