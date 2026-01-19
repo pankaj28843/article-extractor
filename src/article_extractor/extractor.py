@@ -28,6 +28,70 @@ from .url_normalizer import absolutize_urls
 from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
+    from justhtml.node import SimpleDomNode
+
+
+def _extract_url_map(node: SimpleDomNode) -> dict[str, str]:
+    """Extract URLs from elements before safe mode processing."""
+    import uuid
+
+    from .dom_utils import collect_nodes_by_tags
+
+    url_map = {}
+
+    # URL attributes to preserve
+    url_attrs = {
+        "img": ["src", "srcset"],
+        "a": ["href"],
+        "video": ["src", "poster"],
+        "audio": ["src"],
+        "source": ["src", "srcset"],
+        "track": ["src"],
+        "link": ["href"],
+        "iframe": ["src"],
+        "embed": ["src"],
+        "object": ["data"],
+    }
+
+    for tag, attributes in url_attrs.items():
+        for element in collect_nodes_by_tags(node, (tag,)):
+            attrs = getattr(element, "attrs", None)
+            if not attrs:
+                continue
+
+            for attr in attributes:
+                value = attrs.get(attr)
+                if not value:
+                    continue
+
+                url_str = str(value)
+                if _is_safe_url(url_str) and url_str.startswith(
+                    ("http://", "https://", "//")
+                ):
+                    # Generate unique placeholder
+                    placeholder = f"__URL_PLACEHOLDER_{uuid.uuid4().hex[:8]}__"
+                    url_map[placeholder] = url_str
+                    # Replace with placeholder that safe mode will preserve
+                    attrs[attr] = placeholder
+
+    return url_map
+
+
+def _restore_urls_in_html(html: str, url_map: dict[str, str]) -> str:
+    """Restore URLs in HTML output after safe mode processing."""
+    for placeholder, original_url in url_map.items():
+        html = html.replace(placeholder, original_url)
+    return html
+
+
+def _is_safe_url(url: str) -> bool:
+    """Check if URL is safe (not javascript:, vbscript:, etc.)."""
+    url_lower = url.lower().strip()
+    dangerous_schemes = ["javascript:", "vbscript:", "data:text/html"]
+    return not any(url_lower.startswith(scheme) for scheme in dangerous_schemes)
+
+
+if TYPE_CHECKING:
     pass
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
@@ -138,10 +202,20 @@ class ArticleExtractor:
 
         # Extract content
         try:
-            # Use safe=False for HTML to preserve absolutized URLs
-            content_html = top_candidate.to_html(indent=2, safe=False)
+            # Store original URLs before safe mode processing
+            url_map = _extract_url_map(top_candidate)
+
+            content_html = top_candidate.to_html(
+                indent=2, safe=self.options.safe_markdown
+            )
+
             markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
             text = top_candidate.to_text(separator=" ", strip=True)
+
+            # Restore URLs in both HTML and markdown output if URL map exists
+            if url_map:
+                content_html = _restore_urls_in_html(content_html, url_map)
+                markdown = _restore_urls_in_html(markdown, url_map)
         except Exception as e:
             return self._failure_result(
                 url,

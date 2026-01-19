@@ -288,6 +288,10 @@ class TestHasValidImageSrc:
             "/1x1.png",
             "https://tracking.example.com/image.jpg",
             "https://analytics.site.com/beacon.gif",
+            # Short tracking filenames
+            "t.gif",
+            "p.png",
+            "x.jpg",
         ]
 
         for src in tracking_images:
@@ -295,6 +299,28 @@ class TestHasValidImageSrc:
             node = doc.query("img")[0]
             assert _has_valid_image_src(node) is False, (
                 f"Should reject tracking image: {src}"
+            )
+
+    def test_domain_tracking_edge_cases(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # Test edge cases with tracking keywords in domains
+        test_cases = [
+            ("https://tracking.example.com/image.jpg", False),  # tracking subdomain
+            (
+                "https://example.tracking.com/image.jpg",
+                True,
+            ),  # tracking in middle of domain
+            ("https://analytics.cdn.com/image.jpg", False),  # analytics subdomain
+            ("https://myanalytics.com/image.jpg", True),  # analytics in domain name
+        ]
+
+        for src, should_accept in test_cases:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            result = _has_valid_image_src(node)
+            assert result == should_accept, (
+                f"URL {src} should be {'accepted' if should_accept else 'rejected'}"
             )
 
     def test_tracking_pixel_rejected(self):

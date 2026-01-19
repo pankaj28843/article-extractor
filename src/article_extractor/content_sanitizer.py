@@ -92,22 +92,66 @@ def _has_valid_image_src(node: SimpleDomNode) -> bool:
         "/spacer.png",
         "/blank.gif",
         "/blank.png",
-        # Domain patterns
-        "tracking.",
-        "analytics.",
-        "metrics.",
     ]
 
     if any(pattern in src_lower for pattern in tracking_patterns):
         return False
 
+    # Check for tracking domains more precisely (at start of domain)
+    if "://" in src_str:
+        # Extract domain part
+        try:
+            domain_start = src_str.find("://") + 3
+            domain_end = src_str.find("/", domain_start)
+            if domain_end == -1:
+                domain_end = len(src_str)
+            domain = src_str[domain_start:domain_end].lower()
+
+            # Check if domain starts with tracking keywords
+            if any(
+                domain.startswith(prefix)
+                for prefix in ["tracking.", "analytics.", "metrics."]
+            ):
+                return False
+        except (ValueError, IndexError):
+            pass  # Invalid URL format, continue with other checks
+
     # Keep images with data URLs, absolute URLs, protocol-relative, or obvious relative paths
     if src_str.startswith(("data:", "http", "//", "/", "./", "../")):
         return True
 
-    # Fallback: keep other plausible relative paths/filenames (e.g. "image.jpg")
-    # This catches bare filenames in the same directory
-    return len(src_str) > 3  # Minimum reasonable filename length for bare names
+    # Fallback: treat bare filenames as valid only when they look like real image files
+    return _is_valid_image_filename(src_lower)
+
+
+def _is_valid_image_filename(filename: str) -> bool:
+    """Check if a bare filename looks like a valid image file."""
+    # Require a common image extension and a minimally descriptive basename to avoid
+    # accepting tiny tracking pixels such as "t.gif" or "p.png"
+    filename = filename.split("/")[-1]
+    name, dot, ext = filename.rpartition(".")
+    if not dot:
+        return False
+
+    valid_extensions = {
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "webp",
+        "svg",
+        "bmp",
+        "avif",
+        "apng",
+        "tiff",
+        "jfif",
+    }
+
+    if ext not in valid_extensions:
+        return False
+
+    # Require at least a few characters in the basename to filter out trackers like "t.gif"
+    return len(name.strip()) >= 2  # Allow "bg.jpg" but reject "t.gif"
 
 
 def _node_has_visible_content(node: SimpleDomNode) -> bool:
