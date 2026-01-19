@@ -1323,6 +1323,39 @@ class TestExtractorEdgeCases:
         assert _is_safe_url("vbscript:alert(1)") is False
         assert _is_safe_url("data:text/html,<script>alert(1)</script>") is False
 
+    def test_url_extraction_skips_elements_without_attrs(self):
+        from justhtml import JustHTML
+
+        from article_extractor.extractor import _extract_url_map
+
+        doc = JustHTML("<div><img></div>")
+        node = doc.query("div")[0]
+
+        url_map = _extract_url_map(node)
+
+        assert url_map == {}
+
+    def test_url_extraction_preserves_safe_data_images(self):
+        from justhtml import JustHTML
+
+        from article_extractor.extractor import _extract_url_map, _restore_urls_in_html
+
+        html = '<div><img src="data:image/png;base64,AAAA"></div>'
+        doc = JustHTML(html)
+        node = doc.query("div")[0]
+
+        url_map = _extract_url_map(node)
+
+        assert len(url_map) == 1
+        placeholder = next(iter(url_map.keys()))
+        assert url_map[placeholder].startswith("data:image/png")
+
+        img = node.query("img")[0]
+        assert img.attrs["src"] == placeholder
+
+        restored = _restore_urls_in_html(f'<img src="{placeholder}">', url_map)
+        assert "data:image/png" in restored
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio

@@ -227,6 +227,15 @@ class TestHasValidImageSrc:
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
+    def test_data_url_rejects_non_image(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML(
+            '<img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">'
+        )
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is False
+
     def test_absolute_url_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
@@ -265,6 +274,7 @@ class TestHasValidImageSrc:
             "pixel-perfect-design.svg",
             "beacon-hill-photo.jpg",
             "spacer-component.png",
+            "https://example.com/assets/my-pixel.gif",
             # Dimension patterns in legitimate filenames
             "image-1x1-grid.jpg",
             "photo-1x1-ratio.png",
@@ -288,6 +298,9 @@ class TestHasValidImageSrc:
             "/1x1.png",
             "https://tracking.example.com/image.jpg",
             "https://analytics.site.com/beacon.gif",
+            "https://cdn.example.com/t.gif",
+            "https://cdn.example.com/p.png",
+            "https://cdn.example.com/x.jpg",
             # Short tracking filenames
             "t.gif",
             "p.png",
@@ -311,6 +324,7 @@ class TestHasValidImageSrc:
                 "https://example.tracking.com/image.jpg",
                 True,
             ),  # tracking in middle of domain
+            ("//tracking.example.com/image.jpg", False),  # protocol-relative tracking
             ("https://analytics.cdn.com/image.jpg", False),  # analytics subdomain
             ("https://myanalytics.com/image.jpg", True),  # analytics in domain name
         ]

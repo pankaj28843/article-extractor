@@ -20,11 +20,11 @@ from .constants import (
     STRIP_TAGS,
     UNLIKELY_ROLES,
 )
-from .content_sanitizer import sanitize_content
+from .content_sanitizer import _is_safe_image_data_url, sanitize_content
 from .document_cleaner import clean_document
 from .title_extractor import extract_title
 from .types import ArticleResult, ExtractionOptions, NetworkOptions
-from .url_normalizer import absolutize_urls
+from .url_normalizer import _URL_ATTR_MAP, absolutize_urls
 from .utils import extract_excerpt, get_word_count
 
 if TYPE_CHECKING:
@@ -39,21 +39,7 @@ def _extract_url_map(node: SimpleDomNode) -> dict[str, str]:
 
     url_map = {}
 
-    # URL attributes to preserve
-    url_attrs = {
-        "img": ["src", "srcset"],
-        "a": ["href"],
-        "video": ["src", "poster"],
-        "audio": ["src"],
-        "source": ["src", "srcset"],
-        "track": ["src"],
-        "link": ["href"],
-        "iframe": ["src"],
-        "embed": ["src"],
-        "object": ["data"],
-    }
-
-    for tag, attributes in url_attrs.items():
+    for tag, attributes in _URL_ATTR_MAP.items():
         for element in collect_nodes_by_tags(node, (tag,)):
             attrs = getattr(element, "attrs", None)
             if not attrs:
@@ -65,7 +51,19 @@ def _extract_url_map(node: SimpleDomNode) -> dict[str, str]:
                     continue
 
                 url_str = str(value)
-                if _is_safe_url(url_str) and url_str.startswith(
+                url_lower = url_str.lower()
+                if (
+                    tag in {"img", "source"}
+                    and attr in {"src", "srcset"}
+                    and url_lower.startswith("data:")
+                    and _is_safe_image_data_url(url_lower)
+                ):
+                    placeholder = f"__URL_PLACEHOLDER_{uuid.uuid4().hex[:8]}__"
+                    url_map[placeholder] = url_str
+                    attrs[attr] = placeholder
+                    continue
+
+                if _is_safe_url(url_lower) and url_lower.startswith(
                     ("http://", "https://", "//")
                 ):
                     # Generate unique placeholder
@@ -91,8 +89,6 @@ def _is_safe_url(url: str) -> bool:
     return not any(url_lower.startswith(scheme) for scheme in dangerous_schemes)
 
 
-if TYPE_CHECKING:
-    pass
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
 
