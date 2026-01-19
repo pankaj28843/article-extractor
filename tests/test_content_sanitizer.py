@@ -248,17 +248,61 @@ class TestHasValidImageSrc:
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
+    def test_protocol_relative_url_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="//cdn.example.com/image.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
+    def test_legitimate_images_with_tracking_keywords_accepted(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # These should NOT be rejected despite containing tracking keywords
+        legitimate_images = [
+            "my-pixel-art.png",
+            "tracking-dashboard.jpg",
+            "pixel-perfect-design.svg",
+            "beacon-hill-photo.jpg",
+            "spacer-component.png",
+        ]
+
+        for src in legitimate_images:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            assert _has_valid_image_src(node) is True, (
+                f"Should accept legitimate image: {src}"
+            )
+
+    def test_specific_tracking_patterns_rejected(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # These should be rejected as they match specific tracking patterns
+        tracking_images = [
+            "/pixel.gif",
+            "/1x1.png",
+            "https://tracking.example.com/image.jpg",
+            "https://analytics.site.com/beacon.gif",
+        ]
+
+        for src in tracking_images:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            assert _has_valid_image_src(node) is False, (
+                f"Should reject tracking image: {src}"
+            )
+
     def test_tracking_pixel_rejected(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="https://tracking.example.com/pixel.gif">')
+        doc = JustHTML('<img src="/pixel.gif">')
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 
     def test_spacer_image_rejected(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="spacer.gif">')
+        doc = JustHTML('<img src="/spacer.gif">')
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 

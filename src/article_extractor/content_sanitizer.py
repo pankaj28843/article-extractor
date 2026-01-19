@@ -78,20 +78,39 @@ def _has_valid_image_src(node: SimpleDomNode) -> bool:
     if not src_str:
         return False
 
-    # Reject common tracking pixels and placeholders first
+    # Reject common tracking pixels and placeholders with more specific patterns
     src_lower = src_str.lower()
-    if any(
-        pattern in src_lower
-        for pattern in ["pixel", "tracking", "beacon", "1x1", "spacer", "blank"]
-    ):
+
+    # Check for exact tracking patterns to avoid false positives
+    tracking_patterns = [
+        # Exact filename matches
+        "/pixel.gif",
+        "/pixel.png",
+        "/1x1.gif",
+        "/1x1.png",
+        "/spacer.gif",
+        "/spacer.png",
+        "/blank.gif",
+        "/blank.png",
+        # Domain patterns
+        "tracking.",
+        "analytics.",
+        "metrics.",
+        # Dimension patterns combined with tracking terms
+        "1x1",
+        "0x0",
+    ]
+
+    if any(pattern in src_lower for pattern in tracking_patterns):
         return False
 
-    # Keep images with data URLs, relative paths, or absolute URLs
-    if src_str.startswith(("data:", "http", "/", "./", "../")):
+    # Keep images with data URLs, absolute URLs, protocol-relative, or obvious relative paths
+    if src_str.startswith(("data:", "http", "//", "/", "./", "../")):
         return True
 
-    # Keep other relative image paths with reasonable length
-    return len(src_str) > 3  # Minimum reasonable filename length
+    # Fallback: keep other plausible relative paths/filenames (e.g. "image.jpg")
+    # This catches bare filenames in the same directory
+    return len(src_str) > 3  # Minimum reasonable filename length for bare names
 
 
 def _node_has_visible_content(node: SimpleDomNode) -> bool:
