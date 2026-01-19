@@ -87,7 +87,7 @@ def _has_valid_image_src(node: SimpleDomNode) -> bool:
         return False
 
     # Keep images with data URLs, relative paths, or absolute URLs
-    if src_str.startswith(("data:", "http", "/", "./")):
+    if src_str.startswith(("data:", "http", "/", "./", "../")):
         return True
 
     # Keep other relative image paths with reasonable length

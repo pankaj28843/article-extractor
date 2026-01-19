@@ -22,6 +22,10 @@ _URL_ATTR_MAP: dict[str, tuple[str, ...]] = {
     "video": ("src", "poster"),
     "audio": ("src",),
     "track": ("src",),
+    "link": ("href",),
+    "iframe": ("src",),
+    "embed": ("src",),
+    "object": ("data",),
 }
 
 

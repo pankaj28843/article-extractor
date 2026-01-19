@@ -241,6 +241,13 @@ class TestHasValidImageSrc:
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
+    def test_parent_relative_path_src(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        doc = JustHTML('<img src="../images/photo.jpg">')
+        node = doc.query("img")[0]
+        assert _has_valid_image_src(node) is True
+
     def test_tracking_pixel_rejected(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 

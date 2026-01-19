@@ -131,15 +131,15 @@ class ArticleExtractor:
             )
 
         # Sanitize node before serialization to drop empty anchors/images
+        # Always absolutize URLs when base URL is available
         if url:
             absolutize_urls(top_candidate, url)
         sanitize_content(top_candidate)
 
         # Extract content
         try:
-            content_html = top_candidate.to_html(
-                indent=2, safe=self.options.safe_markdown
-            )
+            # Use safe=False for HTML to preserve absolutized URLs
+            content_html = top_candidate.to_html(indent=2, safe=False)
             markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
             text = top_candidate.to_text(separator=" ", strip=True)
         except Exception as e:
