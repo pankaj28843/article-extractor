@@ -1278,6 +1278,7 @@ class TestExtractorEdgeCases:
             <article>
                 <h1>Title</h1>
                 <p>Content with <a href="/link">link</a> and text.</p>
+                <img src="/images/photo.jpg" alt="Photo">
                 <p>More content here to meet word count threshold.</p>
             </article>
         </body>
@@ -1287,6 +1288,40 @@ class TestExtractorEdgeCases:
 
         assert result.success is True
         assert "https://example.com/link" in result.content
+        assert "https://example.com/images/photo.jpg" in result.content
+
+    def test_url_extraction_and_restoration(self):
+        """Test URL extraction and restoration functionality."""
+        from justhtml import JustHTML
+
+        from article_extractor.extractor import (
+            _extract_url_map,
+            _is_safe_url,
+            _restore_urls_in_html,
+        )
+
+        # Test URL extraction
+        html = '<div><a href="https://example.com/link">Link</a><img src="javascript:alert(1)"></div>'
+        doc = JustHTML(html)
+        node = doc.query("div")[0]
+
+        url_map = _extract_url_map(node)
+
+        # Should extract safe URLs and replace with placeholders
+        assert len(url_map) == 1
+        placeholder = next(iter(url_map.keys()))
+        assert url_map[placeholder] == "https://example.com/link"
+
+        # Test URL restoration
+        html_with_placeholder = f'<a href="{placeholder}">Link</a>'
+        restored = _restore_urls_in_html(html_with_placeholder, url_map)
+        assert "https://example.com/link" in restored
+
+        # Test safe URL detection
+        assert _is_safe_url("https://example.com/safe") is True
+        assert _is_safe_url("javascript:alert(1)") is False
+        assert _is_safe_url("vbscript:alert(1)") is False
+        assert _is_safe_url("data:text/html,<script>alert(1)</script>") is False
 
 
 @pytest.mark.unit

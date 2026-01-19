@@ -323,6 +323,42 @@ class TestHasValidImageSrc:
                 f"URL {src} should be {'accepted' if should_accept else 'rejected'}"
             )
 
+    def test_malformed_url_handling(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # Test malformed URLs that could cause exceptions
+        malformed_urls = [
+            "://invalid-url",  # Missing protocol
+            "http://",  # No domain
+            "https://domain",  # Domain without path, no slash
+        ]
+
+        for src in malformed_urls:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            # Should not crash and should handle gracefully
+            result = _has_valid_image_src(node)
+            assert isinstance(result, bool)
+
+    def test_filename_validation_edge_cases(self):
+        from article_extractor.content_sanitizer import _has_valid_image_src
+
+        # Test filename validation edge cases
+        test_cases = [
+            ("file.txt", False),  # Invalid extension
+            ("image", False),  # No extension
+            ("image.", False),  # Empty extension
+            ("image.unknown", False),  # Unknown extension
+        ]
+
+        for src, should_accept in test_cases:
+            doc = JustHTML(f'<img src="{src}">')
+            node = doc.query("img")[0]
+            result = _has_valid_image_src(node)
+            assert result == should_accept, (
+                f"Filename {src} should be {'accepted' if should_accept else 'rejected'}"
+            )
+
     def test_tracking_pixel_rejected(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
