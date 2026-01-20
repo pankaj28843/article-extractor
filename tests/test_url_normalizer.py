@@ -9,7 +9,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_img_src(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<img src="images/pic.png">')
+        doc = JustHTML('<img src="images/pic.png">', safe=False)
         node = doc.query("img")[0]
         absolutize_urls(node, "https://example.com/base/")
 
@@ -18,7 +18,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_root_media_node(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<img src="images/pic.png">')
+        doc = JustHTML('<img src="images/pic.png">', safe=False)
         node = doc.query("img")[0]
         absolutize_urls(node, "https://example.com/base/")
 
@@ -27,7 +27,9 @@ class TestAbsolutizeUrls:
     def test_absolutize_nested_images(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<div><img src="/img/one.png"><img src="/img/two.png"></div>')
+        doc = JustHTML(
+            '<div><img src="/img/one.png"><img src="/img/two.png"></div>', safe=False
+        )
         root = doc.query("div")[0]
         absolutize_urls(root, "https://example.com/")
 
@@ -38,7 +40,9 @@ class TestAbsolutizeUrls:
     def test_absolutize_srcset(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<img srcset="/img/small.jpg 1x, /img/large.jpg 2x">')
+        doc = JustHTML(
+            '<img srcset="/img/small.jpg 1x, /img/large.jpg 2x">', safe=False
+        )
         node = doc.query("img")[0]
         absolutize_urls(node, "https://example.com/")
 
@@ -49,7 +53,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_anchor_href(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<div><a href="/docs">Link</a></div>')
+        doc = JustHTML('<div><a href="/docs">Link</a></div>', safe=False)
         root = doc.query("div")[0]
         absolutize_urls(root, "https://example.com/")
 
@@ -58,7 +62,9 @@ class TestAbsolutizeUrls:
     def test_absolutize_video_elements(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<video src="/vid.mp4" poster="/poster.jpg"></video>')
+        doc = JustHTML(
+            '<video src="/vid.mp4" poster="/poster.jpg"></video>', safe=False
+        )
         node = doc.query("video")[0]
         absolutize_urls(node, "https://example.com/")
 
@@ -68,7 +74,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_noop_on_absolute_urls(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<img src="https://cdn.example.com/img.png">')
+        doc = JustHTML('<img src="https://cdn.example.com/img.png">', safe=False)
         node = doc.query("img")[0]
         absolutize_urls(node, "https://example.com/")
 
@@ -77,7 +83,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_link_href(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<link rel="stylesheet" href="/styles/main.css">')
+        doc = JustHTML('<link rel="stylesheet" href="/styles/main.css">', safe=False)
         node = doc.query("link")[0]
         absolutize_urls(node, "https://example.com/")
 
@@ -86,7 +92,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_iframe_src(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<iframe src="/embed/video.html"></iframe>')
+        doc = JustHTML('<iframe src="/embed/video.html"></iframe>', safe=False)
         node = doc.query("iframe")[0]
         absolutize_urls(node, "https://example.com/")
 
@@ -95,7 +101,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_embed_src(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<embed src="/media/flash.swf">')
+        doc = JustHTML('<embed src="/media/flash.swf">', safe=False)
         node = doc.query("embed")[0]
         absolutize_urls(node, "https://example.com/")
 
@@ -104,7 +110,7 @@ class TestAbsolutizeUrls:
     def test_absolutize_object_data(self):
         from article_extractor.url_normalizer import absolutize_urls
 
-        doc = JustHTML('<object data="/files/document.pdf"></object>')
+        doc = JustHTML('<object data="/files/document.pdf"></object>', safe=False)
         node = doc.query("object")[0]
         absolutize_urls(node, "https://example.com/")
 

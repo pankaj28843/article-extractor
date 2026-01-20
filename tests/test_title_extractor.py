@@ -18,7 +18,7 @@ class TestExtractTitle:
         <body><h1>H1 Title</h1></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "OG Title"
 
@@ -31,7 +31,7 @@ class TestExtractTitle:
         <body><h1>H1 Title</h1></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "H1 Title"
 
@@ -44,7 +44,7 @@ class TestExtractTitle:
         <body><p>Content</p></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "Page Title"
 
@@ -57,7 +57,7 @@ class TestExtractTitle:
         <body><p>Content</p></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "Article Title"
 
@@ -70,7 +70,7 @@ class TestExtractTitle:
         <body><p>Content</p></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "Simple Title"
 
@@ -78,7 +78,7 @@ class TestExtractTitle:
         from article_extractor.title_extractor import extract_title
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc, "https://example.com/my-article") == "My Article"
 
@@ -86,7 +86,7 @@ class TestExtractTitle:
         from article_extractor.title_extractor import extract_title
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert (
             extract_title(doc, "https://example.com/multi-word-title")
@@ -97,7 +97,7 @@ class TestExtractTitle:
         from article_extractor.title_extractor import extract_title
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert (
             extract_title(doc, "https://example.com/under_score_title")
@@ -108,7 +108,7 @@ class TestExtractTitle:
         from article_extractor.title_extractor import extract_title
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc, "") == "Untitled"
 
@@ -123,7 +123,7 @@ class TestExtractTitle:
         </head>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "Page Title"
 
@@ -136,7 +136,7 @@ class TestExtractTitle:
         <body><h1>   </h1></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc) == "Page Title"
 
@@ -149,7 +149,7 @@ class TestExtractTitle:
         <body><p>Content</p></body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc, "https://example.com/article") == "Article"
 
@@ -157,7 +157,7 @@ class TestExtractTitle:
         from article_extractor.title_extractor import extract_title
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc, "https://example.com/") == "Untitled"
 
@@ -165,7 +165,7 @@ class TestExtractTitle:
         from article_extractor.title_extractor import extract_title
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         assert extract_title(doc, "https://example.com") == "Untitled"
 

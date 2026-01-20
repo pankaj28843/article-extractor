@@ -165,7 +165,7 @@ class ArticleExtractor:
 
         # Parse HTML
         try:
-            doc = JustHTML(html)
+            doc = JustHTML(html, safe=False)
         except Exception as e:
             return self._failure_result(
                 url,
@@ -201,12 +201,15 @@ class ArticleExtractor:
             # Store original URLs before safe mode processing
             url_map = _extract_url_map(top_candidate)
 
-            content_html = top_candidate.to_html(
-                indent=2, safe=self.options.safe_markdown
-            )
+            content_node = top_candidate
+            if self.options.safe_markdown:
+                from justhtml.sanitize import sanitize_dom
 
-            markdown = top_candidate.to_markdown(safe=self.options.safe_markdown)
-            text = top_candidate.to_text(separator=" ", strip=True)
+                content_node = sanitize_dom(top_candidate)
+
+            content_html = content_node.to_html(indent=2)
+            markdown = content_node.to_markdown()
+            text = content_node.to_text(separator=" ", strip=True)
 
             # Restore URLs in both HTML and markdown output if URL map exists
             if url_map:

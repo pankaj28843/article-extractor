@@ -9,7 +9,7 @@ class TestSanitizeContent:
     def test_sanitize_removes_empty_links(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML('<div><a href="/link"></a><p>Text</p></div>')
+        doc = JustHTML('<div><a href="/link"></a><p>Text</p></div>', safe=False)
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -19,7 +19,7 @@ class TestSanitizeContent:
     def test_sanitize_keeps_links_with_text(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML('<div><a href="/link">Link text</a></div>')
+        doc = JustHTML('<div><a href="/link">Link text</a></div>', safe=False)
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -28,7 +28,7 @@ class TestSanitizeContent:
     def test_sanitize_removes_images_without_src(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML("<div><img><p>Text</p></div>")
+        doc = JustHTML("<div><img><p>Text</p></div>", safe=False)
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -38,7 +38,7 @@ class TestSanitizeContent:
     def test_sanitize_keeps_images_with_src(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML('<div><img src="image.png"></div>')
+        doc = JustHTML('<div><img src="image.png"></div>', safe=False)
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -47,7 +47,7 @@ class TestSanitizeContent:
     def test_sanitize_removes_empty_paragraphs(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML("<div><p>   </p><p>Real text</p></div>")
+        doc = JustHTML("<div><p>   </p><p>Real text</p></div>", safe=False)
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -58,7 +58,7 @@ class TestSanitizeContent:
     def test_sanitize_removes_empty_list_items(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML("<ul><li></li><li>Item</li></ul>")
+        doc = JustHTML("<ul><li></li><li>Item</li></ul>", safe=False)
         root = doc.query("ul")[0]
         sanitize_content(root)
 
@@ -69,7 +69,9 @@ class TestSanitizeContent:
     def test_sanitize_removes_empty_divs(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML("<div><div class='wrapper'></div><div>Content</div></div>")
+        doc = JustHTML(
+            "<div><div class='wrapper'></div><div>Content</div></div>", safe=False
+        )
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -81,7 +83,7 @@ class TestSanitizeContent:
     def test_sanitize_keeps_blocks_with_images(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML('<div><p><img src="pic.png"></p></div>')
+        doc = JustHTML('<div><p><img src="pic.png"></p></div>', safe=False)
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -91,7 +93,8 @@ class TestSanitizeContent:
     def test_sanitize_combined_cleanup(self):
         from article_extractor.content_sanitizer import sanitize_content
 
-        doc = JustHTML("""
+        doc = JustHTML(
+            """
             <div>
                 <a></a>
                 <img>
@@ -100,7 +103,9 @@ class TestSanitizeContent:
                 <a href="/link">Good link</a>
                 <img src="good.png">
             </div>
-        """)
+            """,
+            safe=False,
+        )
         root = doc.query("div")[0]
         sanitize_content(root)
 
@@ -114,7 +119,7 @@ class TestRemoveEmptyLinks:
     def test_remove_empty_anchor_root(self):
         from article_extractor.content_sanitizer import _remove_empty_links
 
-        doc = JustHTML('<div><a href="https://example.com"></a></div>')
+        doc = JustHTML('<div><a href="https://example.com"></a></div>', safe=False)
         node = doc.query("a")[0]
         _remove_empty_links(node)
 
@@ -143,7 +148,7 @@ class TestRemoveEmptyImages:
     def test_remove_empty_image_root(self):
         from article_extractor.content_sanitizer import _remove_empty_images
 
-        doc = JustHTML("<div><img></div>")
+        doc = JustHTML("<div><img></div>", safe=False)
         node = doc.query("img")[0]
         _remove_empty_images(node)
 
@@ -152,7 +157,7 @@ class TestRemoveEmptyImages:
     def test_keeps_image_with_valid_src(self):
         from article_extractor.content_sanitizer import _remove_empty_images
 
-        doc = JustHTML('<div><img src="pic.png"></div>')
+        doc = JustHTML('<div><img src="pic.png"></div>', safe=False)
         root = doc.query("div")[0]
         _remove_empty_images(root)
 
@@ -161,7 +166,7 @@ class TestRemoveEmptyImages:
     def test_removes_image_with_empty_src(self):
         from article_extractor.content_sanitizer import _remove_empty_images
 
-        doc = JustHTML('<div><img src=""></div>')
+        doc = JustHTML('<div><img src=""></div>', safe=False)
         root = doc.query("div")[0]
         _remove_empty_images(root)
 
@@ -173,7 +178,7 @@ class TestRemoveEmptyBlocks:
     def test_remove_empty_block_root(self):
         from article_extractor.content_sanitizer import _remove_empty_blocks
 
-        doc = JustHTML("<div><p>   </p></div>")
+        doc = JustHTML("<div><p>   </p></div>", safe=False)
         node = doc.query("p")[0]
         _remove_empty_blocks(node)
 
@@ -182,7 +187,7 @@ class TestRemoveEmptyBlocks:
     def test_keeps_blocks_with_text(self):
         from article_extractor.content_sanitizer import _remove_empty_blocks
 
-        doc = JustHTML("<div><p>Text</p></div>")
+        doc = JustHTML("<div><p>Text</p></div>", safe=False)
         root = doc.query("div")[0]
         _remove_empty_blocks(root)
 
@@ -191,7 +196,7 @@ class TestRemoveEmptyBlocks:
     def test_keeps_blocks_with_images(self):
         from article_extractor.content_sanitizer import _remove_empty_blocks
 
-        doc = JustHTML('<div><div><img src="pic.png"></div></div>')
+        doc = JustHTML('<div><div><img src="pic.png"></div></div>', safe=False)
         root = doc.query("div")[0]
         _remove_empty_blocks(root)
 
@@ -201,7 +206,7 @@ class TestRemoveEmptyBlocks:
     def test_removes_nested_empty_blocks(self):
         from article_extractor.content_sanitizer import _remove_empty_blocks
 
-        doc = JustHTML("<div><div><p></p></div><div>Content</div></div>")
+        doc = JustHTML("<div><div><p></p></div><div>Content</div></div>", safe=False)
         root = doc.query("div")[0]
         _remove_empty_blocks(root)
 
@@ -214,7 +219,7 @@ class TestHasValidImageSrc:
     def test_valid_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="pic.png">')
+        doc = JustHTML('<img src="pic.png">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
@@ -222,7 +227,8 @@ class TestHasValidImageSrc:
         from article_extractor.content_sanitizer import _has_valid_image_src
 
         doc = JustHTML(
-            '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">'
+            '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">',
+            safe=False,
         )
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
@@ -231,7 +237,8 @@ class TestHasValidImageSrc:
         from article_extractor.content_sanitizer import _has_valid_image_src
 
         doc = JustHTML(
-            '<img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">'
+            '<img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">',
+            safe=False,
         )
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
@@ -239,28 +246,28 @@ class TestHasValidImageSrc:
     def test_absolute_url_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="https://example.com/image.jpg">')
+        doc = JustHTML('<img src="https://example.com/image.jpg">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
     def test_relative_path_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="/images/photo.jpg">')
+        doc = JustHTML('<img src="/images/photo.jpg">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
     def test_parent_relative_path_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="../images/photo.jpg">')
+        doc = JustHTML('<img src="../images/photo.jpg">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
     def test_protocol_relative_url_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="//cdn.example.com/image.jpg">')
+        doc = JustHTML('<img src="//cdn.example.com/image.jpg">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is True
 
@@ -283,7 +290,7 @@ class TestHasValidImageSrc:
         ]
 
         for src in legitimate_images:
-            doc = JustHTML(f'<img src="{src}">')
+            doc = JustHTML(f'<img src="{src}">', safe=False)
             node = doc.query("img")[0]
             assert _has_valid_image_src(node) is True, (
                 f"Should accept legitimate image: {src}"
@@ -308,7 +315,7 @@ class TestHasValidImageSrc:
         ]
 
         for src in tracking_images:
-            doc = JustHTML(f'<img src="{src}">')
+            doc = JustHTML(f'<img src="{src}">', safe=False)
             node = doc.query("img")[0]
             assert _has_valid_image_src(node) is False, (
                 f"Should reject tracking image: {src}"
@@ -330,7 +337,7 @@ class TestHasValidImageSrc:
         ]
 
         for src, should_accept in test_cases:
-            doc = JustHTML(f'<img src="{src}">')
+            doc = JustHTML(f'<img src="{src}">', safe=False)
             node = doc.query("img")[0]
             result = _has_valid_image_src(node)
             assert result == should_accept, (
@@ -348,7 +355,7 @@ class TestHasValidImageSrc:
         ]
 
         for src in malformed_urls:
-            doc = JustHTML(f'<img src="{src}">')
+            doc = JustHTML(f'<img src="{src}">', safe=False)
             node = doc.query("img")[0]
             # Should not crash and should handle gracefully
             result = _has_valid_image_src(node)
@@ -366,7 +373,7 @@ class TestHasValidImageSrc:
         ]
 
         for src, should_accept in test_cases:
-            doc = JustHTML(f'<img src="{src}">')
+            doc = JustHTML(f'<img src="{src}">', safe=False)
             node = doc.query("img")[0]
             result = _has_valid_image_src(node)
             assert result == should_accept, (
@@ -376,35 +383,35 @@ class TestHasValidImageSrc:
     def test_tracking_pixel_rejected(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="/pixel.gif">')
+        doc = JustHTML('<img src="/pixel.gif">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 
     def test_spacer_image_rejected(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="/spacer.gif">')
+        doc = JustHTML('<img src="/spacer.gif">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 
     def test_empty_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="">')
+        doc = JustHTML('<img src="">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 
     def test_whitespace_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML('<img src="  ">')
+        doc = JustHTML('<img src="  ">', safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 
     def test_missing_src(self):
         from article_extractor.content_sanitizer import _has_valid_image_src
 
-        doc = JustHTML("<img>")
+        doc = JustHTML("<img>", safe=False)
         node = doc.query("img")[0]
         assert _has_valid_image_src(node) is False
 
@@ -424,7 +431,7 @@ class TestNodeHasVisibleContent:
             _node_has_visible_content,
         )
 
-        doc = JustHTML("<p>Text</p>")
+        doc = JustHTML("<p>Text</p>", safe=False)
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is True
 
@@ -433,7 +440,7 @@ class TestNodeHasVisibleContent:
             _node_has_visible_content,
         )
 
-        doc = JustHTML('<p><img src="pic.png"></p>')
+        doc = JustHTML('<p><img src="pic.png"></p>', safe=False)
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is True
 
@@ -442,7 +449,7 @@ class TestNodeHasVisibleContent:
             _node_has_visible_content,
         )
 
-        doc = JustHTML("<p></p>")
+        doc = JustHTML("<p></p>", safe=False)
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is False
 
@@ -451,7 +458,7 @@ class TestNodeHasVisibleContent:
             _node_has_visible_content,
         )
 
-        doc = JustHTML("<p>   </p>")
+        doc = JustHTML("<p>   </p>", safe=False)
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is False
 
@@ -460,6 +467,6 @@ class TestNodeHasVisibleContent:
             _node_has_visible_content,
         )
 
-        doc = JustHTML("<p><img></p>")
+        doc = JustHTML("<p><img></p>", safe=False)
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is False

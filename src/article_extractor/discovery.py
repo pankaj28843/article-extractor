@@ -715,7 +715,7 @@ class EfficientCrawler:
 
     def _extract_links(self, html: str, base_url: str) -> set[str]:
         try:
-            doc = JustHTML(html)
+            doc = JustHTML(html, safe=False)
             links: set[str] = set()
 
             for node in self._iter_nodes(doc.root):

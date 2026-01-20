@@ -56,7 +56,7 @@ class TestGetClassWeight:
 
     def test_positive_class_adds_weight(self):
         """Classes with positive hints should increase weight."""
-        doc = JustHTML('<div class="article-content">text</div>')
+        doc = JustHTML('<div class="article-content">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -64,7 +64,7 @@ class TestGetClassWeight:
 
     def test_negative_class_subtracts_weight(self):
         """Classes with negative hints should decrease weight."""
-        doc = JustHTML('<div class="sidebar-widget">text</div>')
+        doc = JustHTML('<div class="sidebar-widget">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -74,7 +74,7 @@ class TestGetClassWeight:
         """Mixed positive/negative of equal strength should combine to zero."""
         # article-content has +25 (article, content), sidebar has -25
         # But the regex only matches once per category, so it's +25 -25 = 0
-        doc = JustHTML('<div class="article-content sidebar">text</div>')
+        doc = JustHTML('<div class="article-content sidebar">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -83,7 +83,7 @@ class TestGetClassWeight:
 
     def test_neutral_class_zero_weight(self):
         """Classes without hints should have zero weight."""
-        doc = JustHTML('<div class="my-custom-class">text</div>')
+        doc = JustHTML('<div class="my-custom-class">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -91,7 +91,7 @@ class TestGetClassWeight:
 
     def test_no_class_zero_weight(self):
         """Elements without class should have zero weight."""
-        doc = JustHTML("<div>text</div>")
+        doc = JustHTML("<div>text</div>", safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -99,7 +99,7 @@ class TestGetClassWeight:
 
     def test_readability_asset_class_adds_weight(self):
         """Readability asset classes should add weight."""
-        doc = JustHTML('<div class="entry-content-asset">text</div>')
+        doc = JustHTML('<div class="entry-content-asset">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -112,7 +112,7 @@ class TestIsUnlikelyCandidate:
 
     def test_sidebar_is_unlikely(self):
         """Elements with sidebar class should be unlikely."""
-        doc = JustHTML('<div class="sidebar">text</div>')
+        doc = JustHTML('<div class="sidebar">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         assert is_unlikely_candidate(nodes[0]) is True
@@ -120,14 +120,14 @@ class TestIsUnlikelyCandidate:
     def test_footer_is_unlikely(self):
         """Elements with footer class should be unlikely."""
         # Note: "page-footer" is NOT unlikely because "page" is in OK_MAYBE list
-        doc = JustHTML('<div class="footer">text</div>')
+        doc = JustHTML('<div class="footer">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         assert is_unlikely_candidate(nodes[0]) is True
 
     def test_page_footer_not_unlikely(self):
         """page-footer is not unlikely because 'page' is in OK_MAYBE list."""
-        doc = JustHTML('<div class="page-footer">text</div>')
+        doc = JustHTML('<div class="page-footer">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         # "page" in the class overrides the "footer" unlikely pattern
@@ -135,7 +135,7 @@ class TestIsUnlikelyCandidate:
 
     def test_article_overrides_unlikely(self):
         """Article hint should override unlikely patterns."""
-        doc = JustHTML('<div class="article sidebar">text</div>')
+        doc = JustHTML('<div class="article sidebar">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         # article overrides sidebar
@@ -143,7 +143,7 @@ class TestIsUnlikelyCandidate:
 
     def test_content_class_not_unlikely(self):
         """Content class should not be unlikely."""
-        doc = JustHTML('<div class="content">text</div>')
+        doc = JustHTML('<div class="content">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         assert is_unlikely_candidate(nodes[0]) is False
@@ -151,7 +151,7 @@ class TestIsUnlikelyCandidate:
     def test_navigation_class_is_unlikely(self):
         """Elements with navigation class should be unlikely."""
         # Note: role attribute is not checked, only class/id
-        doc = JustHTML('<div class="navigation">text</div>')
+        doc = JustHTML('<div class="navigation">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         assert is_unlikely_candidate(nodes[0]) is True
@@ -159,7 +159,7 @@ class TestIsUnlikelyCandidate:
     def test_role_attribute_not_checked(self):
         """Role attribute is not checked by is_unlikely_candidate."""
         # Only class/id are checked, not role attribute
-        doc = JustHTML('<div role="navigation">text</div>')
+        doc = JustHTML('<div role="navigation">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         # Role is not checked, so this is not unlikely
@@ -167,7 +167,7 @@ class TestIsUnlikelyCandidate:
 
     def test_main_role_not_unlikely(self):
         """Elements with main role should not be unlikely."""
-        doc = JustHTML('<div role="main">text</div>')
+        doc = JustHTML('<div role="main">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         assert is_unlikely_candidate(nodes[0]) is False
@@ -182,8 +182,8 @@ class TestScoreParagraph:
         short_html = "<p>This is short.</p>"
         long_html = "<p>This is a much longer paragraph that contains many more words and should therefore receive a higher score based on its length and content. It contains multiple sentences and demonstrates the scoring algorithm.</p>"
 
-        short_doc = JustHTML(short_html)
-        long_doc = JustHTML(long_html)
+        short_doc = JustHTML(short_html, safe=False)
+        long_doc = JustHTML(long_html, safe=False)
 
         short_nodes = short_doc.query("p")
         long_nodes = long_doc.query("p")
@@ -204,8 +204,8 @@ class TestScoreParagraph:
             "<p>This, however, has commas, which add points to the score</p>"
         )
 
-        no_commas_doc = JustHTML(no_commas_html)
-        with_commas_doc = JustHTML(with_commas_html)
+        no_commas_doc = JustHTML(no_commas_html, safe=False)
+        with_commas_doc = JustHTML(with_commas_html, safe=False)
 
         no_commas_nodes = no_commas_doc.query("p")
         with_commas_nodes = with_commas_doc.query("p")
@@ -217,7 +217,7 @@ class TestScoreParagraph:
     def test_minimum_score_for_short_paragraph(self, cache: ExtractionCache):
         """Short paragraphs below MIN_PARAGRAPH_LENGTH return 0."""
         short_html = "<p>x</p>"
-        doc = JustHTML(short_html)
+        doc = JustHTML(short_html, safe=False)
         nodes = doc.query("p")
         assert len(nodes) == 1
         assert score_paragraph(nodes[0], cache) == 0.0
@@ -225,7 +225,7 @@ class TestScoreParagraph:
     def test_long_enough_paragraph_positive_score(self, cache: ExtractionCache):
         """Paragraphs above MIN_PARAGRAPH_LENGTH get positive score."""
         html = "<p>This paragraph has enough characters to pass the minimum length threshold.</p>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         nodes = doc.query("p")
         assert len(nodes) == 1
         assert score_paragraph(nodes[0], cache) > 0
@@ -237,7 +237,7 @@ class TestGetLinkDensity:
 
     def test_no_links_zero_density(self, cache: ExtractionCache):
         """Element with no links should have zero density."""
-        doc = JustHTML("<div>This is plain text without any links.</div>")
+        doc = JustHTML("<div>This is plain text without any links.</div>", safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         density = cache.get_link_density(nodes[0])
@@ -245,7 +245,7 @@ class TestGetLinkDensity:
 
     def test_all_links_full_density(self, cache: ExtractionCache):
         """Element with all text in links should have ~1.0 density."""
-        doc = JustHTML("<div><a href='#'>All text is linked</a></div>")
+        doc = JustHTML("<div><a href='#'>All text is linked</a></div>", safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         density = cache.get_link_density(nodes[0])
@@ -253,7 +253,9 @@ class TestGetLinkDensity:
 
     def test_partial_links_partial_density(self, cache: ExtractionCache):
         """Element with some linked text should have partial density."""
-        doc = JustHTML("<div>Some text and <a href='#'>a link</a> and more text</div>")
+        doc = JustHTML(
+            "<div>Some text and <a href='#'>a link</a> and more text</div>", safe=False
+        )
         nodes = doc.query("div")
         assert len(nodes) == 1
         density = cache.get_link_density(nodes[0])
@@ -261,7 +263,7 @@ class TestGetLinkDensity:
 
     def test_empty_element_zero_density(self, cache: ExtractionCache):
         """Empty element should have zero density."""
-        doc = JustHTML("<div></div>")
+        doc = JustHTML("<div></div>", safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         density = cache.get_link_density(nodes[0])
@@ -295,7 +297,7 @@ class TestClassWeightEdgeCases:
 
     def test_photo_hint_bonus(self):
         """Photo hint class should add +10 bonus."""
-        doc = JustHTML('<div class="figure">text</div>')
+        doc = JustHTML('<div class="figure">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -303,7 +305,7 @@ class TestClassWeightEdgeCases:
 
     def test_image_class_photo_hint(self):
         """Image class should trigger photo hint bonus."""
-        doc = JustHTML('<div class="photo-gallery">text</div>')
+        doc = JustHTML('<div class="photo-gallery">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -311,7 +313,7 @@ class TestClassWeightEdgeCases:
 
     def test_readability_asset_bonus(self):
         """Readability asset class should add +25 bonus."""
-        doc = JustHTML('<div class="page">text</div>')
+        doc = JustHTML('<div class="page">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -320,7 +322,7 @@ class TestClassWeightEdgeCases:
 
     def test_class_as_list(self):
         """Handle class attribute as list (multiple classes)."""
-        doc = JustHTML('<div class="article content main">text</div>')
+        doc = JustHTML('<div class="article content main">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -328,7 +330,7 @@ class TestClassWeightEdgeCases:
 
     def test_id_attribute_checked(self):
         """ID attribute should also be checked for patterns."""
-        doc = JustHTML('<div id="main-article">text</div>')
+        doc = JustHTML('<div id="main-article">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         weight = get_class_weight(nodes[0])
@@ -344,7 +346,7 @@ class TestScoreNode:
         """Article tag should get positive base score."""
         from article_extractor.scorer import score_node
 
-        doc = JustHTML("<article>content</article>")
+        doc = JustHTML("<article>content</article>", safe=False)
         nodes = doc.query("article")
         assert len(nodes) == 1
         score = score_node(nodes[0])
@@ -354,7 +356,7 @@ class TestScoreNode:
         """Div with content class should get positive score."""
         from article_extractor.scorer import score_node
 
-        doc = JustHTML('<div class="content">text</div>')
+        doc = JustHTML('<div class="content">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         score = score_node(nodes[0])
@@ -364,7 +366,7 @@ class TestScoreNode:
         """Div with sidebar class should get negative score."""
         from article_extractor.scorer import score_node
 
-        doc = JustHTML('<div class="sidebar">text</div>')
+        doc = JustHTML('<div class="sidebar">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         score = score_node(nodes[0])
@@ -385,7 +387,8 @@ class TestCalculateContentScore:
             <p>This is a paragraph with enough content to score well.</p>
             <p>Another paragraph with more content, commas, and length.</p>
         </article>
-        """
+        """,
+            safe=False,
         )
         nodes = doc.query("article")
         assert len(nodes) == 1
@@ -396,8 +399,12 @@ class TestCalculateContentScore:
         """High link density should penalize score."""
         from article_extractor.scorer import calculate_content_score
 
-        low_links = JustHTML("<div><p>Lots of normal text content here.</p></div>")
-        high_links = JustHTML('<div><p><a href="#">All text is a link</a></p></div>')
+        low_links = JustHTML(
+            "<div><p>Lots of normal text content here.</p></div>", safe=False
+        )
+        high_links = JustHTML(
+            '<div><p><a href="#">All text is a link</a></p></div>', safe=False
+        )
 
         low_nodes = low_links.query("div")
         high_nodes = high_links.query("div")
@@ -415,7 +422,7 @@ class TestCalculateContentScore:
         """Should cache scores to avoid recalculation."""
         from article_extractor.scorer import calculate_content_score
 
-        doc = JustHTML("<article><p>Content</p></article>")
+        doc = JustHTML("<article><p>Content</p></article>", safe=False)
         nodes = doc.query("article")
         assert len(nodes) == 1
 
@@ -444,7 +451,8 @@ class TestRankCandidates:
                 <p>Multiple paragraphs make the score even higher.</p>
             </article>
         </body>
-        """
+        """,
+            safe=False,
         )
 
         sidebar = doc.query(".sidebar")
@@ -461,7 +469,7 @@ class TestRankCandidates:
         from article_extractor.scorer import rank_candidates
         from article_extractor.types import ScoredCandidate
 
-        doc = JustHTML("<article><p>Content</p></article>")
+        doc = JustHTML("<article><p>Content</p></article>", safe=False)
         nodes = doc.query("article")
 
         ranked = rank_candidates(nodes, cache)
@@ -488,7 +496,7 @@ class TestGetClassIdString:
         """Should combine class and id attributes."""
         from article_extractor.scorer import get_class_id_string
 
-        doc = JustHTML('<div class="test-class" id="test-id">text</div>')
+        doc = JustHTML('<div class="test-class" id="test-id">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         result = get_class_id_string(nodes[0])
@@ -499,7 +507,7 @@ class TestGetClassIdString:
         """Should handle missing class attribute."""
         from article_extractor.scorer import get_class_id_string
 
-        doc = JustHTML('<div id="only-id">text</div>')
+        doc = JustHTML('<div id="only-id">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         result = get_class_id_string(nodes[0])
@@ -509,7 +517,7 @@ class TestGetClassIdString:
         """Should handle missing id attribute."""
         from article_extractor.scorer import get_class_id_string
 
-        doc = JustHTML('<div class="only-class">text</div>')
+        doc = JustHTML('<div class="only-class">text</div>', safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         result = get_class_id_string(nodes[0])
@@ -519,7 +527,7 @@ class TestGetClassIdString:
         """Should handle element with no class or id."""
         from article_extractor.scorer import get_class_id_string
 
-        doc = JustHTML("<div>text</div>")
+        doc = JustHTML("<div>text</div>", safe=False)
         nodes = doc.query("div")
         assert len(nodes) == 1
         result = get_class_id_string(nodes[0])
@@ -529,7 +537,7 @@ class TestGetClassIdString:
         """Should join list-based class attributes."""
         from article_extractor.scorer import get_class_id_string
 
-        doc = JustHTML('<div class="alpha beta">text</div>')
+        doc = JustHTML('<div class="alpha beta">text</div>', safe=False)
         node = doc.query("div")[0]
         node.attrs["class"] = ["alpha", "beta"]
 

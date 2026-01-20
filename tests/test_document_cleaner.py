@@ -10,7 +10,7 @@ class TestCleanDocument:
         from article_extractor.document_cleaner import clean_document
 
         html = "<html><head><script>alert('test')</script></head><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         strip_selector = "script"
         role_selector = ""
@@ -24,7 +24,7 @@ class TestCleanDocument:
         from article_extractor.document_cleaner import clean_document
 
         html = "<html><head><style>.test{}</style></head><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         strip_selector = "style"
         role_selector = ""
@@ -50,7 +50,7 @@ class TestCleanDocument:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         strip_selector = "script, style, nav, footer"
         role_selector = ""
@@ -73,7 +73,7 @@ class TestCleanDocument:
             <p>Content</p>
         </div>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         strip_selector = ""
         role_selector = '[role="navigation"], [role="dialog"]'
@@ -99,7 +99,7 @@ class TestCleanDocument:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         strip_selector = "script"
         role_selector = '[role="navigation"]'
@@ -114,7 +114,7 @@ class TestCleanDocument:
         from article_extractor.document_cleaner import clean_document
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         result = clean_document(doc, "", "")
 
@@ -124,7 +124,7 @@ class TestCleanDocument:
         from article_extractor.document_cleaner import clean_document
 
         html = "<html><body><p>Content</p></body></html>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         clean_document(doc, "", "")
 
@@ -147,7 +147,7 @@ class TestCleanDocument:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         strip_selector = "script"
         role_selector = ""
@@ -166,7 +166,7 @@ class TestRemoveNodesBySelector:
         from article_extractor.document_cleaner import _remove_nodes_by_selector
 
         html = "<div><script>test</script><p>Content</p></div>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         _remove_nodes_by_selector(doc, "script")
 
@@ -190,7 +190,7 @@ class TestRemoveNodesBySelector:
         from article_extractor.document_cleaner import _remove_nodes_by_selector
 
         html = "<div><script>1</script><script>2</script><p>Content</p></div>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         _remove_nodes_by_selector(doc, "script")
 
@@ -210,7 +210,7 @@ class TestRemoveNodesBySelector:
             <p>Content</p>
         </div>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         _remove_nodes_by_selector(doc, "nav")
 
@@ -222,7 +222,7 @@ class TestRemoveNodesBySelector:
         from article_extractor.document_cleaner import _remove_nodes_by_selector
 
         html = "<div><p>Content</p></div>"
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         _remove_nodes_by_selector(doc, "")
 
@@ -237,7 +237,7 @@ class TestRemoveNodesBySelector:
             <div class="content">Content</div>
         </div>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
 
         _remove_nodes_by_selector(doc, ".ads")
 
