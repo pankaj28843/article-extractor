@@ -19,43 +19,43 @@ classifiers = [
 ]
 
 dependencies = [
-    "justhtml>=0.20.0",
-    "pydantic>=2.9",
-    "pydantic-settings>=2.6",
+    "justhtml>=0.40.0",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
     "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
-playwright = ["playwright>=1.49.0"]
-httpx = ["httpx>=0.28.0"]
+playwright = ["playwright>=1.57.0"]
+httpx = ["httpx>=0.28.1"]
 server = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "httpx>=0.28.0",
-    "fake-useragent>=1.5.1",
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.40.0",
+    "httpx>=0.28.1",
+    "fake-useragent>=2.2.0",
 ]
-ua = ["fake-useragent>=1.5.1"]
-docs = ["mkdocs>=1.6.0"]
+ua = ["fake-useragent>=2.2.0"]
+docs = ["mkdocs>=1.6.1"]
 all = [
-    "playwright>=1.49.0",
-    "httpx>=0.28.0",
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "fake-useragent>=1.5.1",
+    "playwright>=1.57.0",
+    "httpx>=0.28.1",
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.40.0",
+    "fake-useragent>=2.2.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0",
-    "pytest-asyncio>=1.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0",
-    "ruff>=0.14",
-    "mkdocs>=1.6.0",
-    "httpx>=0.28.0",
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "fake-useragent>=1.5.1",
-    "playwright>=1.49.0",
+    "ruff>=0.14.13",
+    "mkdocs>=1.6.1",
+    "httpx>=0.28.1",
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.40.0",
+    "fake-useragent>=2.2.0",
+    "playwright>=1.57.0",
 ]
 
 [tool.uv]

@@ -14,7 +14,7 @@ def test_collect_nodes_basic():
         <a href="/">Link</a>
     </div>
     """
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     paragraphs = collect_nodes_by_tags(doc.root, ("p",))
     assert len(paragraphs) == 2
     assert all(p.name == "p" for p in paragraphs)
@@ -30,7 +30,7 @@ def test_collect_nodes_multiple_tags():
         <img src="test2.jpg">
     </div>
     """
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     nodes = collect_nodes_by_tags(doc.root, ("p", "img"))
     assert len(nodes) == 3  # 1 p + 2 img
     tags = {n.name for n in nodes}
@@ -40,7 +40,7 @@ def test_collect_nodes_multiple_tags():
 def test_collect_nodes_includes_root_if_matches():
     """Test that root node is included when it matches the tag."""
     html = "<p>Root paragraph</p>"
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     paragraphs = collect_nodes_by_tags(doc.root, ("p",))
     assert len(paragraphs) == 1
     assert paragraphs[0].name == "p"
@@ -50,7 +50,7 @@ def test_collect_nodes_includes_root_if_matches():
 def test_collect_nodes_empty_tags_tuple():
     """Test collecting with empty tags tuple returns empty list."""
     html = "<div><p>Text</p></div>"
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     nodes = collect_nodes_by_tags(doc.root, ())
     # Should only include root if it somehow matches empty tuple
     # In practice, this returns empty list as getattr returns "" which is not in ()
@@ -68,7 +68,7 @@ def test_collect_nodes_nested_structure():
         </ul>
     </div>
     """
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     items = collect_nodes_by_tags(doc.root, ("li",))
     assert len(items) == 3
 
@@ -76,7 +76,7 @@ def test_collect_nodes_nested_structure():
 def test_collect_nodes_no_matches():
     """Test collecting when no nodes match the tags."""
     html = "<div><p>Text</p></div>"
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     images = collect_nodes_by_tags(doc.root, ("img",))
     assert images == []
 
@@ -84,7 +84,7 @@ def test_collect_nodes_no_matches():
 def test_collect_nodes_case_insensitive():
     """Test that tag matching is case-insensitive."""
     html = "<DIV><P>Text</P></DIV>"
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     # Tags are normalized to lowercase
     paragraphs = collect_nodes_by_tags(doc.root, ("p",))
     assert len(paragraphs) == 1
@@ -104,7 +104,7 @@ def test_collect_nodes_complex_document():
         <footer><p>Footer paragraph</p></footer>
     </article>
     """
-    doc = JustHTML(html)
+    doc = JustHTML(html, safe=False)
     paragraphs = collect_nodes_by_tags(doc.root, ("p",))
     # Root is <article>, so we get 5 p tags total (not including root)
     assert len(paragraphs) == 5  # Intro + First + Quote + Second + Footer

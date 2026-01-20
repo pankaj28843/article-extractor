@@ -1053,7 +1053,7 @@ class TestExtractorEdgeCases:
         from article_extractor import extract_article
         from article_extractor import extractor as extractor_module
 
-        def _boom(_html):
+        def _boom(_html, **_kwargs):
             raise ValueError("bad html")
 
         monkeypatch.setattr(extractor_module, "JustHTML", _boom)
@@ -1071,7 +1071,9 @@ class TestExtractorEdgeCases:
             def query(self, _selector):
                 return []
 
-        monkeypatch.setattr(extractor_module, "JustHTML", lambda _html: _EmptyDoc())
+        monkeypatch.setattr(
+            extractor_module, "JustHTML", lambda _html, **_kwargs: _EmptyDoc()
+        )
 
         result = extract_article("", url="https://example.com/docs/getting-started")
 
@@ -1106,7 +1108,7 @@ class TestExtractorEdgeCases:
                 return []
 
         monkeypatch.setattr(
-            extractor_module, "JustHTML", lambda _html: _Doc(_BadNode())
+            extractor_module, "JustHTML", lambda _html, **_kwargs: _Doc(_BadNode())
         )
 
         result = extract_article("<html></html>", url="https://example.com")
@@ -1302,7 +1304,7 @@ class TestExtractorEdgeCases:
 
         # Test URL extraction
         html = '<div><a href="https://example.com/link">Link</a><img src="javascript:alert(1)"></div>'
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         node = doc.query("div")[0]
 
         url_map = _extract_url_map(node)
@@ -1328,7 +1330,7 @@ class TestExtractorEdgeCases:
 
         from article_extractor.extractor import _extract_url_map
 
-        doc = JustHTML("<div><img></div>")
+        doc = JustHTML("<div><img></div>", safe=False)
         node = doc.query("div")[0]
 
         url_map = _extract_url_map(node)
@@ -1341,7 +1343,7 @@ class TestExtractorEdgeCases:
         from article_extractor.extractor import _extract_url_map, _restore_urls_in_html
 
         html = '<div><img src="data:image/png;base64,AAAA"></div>'
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         node = doc.query("div")[0]
 
         url_map = _extract_url_map(node)

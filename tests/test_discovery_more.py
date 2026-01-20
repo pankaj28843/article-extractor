@@ -130,7 +130,7 @@ def test_extract_links_handles_parser_error(monkeypatch):
     crawler.client = object()
 
     class _BrokenHTML:
-        def __init__(self, _html):
+        def __init__(self, _html, **_kwargs):
             raise ValueError("boom")
 
     monkeypatch.setattr("article_extractor.discovery.JustHTML", _BrokenHTML)
@@ -1048,7 +1048,9 @@ def test_extract_links_handles_list_href(monkeypatch):
     class _Doc:
         root = _Node()
 
-    monkeypatch.setattr("article_extractor.discovery.JustHTML", lambda _html: _Doc())
+    monkeypatch.setattr(
+        "article_extractor.discovery.JustHTML", lambda _html, **_kwargs: _Doc()
+    )
     monkeypatch.setattr(crawler, "_iter_nodes", lambda _node: [_Node()])
 
     links = crawler._extract_links("<html></html>", "https://example.com")

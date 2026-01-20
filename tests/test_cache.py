@@ -19,7 +19,7 @@ class TestExtractionCache:
     def test_get_node_text(self):
         """Should cache and return node text."""
         cache = ExtractionCache()
-        doc = JustHTML("<p>Test content</p>")
+        doc = JustHTML("<p>Test content</p>", safe=False)
         nodes = doc.query("p")
 
         text = cache.get_node_text(nodes[0])
@@ -31,7 +31,7 @@ class TestExtractionCache:
     def test_get_text_length(self):
         """Should return text length."""
         cache = ExtractionCache()
-        doc = JustHTML("<p>Hello world</p>")
+        doc = JustHTML("<p>Hello world</p>", safe=False)
         nodes = doc.query("p")
 
         length = cache.get_text_length(nodes[0])
@@ -40,7 +40,7 @@ class TestExtractionCache:
     def test_get_link_density(self):
         """Should calculate and cache link density."""
         cache = ExtractionCache()
-        doc = JustHTML('<div>Text <a href="#">link</a> more</div>')
+        doc = JustHTML('<div>Text <a href="#">link</a> more</div>', safe=False)
         nodes = doc.query("div")
 
         density = cache.get_link_density(nodes[0])
@@ -52,7 +52,7 @@ class TestExtractionCache:
     def test_get_link_density_empty(self):
         """Empty node should have 0 density."""
         cache = ExtractionCache()
-        doc = JustHTML("<div></div>")
+        doc = JustHTML("<div></div>", safe=False)
         nodes = doc.query("div")
 
         density = cache.get_link_density(nodes[0])
@@ -61,7 +61,7 @@ class TestExtractionCache:
     def test_clear(self):
         """Clear should empty caches."""
         cache = ExtractionCache()
-        doc = JustHTML("<p>Content</p>")
+        doc = JustHTML("<p>Content</p>", safe=False)
         nodes = doc.query("p")
 
         cache.get_node_text(nodes[0])

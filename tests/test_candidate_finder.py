@@ -20,7 +20,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -37,7 +37,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -56,7 +56,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -77,7 +77,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -98,7 +98,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -120,7 +120,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -139,7 +139,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -154,7 +154,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -176,7 +176,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -196,7 +196,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -214,7 +214,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
 
         # First call populates cache
@@ -243,7 +243,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -262,7 +262,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -281,7 +281,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -297,7 +297,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -316,7 +316,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
         candidate = find_top_candidate(doc, cache)
         assert candidate is not None
@@ -334,7 +334,7 @@ class TestFindTopCandidate:
         </body>
         </html>
         """
-        doc = JustHTML(html)
+        doc = JustHTML(html, safe=False)
         cache = ExtractionCache()
 
         # Mock rank_candidates to return empty list
