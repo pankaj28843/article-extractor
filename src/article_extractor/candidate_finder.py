@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from justhtml.node import SimpleDomNode
 
 _SEMANTIC_CANDIDATE_TAGS = ("article", "main")
+_SEMANTIC_CANDIDATE_SELECTORS = ('[role="main"]',)
 _FALLBACK_CANDIDATE_TAGS = ("div", "section")
 
 
@@ -53,36 +54,33 @@ def find_top_candidate(doc: JustHTML, cache: ExtractionCache) -> SimpleDomNode |
 def _find_candidates(doc: JustHTML, cache: ExtractionCache) -> list[SimpleDomNode]:
     """Find potential content container candidates."""
     # Look for semantic article containers first (fast path)
+    seen: set[int] = set()
     candidates: list[SimpleDomNode] = []
+
+    def add_if_new(node: SimpleDomNode) -> None:
+        node_id = id(node)
+        if node_id not in seen and not is_unlikely_candidate(node):
+            seen.add(node_id)
+            candidates.append(node)
+
+    # Semantic tags: article, main
     for tag in _SEMANTIC_CANDIDATE_TAGS:
-        candidates.extend(_candidate_nodes(doc, cache, tag))
+        for node in doc.query(tag):
+            add_if_new(node)
+
+    # Semantic selectors: [role="main"]
+    for selector in _SEMANTIC_CANDIDATE_SELECTORS:
+        for node in doc.query(selector):
+            add_if_new(node)
 
     # If we found semantic containers, use them directly
     if candidates:
         return candidates
 
-    # Fallback: scan divs and sections
+    # Fallback: scan divs and sections with minimum content
     for tag in _FALLBACK_CANDIDATE_TAGS:
-        candidates.extend(
-            _candidate_nodes(doc, cache, tag, min_length=MIN_CHAR_THRESHOLD)
-        )
+        for node in doc.query(tag):
+            if cache.get_text_length(node) > MIN_CHAR_THRESHOLD:
+                add_if_new(node)
 
-    return candidates
-
-
-def _candidate_nodes(
-    doc: JustHTML,
-    cache: ExtractionCache,
-    tag: str,
-    *,
-    min_length: int | None = None,
-) -> list[SimpleDomNode]:
-    """Collect candidate nodes for a tag with optional length filtering."""
-    candidates: list[SimpleDomNode] = []
-    for node in doc.query(tag):
-        if is_unlikely_candidate(node):
-            continue
-        if min_length is not None and cache.get_text_length(node) <= min_length:
-            continue
-        candidates.append(node)
     return candidates

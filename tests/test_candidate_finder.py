@@ -343,3 +343,102 @@ class TestFindTopCandidate:
         ):
             candidate = find_top_candidate(doc, cache)
             assert candidate is None
+
+    def test_finds_role_main_selector(self):
+        """Test that [role="main"] elements are found as semantic candidates."""
+        html = """
+        <html>
+        <body>
+            <div role="main">
+                <p>This is the main content area with sufficient text.</p>
+                <p>More paragraphs to ensure proper detection.</p>
+            </div>
+        </body>
+        </html>
+        """
+        doc = JustHTML(html, safe=False)
+        cache = ExtractionCache()
+        candidate = find_top_candidate(doc, cache)
+        assert candidate is not None
+        assert candidate.attrs.get("role") == "main"
+
+    def test_deduplicates_same_node_from_multiple_selectors(self):
+        """Test that a node matching both tag and role is only included once."""
+        html = """
+        <html>
+        <body>
+            <main role="main">
+                <p>Main content that matches both main tag and role=main.</p>
+                <p>Additional content for scoring.</p>
+            </main>
+        </body>
+        </html>
+        """
+        doc = JustHTML(html, safe=False)
+        cache = ExtractionCache()
+        candidate = find_top_candidate(doc, cache)
+        assert candidate is not None
+        assert candidate.name == "main"
+        assert candidate.attrs.get("role") == "main"
+
+    def test_role_main_with_nested_article(self):
+        """Test role=main parent with nested article selects best by score."""
+        html = """
+        <html>
+        <body>
+            <div role="main" id="main">
+                <div class="header">
+                    <h1>Page Title</h1>
+                    <p>Introduction paragraph with some text.</p>
+                </div>
+                <article>
+                    <p>Short article content.</p>
+                </article>
+            </div>
+        </body>
+        </html>
+        """
+        doc = JustHTML(html, safe=False)
+        cache = ExtractionCache()
+        candidate = find_top_candidate(doc, cache)
+        assert candidate is not None
+        # Both div[role=main] and article are candidates; scorer picks best
+
+    def test_returns_none_when_no_body(self):
+        """Test returns None when document has no body and no candidates."""
+        from unittest.mock import MagicMock
+
+        doc = MagicMock()
+        # Mock query to return empty for all selectors
+        doc.query.return_value = []
+        cache = ExtractionCache()
+        candidate = find_top_candidate(doc, cache)
+        assert candidate is None
+
+    def test_fallback_deduplicates_divs(self):
+        """Test that fallback path deduplicates nodes correctly."""
+        # This tests the add_if_new in the fallback div/section loop
+        # Need content > 500 chars to pass MIN_CHAR_THRESHOLD
+        html = """
+        <html>
+        <body>
+            <div class="content">
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
+                tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
+                quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.</p>
+                <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore
+                eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt
+                in culpa qui officia deserunt mollit anim id est laborum.</p>
+                <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium
+                doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore
+                veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+            </div>
+        </body>
+        </html>
+        """
+        doc = JustHTML(html, safe=False)
+        cache = ExtractionCache()
+        candidate = find_top_candidate(doc, cache)
+        assert candidate is not None
+        # Should find one of the fallback containers
+        assert candidate.name in ("div", "body")

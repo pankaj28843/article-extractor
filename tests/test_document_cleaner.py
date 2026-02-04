@@ -243,3 +243,105 @@ class TestRemoveNodesBySelector:
 
         assert len(doc.query(".ads")) == 0
         assert len(doc.query(".content")) == 1
+
+
+@pytest.mark.unit
+class TestFormPreservation:
+    """Tests for form tag preservation (ASP.NET WebForms compatibility)."""
+
+    def test_form_not_in_strip_tags(self):
+        """Verify form is not in STRIP_TAGS constant."""
+        from article_extractor.constants import STRIP_TAGS
+
+        assert "form" not in STRIP_TAGS
+
+    def test_aspnet_webforms_content_preserved(self):
+        """Test that content inside ASP.NET WebForms wrapper is preserved."""
+        from article_extractor.constants import STRIP_TAGS, UNLIKELY_ROLES
+        from article_extractor.document_cleaner import clean_document
+
+        html = """
+        <html>
+        <body id="root">
+            <form id="aspnetForm" method="post" action="page.aspx">
+                <div id="main" role="main">
+                    <article>
+                        <h1>Article Title</h1>
+                        <p>This is the main article content.</p>
+                    </article>
+                </div>
+            </form>
+        </body>
+        </html>
+        """
+        doc = JustHTML(html, safe=False)
+
+        strip_selector = ", ".join(STRIP_TAGS)
+        role_selector = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
+
+        clean_document(doc, strip_selector, role_selector)
+
+        # Form and its contents should be preserved
+        assert len(doc.query("form")) == 1
+        assert len(doc.query("article")) == 1
+        assert len(doc.query("h1")) == 1
+        assert len(doc.query("p")) == 1
+
+    def test_extraction_with_aspnet_form_wrapper(self):
+        """Integration test: full extraction with ASP.NET WebForms structure."""
+        from article_extractor import extract_article
+
+        html = """
+        <html>
+        <body id="root">
+            <form id="aspnetForm" method="post" action="page.aspx">
+                <div id="main" role="main">
+                    <article>
+                        <h1>Article Title</h1>
+                        <p>This is the main article content with enough words to pass validation.</p>
+                        <p>Additional paragraph with more content to ensure proper extraction.</p>
+                    </article>
+                </div>
+            </form>
+        </body>
+        </html>
+        """
+        result = extract_article(html, "https://example.com/page.aspx")
+
+        assert result.success
+        assert "Article Title" in result.markdown
+        assert "main article content" in result.markdown
+
+    def test_small_forms_in_content_converted_to_text(self):
+        """Test that small forms within content are converted to text, not markup.
+
+        Forms like search boxes or newsletter signups within article content
+        are preserved but converted to plain text during markdown extraction,
+        which is acceptable behavior.
+        """
+        from article_extractor import extract_article
+
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>Main Article</h1>
+                <p>Article content with substantial text.</p>
+                <form action="/search" method="get">
+                    <input type="text" name="q" placeholder="Search">
+                    <button type="submit">Search</button>
+                </form>
+                <p>More content after the form.</p>
+            </article>
+        </body>
+        </html>
+        """
+        result = extract_article(html)
+
+        assert result.success
+        # Form elements are converted to text (button text appears)
+        # but form markup/inputs are stripped in markdown
+        assert "Main Article" in result.markdown
+        assert "Article content" in result.markdown
+        assert "<form" not in result.markdown
+        assert "<input" not in result.markdown
