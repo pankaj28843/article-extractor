@@ -257,8 +257,8 @@ class TestFormPreservation:
 
     def test_aspnet_webforms_content_preserved(self):
         """Test that content inside ASP.NET WebForms wrapper is preserved."""
-        from article_extractor.document_cleaner import clean_document
         from article_extractor.constants import STRIP_TAGS, UNLIKELY_ROLES
+        from article_extractor.document_cleaner import clean_document
 
         html = """
         <html>
