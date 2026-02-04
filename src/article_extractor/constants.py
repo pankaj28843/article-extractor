@@ -264,10 +264,11 @@ PRESERVE_TAGS: set[str] = {
 
 # === TAGS TO STRIP ===
 # Tags that should be completely removed (with content)
+# NOTE: "form" is intentionally excluded because ASP.NET WebForms wraps the
+# entire page in <form id="aspnetForm">, and stripping it would remove all content.
 STRIP_TAGS: set[str] = {
     "aside",
     "footer",
-    "form",
     "header",
     "nav",
     "noscript",
