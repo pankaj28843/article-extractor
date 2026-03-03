@@ -80,6 +80,43 @@ class TestExtractArticle:
             # Should not have nav menu items as main content
             assert "privacy policy" not in content_lower or "article" in content_lower
 
+    def test_prefers_primary_content_over_page_wrapper(self):
+        """Should avoid broad wrapper containers that include sidebar metadata."""
+        html = """
+        <html>
+        <body>
+            <div id="wrapper">
+                <div id="primary">
+                    <h1>Primary Story</h1>
+                    <p>This is the first paragraph of the real article body with enough
+                    words to look like meaningful prose for extraction scoring.</p>
+                    <p>This is the second paragraph and it keeps the narrative focused on
+                    the topic while adding more density and punctuation, including commas,
+                    so scoring prefers this container.</p>
+                    <p>A final paragraph concludes the article and keeps the core content
+                    well above threshold values for minimum length checks.</p>
+                </div>
+                <div id="secondary">
+                    <p>Created: 2 March 2026</p>
+                    <p>Last modified: 3 March 2026</p>
+                    <p><a href="/prev">Previous</a> <a href="/next">Next</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        result = extract_article(
+            html,
+            url="https://example.com/wrapper-noise",
+            options=ExtractionOptions(min_word_count=10, min_char_threshold=50),
+        )
+
+        assert result.success is True
+        assert "Primary Story" in result.markdown
+        assert "Created:" not in result.markdown
+        assert "Last modified:" not in result.markdown
+
 
 @pytest.mark.unit
 class TestExtractionOptions:
@@ -462,6 +499,47 @@ class TestEdgeCases:
                 line.strip() for line in result.markdown.splitlines() if line.strip()
             ]
             assert "-" not in [line for line in lines if line == "-"]
+
+    def test_removes_boilerplate_blocks_with_privacy_and_related_links(self):
+        """Should drop privacy/related boilerplate blocks from extracted content."""
+        html = """
+        <html>
+        <body>
+            <article>
+                <h1>Practical Engineering Notes</h1>
+                <p>This article body contains substantial original analysis and enough
+                prose to pass extraction thresholds without relying on surrounding
+                navigation fragments or cross-link modules.</p>
+                <p>Second paragraph continues the story with realistic sentence flow,
+                punctuation, and explanatory details that should remain intact.</p>
+                <section class="related-links">
+                    <h2>More from this site</h2>
+                    <ul>
+                        <li><a href="/posts/1">Related post one</a></li>
+                        <li><a href="/posts/2">Related post two</a></li>
+                    </ul>
+                </section>
+                <div class="policy-callout">
+                    <a href="/privacy">Privacy Policy</a>
+                    <a href="/cookies">Cookie Policy</a>
+                </div>
+            </article>
+        </body>
+        </html>
+        """
+
+        result = extract_article(
+            html,
+            url="https://example.com/privacy-noise",
+            options=ExtractionOptions(min_word_count=10, min_char_threshold=50),
+        )
+
+        assert result.success is True
+        markdown_lower = result.markdown.lower()
+        assert "practical engineering notes" in markdown_lower
+        assert "privacy policy" not in markdown_lower
+        assert "cookie policy" not in markdown_lower
+        assert "more from this site" not in markdown_lower
 
 
 @pytest.mark.unit
