@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from .dom_utils import collect_nodes_by_tags
+from .scorer import is_unlikely_candidate
 
 if TYPE_CHECKING:
     from justhtml.node import SimpleDomNode
@@ -55,6 +56,7 @@ def sanitize_content(node: SimpleDomNode) -> None:
     """
     _remove_empty_links(node)
     _remove_empty_images(node)
+    _remove_boilerplate_blocks(node)
     _remove_empty_blocks(node)
 
 
@@ -72,6 +74,19 @@ def _remove_empty_blocks(root: SimpleDomNode) -> None:
     """Strip block-level nodes that no longer carry content."""
     target_tags = ("li", "p", "div")
     _remove_nodes(root, target_tags, keep=_node_has_visible_content)
+
+
+def _remove_boilerplate_blocks(root: SimpleDomNode) -> None:
+    """Prune obvious non-article blocks that slip through candidate scoring."""
+    target_tags = ("div", "section", "aside", "ul", "ol", "p")
+    for node in collect_nodes_by_tags(root, target_tags):
+        if node is root:
+            continue
+        if not _looks_like_boilerplate(node):
+            continue
+        parent = getattr(node, "parent", None)
+        if parent is not None:
+            parent.remove_child(node)
 
 
 def _remove_nodes(
@@ -199,3 +214,45 @@ def _node_has_visible_content(node: SimpleDomNode) -> bool:
         return True
 
     return any(_has_valid_image_src(img) for img in node.query("img"))
+
+
+_BOILERPLATE_PHRASES = (
+    "privacy policy",
+    "cookie policy",
+    "terms of use",
+    "terms and conditions",
+    "more from",
+    "related posts",
+    "share this",
+)
+
+
+def _looks_like_boilerplate(node: SimpleDomNode) -> bool:
+    """Heuristic detection of boilerplate sections."""
+    text = node.to_text(separator=" ", strip=True)
+    if not text:
+        return False
+
+    text_lower = text.lower()
+    link_density = _calculate_link_density(node)
+    text_len = len(text)
+    has_phrase = any(phrase in text_lower for phrase in _BOILERPLATE_PHRASES)
+    unlikely = is_unlikely_candidate(node)
+
+    if unlikely and (text_len < 1600 or link_density > 0.2):
+        return True
+
+    return has_phrase and (link_density > 0.15 or text_len < 320)
+
+
+def _calculate_link_density(node: SimpleDomNode) -> float:
+    """Approximate link density from anchor text inside a node."""
+    full_text = node.to_text(separator=" ", strip=True)
+    if not full_text:
+        return 0.0
+
+    link_text_len = 0
+    for link in node.query("a"):
+        link_text_len += len(link.to_text(separator=" ", strip=True))
+
+    return min(1.0, link_text_len / len(full_text))

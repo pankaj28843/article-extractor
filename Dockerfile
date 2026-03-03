@@ -115,7 +115,7 @@ ENV PATH="/home/${APP_USER}/app/.venv/bin:$PATH"
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -fsS --max-time 2 http://localhost:3000/health || exit 1
+    CMD curl -fsS --max-time 2 "http://localhost:${PORT:-3000}/health" || exit 1
 
 # Default: Run uvicorn server
 CMD ["sh", "-c", "exec uvicorn article_extractor.server:app --host ${HOST:-0.0.0.0} --port ${PORT:-3000} --log-level ${LOG_LEVEL:-info} --proxy-headers --forwarded-allow-ips='*' --lifespan=auto --workers ${WEB_CONCURRENCY:-2}"]
