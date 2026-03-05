@@ -75,11 +75,8 @@ def _find_candidates(doc: JustHTML, cache: ExtractionCache) -> list[SimpleDomNod
         for node in doc.query(selector):
             add_if_new(node)
 
-    # If we found semantic containers, use them directly
-    if candidates:
-        return candidates
-
-    # Fallback: scan divs and sections with minimum content
+    # Also scan div/section containers even when semantic nodes are present.
+    # Many pages wrap article bodies inside <main>/<article> plus extra chrome.
     for tag in _FALLBACK_CANDIDATE_TAGS:
         for node in doc.query(tag):
             if cache.get_text_length(node) > MIN_CHAR_THRESHOLD:
@@ -88,7 +85,7 @@ def _find_candidates(doc: JustHTML, cache: ExtractionCache) -> list[SimpleDomNod
     return candidates
 
 
-_DESCENDANT_SCORE_RATIO = 0.9
+_DESCENDANT_SCORE_RATIO = 0.85
 _DESCENDANT_LENGTH_RATIO = 0.5
 _LINK_DENSITY_IMPROVEMENT = 0.8
 _MAX_REFINEMENT_DEPTH = 3
@@ -124,7 +121,26 @@ def _pick_stronger_descendant(
             continue
         if not _is_descendant(candidate.node, current.node):
             continue
-        if candidate.score < current_score * _DESCENDANT_SCORE_RATIO:
+        required_score_ratio = _DESCENDANT_SCORE_RATIO
+        # Allow deeper narrowing when a broad wrapper has much higher link-density
+        # and a descendant is substantially shorter/cleaner.
+        if (
+            current_density > 0.06
+            and candidate.link_density < 0.03
+            and candidate.content_length < current_length * 0.4
+        ):
+            required_score_ratio = min(required_score_ratio, 0.3)
+
+        candidate_tag = (
+            candidate.node.name.lower() if hasattr(candidate.node, "name") else ""
+        )
+        if (
+            candidate_tag == "article"
+            and candidate.link_density < current_density * 0.7
+        ):
+            required_score_ratio = min(required_score_ratio, 0.65)
+
+        if candidate.score < current_score * required_score_ratio:
             continue
         if candidate.content_length < current_length * _DESCENDANT_LENGTH_RATIO:
             continue

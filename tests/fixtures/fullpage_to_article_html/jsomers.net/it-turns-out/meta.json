@@ -1,0 +1,13 @@
+{
+  "url": "https://jsomers.net/blog/it-turns-out",
+  "host": "jsomers.net",
+  "feed_source": "hnrss",
+  "status_code": 200,
+  "proxy": "http://10.20.30.1:18085",
+  "fetched_at_utc": "2026-03-04T23:21:36.901622Z",
+  "expected_strategy": "manually curated selector + node cleanup",
+  "extracted_title": "the jsomers.net blog.",
+  "extracted_word_count": 3141,
+  "extracted_success": true,
+  "expected_selector": "div.postContent .entry-content"
+}

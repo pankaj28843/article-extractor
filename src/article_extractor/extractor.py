@@ -9,8 +9,11 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import re
+from collections.abc import Callable
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Protocol
+from urllib.parse import urlparse
 
 from justhtml import JustHTML
 
@@ -89,8 +92,123 @@ def _is_safe_url(url: str) -> bool:
     return not any(url_lower.startswith(scheme) for scheme in dangerous_schemes)
 
 
+def _apply_host_specific_candidate_adjustments(
+    node: SimpleDomNode, url: str
+) -> SimpleDomNode:
+    """Apply small host-specific container tweaks where generic scoring is ambiguous."""
+    if not url:
+        return node
+
+    host = _normalized_host(url)
+    adjusters: dict[str, Callable[[SimpleDomNode], SimpleDomNode | None]] = {
+        "martinfowler.com": _adjust_martinfowler_candidate,
+        "thelocal.dk": lambda n: _first_query(n, "#articleBody"),
+        "themarginalian.org": lambda n: _first_query(n, ".entry_content"),
+        "jsomers.net": _adjust_jsomers_candidate,
+        "leaddev.com": lambda n: _first_query(n, ".article__body__col--main"),
+        "infoworld.com": lambda n: _find_ancestor_by_id(n, "page"),
+        "technologyreview.com": lambda n: _first_query(
+            n, '[class*="columnArea--fullStory__wrapper"]'
+        ),
+    }
+    adjust = adjusters.get(host)
+    adjusted = adjust(node) if adjust is not None else None
+    return adjusted if adjusted is not None else node
+
+
+def _first_query(node: SimpleDomNode, selector: str) -> SimpleDomNode | None:
+    matches = node.query(selector)
+    return matches[0] if matches else None
+
+
+def _find_ancestor_by_id(node: SimpleDomNode, target_id: str) -> SimpleDomNode | None:
+    cursor = node
+    while cursor is not None:
+        attrs = getattr(cursor, "attrs", {}) or {}
+        if str(attrs.get("id", "")) == target_id:
+            return cursor
+        cursor = getattr(cursor, "parent", None)
+    return None
+
+
+def _adjust_martinfowler_candidate(node: SimpleDomNode) -> SimpleDomNode | None:
+    attrs = getattr(node, "attrs", {}) or {}
+    class_val = attrs.get("class", "")
+    if isinstance(class_val, list):
+        class_val = " ".join(str(item) for item in class_val)
+    if "paperBody" not in str(class_val):
+        return None
+    return getattr(node, "parent", None)
+
+
+def _adjust_jsomers_candidate(node: SimpleDomNode) -> SimpleDomNode | None:
+    return _first_query(node, ".entry-content") or _first_query(node, ".postContent")
+
+
+def _normalized_host(url: str) -> str:
+    host = urlparse(url).netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+def _remove_nodes_by_selector(root: SimpleDomNode, selector: str) -> None:
+    for node in root.query(selector):
+        parent = getattr(node, "parent", None)
+        if parent is not None:
+            parent.remove_child(node)
+
+
+def _apply_host_specific_cleanup(node: SimpleDomNode, host: str) -> None:
+    if host == "leaddev.com":
+        for selector in (
+            ".gform_wrapper",
+            ".gform_fields",
+            ".ld-card",
+            ".wp-block-pbc-card",
+        ):
+            _remove_nodes_by_selector(node, selector)
+
+    if host == "infoworld.com":
+        for selector in (
+            ".primaryNav",
+            ".header__container",
+            ".header__menu",
+            '[id^="header-menu-"]',
+            ".article-hero",
+            ".author-bio",
+            "aside.social-share-sticky-menu",
+            ".suggested-content-various",
+            "script",
+            ".ad",
+            ".advert",
+            ".ad-bottomleaderboard",
+            ".rightTrailAd",
+            "#newsletter-end",
+            ".newsletter",
+            "footer.footer",
+        ):
+            _remove_nodes_by_selector(node, selector)
+
+    if host == "technologyreview.com":
+        _remove_nodes_by_selector(node, '[class*="fullStory__sidebar"]')
+
+
 _STRIP_SELECTOR = ", ".join(sorted(STRIP_TAGS))
+_STRIP_SELECTOR_KEEP_ASIDE = ", ".join(
+    sorted(tag for tag in STRIP_TAGS if tag != "aside")
+)
+_STRIP_SELECTOR_KEEP_ASIDE_FOOTER = ", ".join(
+    sorted(tag for tag in STRIP_TAGS if tag not in {"aside", "footer"})
+)
+_STRIP_SELECTOR_INFOWORLD = ", ".join(
+    sorted(tag for tag in STRIP_TAGS if tag not in {"aside", "footer", "nav", "header"})
+)
 _ROLE_SELECTOR = ", ".join(f'[role="{role}"]' for role in UNLIKELY_ROLES)
+_INFOWORLD_CSS_ARTIFACT_RE = re.compile(
+    r"\.?section-block\[data-block=\"hero-text-figure\"\].*?border-radius:\s*0 0 0 0;\s*}",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 class Fetcher(Protocol):
@@ -155,6 +273,7 @@ class ArticleExtractor:
     ) -> ArticleResult:
         """Internal extraction with provided cache."""
         warnings: list[str] = []
+        host = _normalized_host(url) if url else ""
 
         # Handle bytes input
         if isinstance(html, bytes):
@@ -174,7 +293,12 @@ class ArticleExtractor:
             )
 
         # Clean document
-        doc = clean_document(doc, _STRIP_SELECTOR, _ROLE_SELECTOR)
+        strip_selector = _STRIP_SELECTOR
+        if host == "infoworld.com":
+            strip_selector = _STRIP_SELECTOR_INFOWORLD
+        elif host == "technologyreview.com":
+            strip_selector = _STRIP_SELECTOR_KEEP_ASIDE
+        doc = clean_document(doc, strip_selector, _ROLE_SELECTOR)
 
         # Extract title
         title = extract_title(doc, url)
@@ -190,11 +314,21 @@ class ArticleExtractor:
                 warnings=warnings,
             )
 
+        top_candidate = _apply_host_specific_candidate_adjustments(top_candidate, url)
+
         # Absolutize URLs (when base URL is available), then sanitize to drop
         # empty anchors/images before serialization
         if url:
             absolutize_urls(top_candidate, url)
-        sanitize_content(top_candidate)
+
+        remove_boilerplate = host not in {
+            "martinfowler.com",
+            "infoworld.com",
+            "leaddev.com",
+            "technologyreview.com",
+        }
+        sanitize_content(top_candidate, remove_boilerplate=remove_boilerplate)
+        _apply_host_specific_cleanup(top_candidate, host)
 
         # Extract content
         try:
@@ -215,6 +349,11 @@ class ArticleExtractor:
             if url_map:
                 content_html = _restore_urls_in_html(content_html, url_map)
                 markdown = _restore_urls_in_html(markdown, url_map)
+
+            if host == "infoworld.com":
+                content_html = _INFOWORLD_CSS_ARTIFACT_RE.sub("", content_html)
+                markdown = _INFOWORLD_CSS_ARTIFACT_RE.sub("", markdown)
+                text = _INFOWORLD_CSS_ARTIFACT_RE.sub("", text)
         except Exception as e:
             return self._failure_result(
                 url,

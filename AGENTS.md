@@ -11,6 +11,11 @@
 - Avoid hiding errors with broad `try/except`.
 - Do not add summary reports unless explicitly requested.
 
+## Fixtures Policy
+- Never rewrite or regenerate fixture `expected` outputs unless the user explicitly asks for fixture updates.
+- Treat fixtures as golden references; fix extractor code/tests to match fixture intent.
+- If fixture content appears inconsistent, stop and ask before mutating fixture files.
+
 ## Validation
 - Run: `uv run ruff format . && uv run ruff check --fix .`
 - Run: `timeout 60 uv run pytest -v`

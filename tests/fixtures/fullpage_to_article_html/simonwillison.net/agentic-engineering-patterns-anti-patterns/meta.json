@@ -1,0 +1,13 @@
+{
+  "url": "https://simonwillison.net/guides/agentic-engineering-patterns/anti-patterns/",
+  "host": "simonwillison.net",
+  "feed_source": "simonwillison",
+  "status_code": 200,
+  "proxy": "http://10.20.30.1:18085",
+  "fetched_at_utc": "2026-03-04T23:19:00.754094Z",
+  "expected_strategy": "manually curated selector + node cleanup",
+  "extracted_title": "Anti-patterns: things to avoid - Agentic Engineering Patterns",
+  "extracted_word_count": 349,
+  "extracted_success": true,
+  "expected_selector": "div.note"
+}

@@ -1,0 +1,1044 @@
+<html>
+  <head></head>
+  <body>
+    <article
+      id="post-4138765"
+      class="post-4138765 post type-post status-publish format-standard has-post-thumbnail category-development-approaches category-application-development category-web-development languages-en publication-infoworld publication-us-default story_types-feature origin-wp"
+    >
+      <section class="article">
+        <div class="container grid entry-content">
+          <div class="col-12 col-10@md col-8@lg">
+            <div class="core">
+              <div class="article__main">
+                <div
+                  class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                >
+                  <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                    <div class="article-column__content">
+                      <div class="core">
+                        <h2 class="content-subheadline">
+                          Should you double down on server-side rendering, or
+                          embrace a client-side approach? Yes and more.
+                        </h2>
+                        <p></p>
+                      </div>
+                      <div class="media-with-label">
+                        <figure>
+                          <div class="image">
+                            <img
+                              width="1024"
+                              height="683"
+                              src="https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?quality=50&amp;strip=all&amp;w=1024"
+                              class="attachment-post-thumbnail size-post-thumbnail wp-post-image"
+                              alt="Illustration of man going own direction, trailblazing, exploring, thinking outside the box. Experimentation choice freedom concept."
+                              data-hero
+                              loading="eager"
+                              decoding="async"
+                              fetchpriority="high"
+                              srcset="
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?quality=50&amp;strip=all                        5472w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=300%2C200&amp;quality=50&amp;strip=all    300w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=768%2C512&amp;quality=50&amp;strip=all    768w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=1024%2C683&amp;quality=50&amp;strip=all  1024w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=1536%2C1024&amp;quality=50&amp;strip=all 1536w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=2048%2C1365&amp;quality=50&amp;strip=all 2048w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=1240%2C826&amp;quality=50&amp;strip=all  1240w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=150%2C100&amp;quality=50&amp;strip=all    150w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=1046%2C697&amp;quality=50&amp;strip=all  1046w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=252%2C168&amp;quality=50&amp;strip=all    252w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=126%2C84&amp;quality=50&amp;strip=all     126w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=720%2C480&amp;quality=50&amp;strip=all    720w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=540%2C360&amp;quality=50&amp;strip=all    540w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4138765-0-22093100-1772614875-shutterstock_2187163689.jpg?resize=375%2C250&amp;quality=50&amp;strip=all    375w
+                              "
+                              sizes="(max-width: 1024px) 100vw, 1024px"
+                            />
+                          </div>
+                          <div class="media-with-label__label">
+                            Credit: fran_kie / Shutterstock
+                          </div>
+                        </figure>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="remove_no_follow">
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <section class="wp-block-bigbite-multi-title">
+                          <div class="container"></div>
+                        </section>
+                        <p>
+                          For decades, web architecture has followed a familiar
+                          and frankly exhausting pattern. A dominant approach
+                          emerges, gains near-universal adoption, reveals its
+                          cracks under real-world scale, and is eventually
+                          replaced by a new “best practice” that promises to fix
+                          everything the last one broke.
+                        </p>
+                        <p>
+                          We saw it in the early 2000s, when server-rendered,
+                          monolithic applications were the default. We saw it
+                          again in the late 2000s and early 2010s, when the
+                          industry pushed aggressively toward rich client-side
+                          applications. And we saw it most clearly during the
+                          rise of single-page applications, which promised
+                          desktop-like interactivity in the browser but often
+                          delivered something else entirely: multi-megabyte
+                          JavaScript bundles, blank loading screens, and years
+                          of SEO workarounds just to make pages discoverable.
+                        </p>
+                        <p>
+                          Today, server-side rendering is once again in vogue.
+                          Are teams turning back to the server because
+                          client-side architectures have hit a wall? Not
+                          exactly.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          Both server-side rendering and client-side approaches
+                          are as compelling today as they ever were. What’s
+                          different now is not the tools, or their viability,
+                          but the systems we’re building and the expectations we
+                          place on them.
+                        </p>
+                        <aside
+                          class="jwPlayer--floatingContainer"
+                          role="complementary"
+                          data-nosnippet
+                        >
+                          <div
+                            id="jwplayer--floatingVideo"
+                            class="jwplayer"
+                            data-media-id="wj1ht0vS"
+                          ></div>
+                        </aside>
+                        <p>
+                          The upshot? There is no single “right” model for
+                          building web applications anymore. Let me explain why.
+                        </p>
+                        <h2 class="wp-block-heading">
+                          <a></a>From websites to distributed systems
+                        </h2>
+                        <p>
+                          Modern web applications are no longer just “sites.”
+                          They are long-lived, highly interactive systems that
+                          span multiple runtimes, global content delivery
+                          networks, edge caches, background workers, and
+                          increasingly complex data pipelines. They are expected
+                          to load instantly, remain responsive under poor
+                          network conditions, and degrade gracefully when
+                          something goes wrong.
+                        </p>
+                        <div class="hellobar" id="hello-bar-1"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          In that environment, architectural dogmatism quickly
+                          becomes a liability. Absolutes like “everything should
+                          be server-rendered” or “all state belongs in the
+                          browser” sound decisive, but they rarely survive
+                          contact with production systems.
+                        </p>
+                        <p>
+                          The reality is messier. And that’s not a failure—it’s
+                          a reflection of how much the web has grown up.
+                        </p>
+                        <h2 class="wp-block-heading">
+                          <a></a>The problem with architectural absolutes
+                        </h2>
+                        <p>
+                          Strong opinions are appealing, especially at scale.
+                          They reduce decision fatigue. They make onboarding
+                          easier. Declaring “we only build
+                          <a
+                            href="https://developer.mozilla.org/en-US/docs/Glossary/SPA"
+                            >SPAs</a
+                          >” or “we are an
+                          <a
+                            href="https://developer.mozilla.org/en-US/docs/Glossary/SSR"
+                            >SSR</a
+                          >-first organization” feels like a strategy because it
+                          removes ambiguity.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          The problem is that real applications don’t cooperate.
+                        </p>
+                        <p>
+                          A single modern SaaS platform often contains wildly
+                          different workloads. Public-facing landing pages and
+                          documentation demand fast
+                          <a
+                            href="https://developer.mozilla.org/en-US/docs/Glossary/First_contentful_paint"
+                            >first contentful paint</a
+                          >, predictable SEO behavior, and aggressive caching.
+                          Authenticated dashboards, on the other hand, may
+                          involve real-time data, complex client-side
+                          interactions, and long-lived state where a server
+                          round trip for every UI change would be unacceptable.
+                        </p>
+                        <p>
+                          Trying to force a single rendering strategy across all
+                          of that introduces what many teams eventually
+                          recognize as architectural friction. Exceptions creep
+                          in. “Just this once” logic appears. Over time, the
+                          architecture becomes harder to understand than if
+                          those trade-offs had been acknowledged explicitly from
+                          the start.
+                        </p>
+                        <div class="hellobar" id="hello-bar-2"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <h2 class="wp-block-heading">
+                          <a></a>Not a return to the past, but an expansion
+                        </h2>
+                        <p>
+                          It’s tempting to describe the current interest in
+                          server-side rendering as a return to fundamentals. In
+                          practice, that comparison breaks down quickly.
+                        </p>
+                        <p>
+                          Classic server-rendered applications operated on short
+                          request life cycles. The server generated HTML, sent
+                          it to the browser, and largely forgot about the user
+                          until the next request arrived. Interactivity meant
+                          full page reloads, and state lived almost entirely on
+                          the server.
+                        </p>
+                        <p>
+                          Modern server-rendered applications behave very
+                          differently. The initial HTML is often just a starting
+                          point. It is “hydrated,” enhanced, and kept alive by
+                          client-side logic that takes over after the first
+                          render. The server no longer owns the full interaction
+                          loop, but it hasn’t disappeared either.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          Even ecosystems that never abandoned server rendering,
+                          PHP being the most obvious example, continued to
+                          thrive because they solved certain problems well; they
+                          provided predictable execution models, straightforward
+                          deployments, and proximity to data. What changed was
+                          not their relevance, but the expectation that they now
+                          coexist with richer client-side behavior rather than
+                          compete with it.
+                        </p>
+                        <p>
+                          This isn’t a rollback. It’s an expansion of the
+                          architectural map.
+                        </p>
+                        <h2 class="wp-block-heading">
+                          <a></a>Constraint-driven architecture
+                        </h2>
+                        <p>
+                          Once teams step away from ideology, the conversation
+                          becomes more productive. The question shifts from
+                          “What is the best model?” to “What are we optimizing
+                          for right now?”
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          Data volatility matters. Content that changes once a
+                          week behaves very differently from real-time,
+                          personalized data streams. Performance budgets matter
+                          too. In an e-commerce flow, a 100-millisecond delay
+                          can translate directly into lost revenue. In an
+                          internal admin tool, the same delay may be irrelevant.
+                        </p>
+                        <p>
+                          Operational reality plays a role as well. Some teams
+                          can comfortably run and observe a fleet of SSR
+                          servers. Others are better served by static-first or
+                          serverless approaches simply because that’s what their
+                          headcount and expertise can support.
+                        </p>
+                        <p>
+                          These pressures rarely apply uniformly across an
+                          application. Systems with strict uptime requirements
+                          may even choose to duplicate logic across layers to
+                          reduce coupling and failure impact, for example,
+                          enforcing critical validation rules both at the API
+                          boundary and again in the client, so that a single
+                          back-end failure doesn’t completely block user
+                          workflows.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          Hybrid architectures stop being a compromise in this
+                          context. They become a way to make trade-offs explicit
+                          rather than accidental.
+                        </p>
+                        <div id="nativo-1" class="nativo"></div>
+                        <h2 class="wp-block-heading">
+                          <a></a>When the server takes on more UI responsibility
+                        </h2>
+                        <p>
+                          One of the more subtle shifts in recent years is how
+                          much responsibility the server takes on before the
+                          browser becomes interactive.
+                        </p>
+                        <p>
+                          This goes well beyond SEO or faster
+                          <a
+                            href="https://developer.mozilla.org/en-US/docs/Glossary/First_paint"
+                            >first paint</a
+                          >. Servers live in predictable environments. They have
+                          stable CPU resources and direct access to databases
+                          and internal services. Browsers, by contrast, run on
+                          everything from high-end desktops to underpowered
+                          mobile devices on unreliable networks.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          Increasingly, teams are using the server to do the
+                          heavy lifting. Instead of sending fragmented data to
+                          the client and asking the browser to assemble it, the
+                          server prepares UI-ready view models. It aggregates
+                          data, resolves permissions, and shapes state in a way
+                          that would be expensive or duplicative to do
+                          repeatedly on the client.
+                        </p>
+                        <p>
+                          By the time the payload reaches the browser, the
+                          client’s job is narrower: activate and enhance. This
+                          reduces the
+                          <a
+                            href="https://developer.mozilla.org/en-US/docs/Glossary/Time_to_interactive"
+                            >time to interactive</a
+                          >and shrinks the amount of transformation logic
+                          shipped to users.
+                        </p>
+                        <p>
+                          This naturally leads to incremental and selective
+                          <a
+                            href="https://www.infoworld.com/article/2335507/reactive-javascript-the-evolution-of-front-end-architecture.html"
+                            >hydration</a
+                          >. Hydration is no longer an all-or-nothing step.
+                          Critical, above-the-fold elements become interactive
+                          first. Less frequently used components may not hydrate
+                          until the user engages with them.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          Performance optimization, in this model, becomes
+                          localized rather than global. Teams improve specific
+                          views or workflows without restructuring the entire
+                          application. Rendering becomes a staged process, not a
+                          binary choice.
+                        </p>
+                        <h2 class="wp-block-heading">
+                          <a></a>Debuggability changes the architecture
+                          conversation
+                        </h2>
+                        <p>
+                          As applications grow more distributed, performance is
+                          no longer the only concern that shapes architecture.
+                          Debuggability increasingly matters just as much.
+                        </p>
+                        <p>
+                          In simpler systems, failures were easier to trace.
+                          Rendering happened in one place. Logs told a clear
+                          story. In modern applications, rendering can be split
+                          across build pipelines, edge runtimes, and long-lived
+                          client sessions. Data can be fetched, cached,
+                          transformed, and rehydrated at different moments in
+                          time.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          When something breaks, the hardest part is often
+                          figuring out where it broke.
+                        </p>
+                        <p>
+                          This is where staged architectures show a real
+                          advantage. When rendering responsibilities are
+                          explicit, failures tend to be more localized. A
+                          malformed initial render points to the server layer. A
+                          UI that looks fine but fails on interaction suggests a
+                          hydration or client-side state issue. At an
+                          architectural level, this mirrors the
+                          <a
+                            href="https://en.wikipedia.org/wiki/Single-responsibility_principle"
+                            >single responsibility principle</a
+                          >applied beyond individual classes: Each stage has a
+                          clear reason to change and a clear place to
+                          investigate when something goes wrong.
+                        </p>
+                        <div id="nativo-2" class="nativo"></div>
+                        <p>
+                          Architectures that try to hide this complexity behind
+                          “automatic” abstractions often make debugging harder,
+                          not easier. Engineers end up reverse engineering
+                          framework behavior instead of reasoning about system
+                          design. It’s no surprise that many senior teams now
+                          prefer systems that are explicit, even boring, over
+                          ones that feel magical but opaque.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <h2 class="wp-block-heading">
+                          <a></a>Frameworks as enablers, not answers
+                        </h2>
+                        <p>
+                          This shift is visible across the ecosystem.
+                          <a
+                            href="https://www.infoworld.com/article/2252872/get-started-with-angular-introducing-the-modern-reactive-workflow.html"
+                            >Angular</a
+                          >is a good example. Once seen as the archetype of
+                          heavy client-side development, it has steadily
+                          embraced server-side rendering, fine-grained
+                          hydration, and
+                          <a
+                            href="https://www.infoworld.com/article/4129648/reactive-state-management-with-javascript-signals.html"
+                            >signals</a
+                          >. Importantly, it doesn’t prescribe a single way to
+                          use them.
+                        </p>
+                        <p>
+                          That pattern repeats elsewhere. Modern frameworks are
+                          no longer trying to win an ideological war. They are
+                          providing knobs and dials, ways to control when work
+                          happens, where state lives, and how rendering unfolds
+                          over time.
+                        </p>
+                        <p>
+                          The competition is no longer about purity. It’s about
+                          flexibility under real-world constraints. Pure
+                          architectures tend to look great in greenfield
+                          projects. They age less gracefully.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          As requirements evolve, and they always do, strict
+                          models accumulate exceptions. What began as a clean
+                          set of rules turns into a collection of caveats.
+                          Architectures that acknowledge complexity early tend
+                          to be more resilient. Clear boundaries make it
+                          possible to evolve one part of the system without
+                          destabilizing everything else.
+                        </p>
+                        <div id="nativo-3" class="nativo"></div>
+                        <p>
+                          Rigor in 2026 is not about enforcing sameness. It’s
+                          about enforcing clarity: knowing where code runs, why
+                          it runs there, and how failures propagate.
+                        </p>
+                        <h2 class="wp-block-heading">
+                          <a></a>Embracing the spectrum
+                        </h2>
+                        <p>
+                          The idea of a single “right” way to build for the web
+                          is finally losing its grip. And that’s a good thing.
+                        </p>
+                        <p>
+                          Server-side rendering and client-side applications
+                          were never enemies. They were tools that solved
+                          different problems at different moments in time. The
+                          web has matured enough to admit that most
+                          architectural questions don’t have universal answers.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          The most successful teams today aren’t chasing trends.
+                          They understand their constraints, respect their
+                          performance budgets, and treat rendering as a spectrum
+                          rather than a switch. The web didn’t grow up by
+                          picking a side. It grew up by embracing nuance, and
+                          the architectures that will last are the ones that do
+                          the same.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                >
+                  <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                    <div class="card__tags">
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/web-development/"
+                          class="tag"
+                          >Web Development</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/development-approaches/"
+                          class="tag"
+                          >Development Approaches</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/software-development/"
+                          class="tag"
+                          >Software Development</a
+                        ></span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--right side bar-->
+          <div
+            id="rightrail-wrapper"
+            class="col-12 col-10@md col-3@lg col-start-10@lg"
+          >
+            <div class="article__side">
+              <div class="show@lg rightTrailAd">
+                <div class="advert advert--bleed-left">
+                  <div class="advert__container">
+                    <div class="advert__content">
+                      <div
+                        class="ad page-ad has-ad-prefix ad-topimu"
+                        data-ad-template="topimu"
+                        data-ofp="false"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <aside class="related-content-small">
+                <h2 class="related-content-small__title">
+                  <span>Related content</span>
+                </h2>
+                <div class="related-content-small__cards">
+                  <div id="nativocardrightrail-1" class="nativo"></div>
+                  <article
+                    class="related-content-small__card"
+                    role="article"
+                    itemscope
+                    itemtype="https://schema.org/Article"
+                    aria-labelledby="related-content-4135218"
+                  >
+                    <a
+                      class="card"
+                      href="https://www.infoworld.com/article/4135218/what-i-learned-using-claude-sonnet-to-migrate-python-to-rust.html"
+                      rel="noreferrer"
+                      aria-label="Read more: What I learned using Claude Sonnet to migrate Python to Rust"
+                    >
+                      <header class="card__header">
+                        <span class="card__content-type">feature</span>
+                      </header>
+                      <h3 class="card__title" id="related-content-4135218">
+                        What I learned using Claude Sonnet to migrate Python to
+                        Rust
+                      </h3>
+                      <div
+                        class="card__info"
+                        itemprop="author"
+                        itemscope
+                        itemtype="https://schema.org/Person"
+                      >
+                        <span itemprop="name">By Serdar Yegulalp</span>
+                      </div>
+                      <div class="card__info card__info--light">
+                        <span
+                          itemprop="datePublished"
+                          content="2026-03-04T09:00:00+00:00"
+                          >Mar 4, 2026</span
+                        >
+                        <span class="card__read-time">11 mins</span>
+                      </div>
+                      <footer class="card__tags">
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >JavaScript</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Python</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Rust</span
+                          ></span
+                        >
+                      </footer>
+                    </a>
+                  </article>
+                  <article
+                    class="related-content-small__card"
+                    role="article"
+                    itemscope
+                    itemtype="https://schema.org/Article"
+                    aria-labelledby="related-content-4140156"
+                  >
+                    <a
+                      class="card"
+                      href="https://www.infoworld.com/article/4140156/an-ode-to-craftsmanship-in-software-development.html"
+                      rel="noreferrer"
+                      aria-label="Read more: An ode to craftsmanship in software development"
+                    >
+                      <header class="card__header">
+                        <span class="card__content-type">opinion</span>
+                      </header>
+                      <h3 class="card__title" id="related-content-4140156">
+                        An ode to craftsmanship in software development
+                      </h3>
+                      <div
+                        class="card__info"
+                        itemprop="author"
+                        itemscope
+                        itemtype="https://schema.org/Person"
+                      >
+                        <span itemprop="name">By Nick Hodges</span>
+                      </div>
+                      <div class="card__info card__info--light">
+                        <span
+                          itemprop="datePublished"
+                          content="2026-03-04T09:00:00+00:00"
+                          >Mar 4, 2026</span
+                        >
+                        <span class="card__read-time">4 mins</span>
+                      </div>
+                      <footer class="card__tags">
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Careers</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Developer</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Roles</span
+                          ></span
+                        >
+                      </footer>
+                    </a>
+                  </article>
+                  <article
+                    class="related-content-small__card"
+                    role="article"
+                    itemscope
+                    itemtype="https://schema.org/Article"
+                    aria-labelledby="related-content-4140166"
+                  >
+                    <a
+                      class="card"
+                      href="https://www.infoworld.com/article/4140166/angular-releases-patches-for-ssr-security-issues.html"
+                      rel="noreferrer"
+                      aria-label="Read more: Angular releases patches for SSR security issues"
+                    >
+                      <header class="card__header">
+                        <span class="card__content-type">news</span>
+                      </header>
+                      <h3 class="card__title" id="related-content-4140166">
+                        Angular releases patches for SSR security issues
+                      </h3>
+                      <div
+                        class="card__info"
+                        itemprop="author"
+                        itemscope
+                        itemtype="https://schema.org/Person"
+                      >
+                        <span itemprop="name">By Paul Krill</span>
+                      </div>
+                      <div class="card__info card__info--light">
+                        <span
+                          itemprop="datePublished"
+                          content="2026-03-04T00:27:02+00:00"
+                          >Mar 3, 2026</span
+                        >
+                        <span class="card__read-time">3 mins</span>
+                      </div>
+                      <footer class="card__tags">
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >JavaScript</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >TypeScript</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Web Development</span
+                          ></span
+                        >
+                      </footer>
+                    </a>
+                  </article>
+                </div>
+                <nav aria-labelledby="related-content-nav">
+                  <h2 id="related-content-nav" class="sr-only">
+                    Other Sections
+                  </h2>
+                  <ul class="related-content-small__link-items">
+                    <li class="related-content-small__link-item">
+                      <a
+                        class="related-content-small__link"
+                        href="https://us.resources.infoworld.com/"
+                        aria-label="Resources"
+                        >Resources</a
+                      >
+                    </li>
+                    <li class="related-content-small__link-item">
+                      <a
+                        class="related-content-small__link"
+                        href="https://www.infoworld.com/videos/"
+                        aria-label="Videos"
+                        >Videos</a
+                      >
+                    </li>
+                    <li
+                      class="related-content-small__link-item"
+                      data-topic-spotlight-sidebar
+                    >
+                      <a
+                        class="related-content-small__link"
+                        href="/cloud-computing/"
+                        aria-label="Spotlight: Data Center Modernization"
+                        >Spotlight: Data Center Modernization</a
+                      >
+                    </li>
+                  </ul>
+                </nav>
+              </aside>
+              <div class="show@lg rightTrailAd">
+                <div class="advert advert--bleed-left">
+                  <div class="advert__container">
+                    <div class="advert__content">
+                      <div
+                        class="ad page-ad has-ad-prefix ad-topimu"
+                        data-ad-template="topimu"
+                        data-ofp="false"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--right side bar ends here-->
+        </div>
+      </section>
+    </article>
+  </body>
+</html>

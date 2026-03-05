@@ -1,0 +1,231 @@
+<html>
+  <head></head>
+  <body>
+    <main>
+      <h1>Fragments: February 25</h1>
+      <div class="author">Martin Fowler: 25 Feb 2026</div>
+      <div class="paperBody">
+        <p>
+          I don’t tend to post links to videos here, as
+          <a href="https://martinfowler.com/bliki/AvoidingVideo.html"
+            >I can’t stand watching videos to learn about things</a
+          >. But some talks are worth a watch, and I do suggest this overview on
+          <a href="https://www.youtube.com/watch?v=LOHgRw43fFk"
+            >how organizations are currently using AI</a
+          >by Laura Tacho. There’s various nuggets of data from her work with
+          DX:
+        </p>
+        <ul>
+          <li>92.6% of devs are using AI assistants</li>
+          <li>devs reckon it’s saving them 4 hours per week</li>
+          <li>
+            27% of code is written by AI without significant human intervention
+          </li>
+          <li>AI cuts onboarding time by half</li>
+        </ul>
+        <p>
+          These are interesting numbers, but most of them are averages, and
+          those who know me know I teach people to
+          <a href="https://martinfowler.com/articles/dont-compare-averages.html"
+            >be suspicious of averages</a
+          >. Laura knows this too:
+        </p>
+        <blockquote>
+          <p>
+            average doesn’t mean typical.. there is no typical experience with
+            AI
+          </p>
+        </blockquote>
+        <p>
+          Different companies (and teams within companies) are having very
+          different experiences. Often AI is an amplifier to an organization’s
+          practices, for good or ill.
+        </p>
+        <blockquote>
+          <p>
+            Organizational performance is multidimensional, and these
+            organizations are just going off into different extremes based on
+            what they were doing before. AI is an accelerator, it’s a
+            multiplier, and it is moving organizations off in different
+            directions. (08:52)
+          </p>
+        </blockquote>
+        <p>
+          Some organizations are facing twice as many customer incidents, but
+          others are facing half.
+        </p>
+        <p>❄ ❄ ❄ ❄ ❄</p>
+        <p>
+          Rachel Laycock (Thoughtworks CTO)
+          <a
+            href="https://www.thoughtworks.com/insights/articles/reflections-future-software-engineering-retreat"
+            >shares her reflections</a
+          >on our recent Future of Software Engineering retreat in Utah.
+        </p>
+        <ul>
+          <li>We need to address cognitive load</li>
+          <li>The staff engineer role is changing</li>
+          <li>What happens to code reviews?</li>
+          <li>Agent Topologies</li>
+          <li>What exactly does AI mean for programming languages?</li>
+          <li>Self-healing systems</li>
+        </ul>
+        <p>On the latter:</p>
+        <blockquote>
+          <p>
+            One of the most interesting and perhaps immediately applicable ideas
+            was the concept of an ‘agent subconscious’, in which agents are
+            informed by a comprehensive knowledge graph of post mortems and
+            incident data. This particularly excites me because I’ve seen many
+            production issues solved by the latent knowledge of those in
+            leadership positions. The constant challenge comes from what happens
+            when those people aren’t available or involved.
+          </p>
+        </blockquote>
+        <p>❄ ❄ ❄ ❄ ❄</p>
+        <p>
+          Simon Willison (one of my most reliable sources for information about
+          LLMs and programming) is starting a series of
+          <a
+            href="https://simonwillison.net/2026/Feb/23/agentic-engineering-patterns/"
+            >Agentic Engineering Patterns</a
+          >:
+        </p>
+        <blockquote>
+          <p>
+            I think of vibe coding using its original definition of coding where
+            you pay no attention to the code at all, which today is often
+            associated with non-programmers using LLMs to write code.
+          </p>
+          <p>
+            Agentic Engineering represents the other end of the scale:
+            professional software engineers using coding agents to improve and
+            accelerate their work by amplifying their existing expertise.
+          </p>
+        </blockquote>
+        <p>
+          He’s intending this to be closer to evergreen material, as opposed to
+          the day-to-day writing he does (extremely well) on his blog.
+        </p>
+        <p>
+          One of the first patterns is
+          <a
+            href="https://simonwillison.net/guides/agentic-engineering-patterns/red-green-tdd/"
+            >Red/Green TDD</a
+          >
+        </p>
+        <blockquote>
+          <p>
+            This turns out to be a fantastic fit for coding agents. A
+            significant risk with coding agents is that they might write code
+            that doesn’t work, or build code that is unnecessary and never gets
+            used, or both.
+          </p>
+          <p>
+            Test-first development helps protect against both of these common
+            mistakes, and also ensures a robust automated test suite that
+            protects against future regressions.
+          </p>
+        </blockquote>
+        <p>❄ ❄ ❄ ❄ ❄</p>
+        <p>
+          <a href="https://x.com/AaronErickson/status/2026146310840332332"
+            >Aaron Erickson</a
+          >is one of those technologists with good judgment who I listen to a
+          lot
+        </p>
+        <blockquote>
+          <p>
+            As much fun as people are having with OpenClaw, I think the days of
+            “here is my agent with access to all my stuff” are numbered.
+          </p>
+          <p>
+            Fine scoped agents who can read email and cleanse it before it
+            reaches the agentic OODA loop that acts on it, policy agents (a claw
+            with a job called “VP of NO” to money being spent)
+          </p>
+          <p>
+            You structure your agents like you would a company. Insert friction
+            where you want decisions to be slow and the cost of being wrong is
+            high, reduce friction where you want decisions to be fast and the
+            cost of being wrong is trivial or zero.
+          </p>
+        </blockquote>
+        <p>
+          I’ve posted here a lot about security concerns with agents. Right now
+          I think this notion of fine-scoped agents is the most promising
+          direction. Last year Korny Sietsma
+          <a
+            href="https://martinfowler.com/articles/agentic-ai-security.html#split-tasks"
+            >wrote about how to mitigate agentic AI security risks</a
+          >. His advice included to split the tasks, so that no agent has access
+          to all parts of the Lethal Trifecta:
+        </p>
+        <blockquote>
+          <p>
+            This approach is an application of a more general security habit:
+            follow the Principle of Least Privilege. Splitting the work, and
+            giving each sub-task a minimum of privilege, reduces the scope for a
+            rogue LLM to cause problems, just as we would do when working with
+            corruptible humans.
+          </p>
+          <p>
+            This is not only more secure, it is also increasingly a way people
+            are encouraged to work. It’s too big a topic to cover here, but it’s
+            a good idea to split LLM work into small stages, as the LLM works
+            much better when its context isn’t too big. Dividing your tasks into
+            “Think, Research, Plan, Act” keeps context down, especially if “Act”
+            can be chunked into a number of small independent and testable
+            chunks.
+          </p>
+        </blockquote>
+        <p>❄ ❄ ❄ ❄ ❄</p>
+        <p>
+          Doonesbury outlines the
+          <a href="https://x.com/RealRBHJr/status/2025590410018484473/photo/1"
+            >opportunity for aging writers like myself</a
+          >. (Currently I’m still writing my words the old fashioned way.)
+        </p>
+        <p>❄ ❄ ❄ ❄ ❄</p>
+        <p>
+          An interesting story someone told me. They were at a swimming pool
+          with their child, she looked at a photo on a poster advertising an
+          event there and said “that’s AI”. Initially the parents didn’t think
+          it was, but looking carefully spotted a tell-tale six fingers. They
+          concluded that fresher biological neural networks are being trained to
+          quickly recognize AI.
+        </p>
+        <p>❄ ❄ ❄ ❄ ❄</p>
+        <p>
+          I carefully curate my social media streams, following only feeds where
+          I can control whose posts are picked up. In times gone by, editors of
+          newspapers and magazines would do a similar job. But many users of
+          social media
+          <a
+            href="https://www.theguardian.com/commentisfree/2026/feb/23/15-year-old-girl-misogyny-social-media-online-abuse"
+            >are faced with a tsunami</a
+          >of stuff, much of it ugly, and don’t have to tools to control it.
+        </p>
+        <blockquote>
+          <p>
+            A few days ago I saw an Instagram reel of a young woman talking
+            about how she had been raped six years ago, struggled with thoughts
+            of suicide afterwards, but managed to rebuild her life again. Among
+            the comments – the majority of which were from men – were things
+            like “Well at least you had some”, “No way, she’s unrapeable”, “Hope
+            you didn’t talk this much when it happened”, “Bro could have picked
+            a better option.” Reading those comments, which had thousands of
+            likes and many boys agreeing with them, made me feel sick.
+          </p>
+        </blockquote>
+        <p>
+          My tendencies are to free speech, and I try not to be a Free Speech
+          Poseur, but the deluge of ugly material on the internet isn’t getting
+          any better. The people running these platforms seem to be “tackling”
+          this problem by putting their heads in the sand and hoping it won’t
+          hurt them. It is hurting their users.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
