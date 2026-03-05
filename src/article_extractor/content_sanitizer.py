@@ -6,6 +6,7 @@ Hides DOM manipulation complexity behind a simple interface.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -39,7 +40,7 @@ _SAFE_IMAGE_DATA_PREFIXES = (
 )
 
 
-def sanitize_content(node: SimpleDomNode) -> None:
+def sanitize_content(node: SimpleDomNode, *, remove_boilerplate: bool = True) -> None:
     """Remove empty and useless nodes from extracted content.
 
     Simple interface that hides DOM traversal and manipulation complexity.
@@ -56,7 +57,8 @@ def sanitize_content(node: SimpleDomNode) -> None:
     """
     _remove_empty_links(node)
     _remove_empty_images(node)
-    _remove_boilerplate_blocks(node)
+    if remove_boilerplate:
+        _remove_boilerplate_blocks(node)
     _remove_empty_blocks(node)
 
 
@@ -222,9 +224,39 @@ _BOILERPLATE_PHRASES = (
     "terms of use",
     "terms and conditions",
     "more from",
+    "more recent articles",
     "related posts",
+    "join the conversation",
+    "add a comment",
+    "see also",
+    "free newsletter",
     "share this",
 )
+
+_BOILERPLATE_ATTR_HINTS_RE = re.compile(
+    (
+        r"comment|newsletter|subscribe|share|social|recent|"
+        r"metabox|worth|promo|advert|ad-|entryfooter|pagenav|"
+        r"article-single__tags|articlebodyforbidden|author-bio|deepdive|"
+        r"sso|login|signin|register|full-reg-form"
+    ),
+    re.IGNORECASE,
+)
+
+_STRONG_BOILERPLATE_ATTR_HINTS_RE = re.compile(
+    r"comment|newsletter|subscribe|ad-container|advert|entryfooter|pagenav|deepdive|"
+    r"sso|full-reg-form|register|login",
+    re.IGNORECASE,
+)
+
+
+def _class_id_string(node: SimpleDomNode) -> str:
+    attrs = getattr(node, "attrs", {}) or {}
+    class_val = attrs.get("class", "")
+    id_val = attrs.get("id", "")
+    if isinstance(class_val, list):
+        class_val = " ".join(str(item) for item in class_val)
+    return f"{class_val} {id_val}".strip()
 
 
 def _looks_like_boilerplate(node: SimpleDomNode) -> bool:
@@ -238,11 +270,29 @@ def _looks_like_boilerplate(node: SimpleDomNode) -> bool:
     text_len = len(text)
     has_phrase = any(phrase in text_lower for phrase in _BOILERPLATE_PHRASES)
     unlikely = is_unlikely_candidate(node)
+    class_id = _class_id_string(node)
+    has_attr_hint = bool(_BOILERPLATE_ATTR_HINTS_RE.search(class_id))
+    has_strong_attr_hint = bool(_STRONG_BOILERPLATE_ATTR_HINTS_RE.search(class_id))
 
-    if unlikely and (text_len < 1600 or link_density > 0.2):
-        return True
+    strong_attr_match = has_strong_attr_hint and (
+        text_len < 5000 or link_density > 0.08
+    )
+    attr_match = has_attr_hint and text_len < 2500 and link_density > 0.05
+    unlikely_match = unlikely and (text_len < 1600 or link_density > 0.2)
+    phrase_structural_match = (
+        has_phrase and has_attr_hint and (link_density > 0.08 or text_len < 1200)
+    )
+    dense_phrase_match = has_phrase and link_density > 0.35
+    fallback_phrase_match = has_phrase and has_strong_attr_hint and text_len < 2500
 
-    return has_phrase and (link_density > 0.15 or text_len < 320)
+    return (
+        strong_attr_match
+        or attr_match
+        or unlikely_match
+        or phrase_structural_match
+        or dense_phrase_match
+        or fallback_phrase_match
+    )
 
 
 def _calculate_link_density(node: SimpleDomNode) -> float:

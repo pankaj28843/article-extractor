@@ -1,0 +1,258 @@
+{
+  "fixture_root": "tests/fixtures/fullpage_to_article_html",
+  "case_count": 28,
+  "cases": [
+    {
+      "host": "hannahritchie.github.io",
+      "case": "energy-use-comparisons",
+      "feed_source": "hnrss",
+      "url": "https://hannahritchie.github.io/energy-use-comparisons/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/hannahritchie.github.io/energy-use-comparisons/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/hannahritchie.github.io/energy-use-comparisons/expected.html"
+    },
+    {
+      "host": "joshua.hu",
+      "case": "firefox-making-right-click-not-suck",
+      "feed_source": "hnrss",
+      "url": "https://joshua.hu/firefox-making-right-click-not-suck",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/joshua.hu/firefox-making-right-click-not-suck/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/joshua.hu/firefox-making-right-click-not-suck/expected.html"
+    },
+    {
+      "host": "jsomers.net",
+      "case": "it-turns-out",
+      "feed_source": "hnrss",
+      "url": "https://jsomers.net/blog/it-turns-out",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/jsomers.net/it-turns-out/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/jsomers.net/it-turns-out/expected.html"
+    },
+    {
+      "host": "leaddev.com",
+      "case": "moltbook-agent-security-wake-up-call",
+      "feed_source": "leaddev",
+      "url": "https://leaddev.com/ai/moltbook-is-the-agent-security-wake-up-call-for-engineering-leaders",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/leaddev.com/moltbook-agent-security-wake-up-call/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/leaddev.com/moltbook-agent-security-wake-up-call/expected.html"
+    },
+    {
+      "host": "leaddev.com",
+      "case": "performance-driven-team-to-care-about-security",
+      "feed_source": "leaddev",
+      "url": "https://leaddev.com/software-quality/how-i-got-a-performance-driven-team-to-care-about-security",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/leaddev.com/performance-driven-team-to-care-about-security/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/leaddev.com/performance-driven-team-to-care-about-security/expected.html"
+    },
+    {
+      "host": "leaddev.com",
+      "case": "you-cant-verify-all-the-ai-generated-code",
+      "feed_source": "leaddev",
+      "url": "https://leaddev.com/ai/you-cant-verify-all-the-ai-generated-code",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/leaddev.com/you-cant-verify-all-the-ai-generated-code/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/leaddev.com/you-cant-verify-all-the-ai-generated-code/expected.html"
+    },
+    {
+      "host": "martinfowler.com",
+      "case": "fragment-2026-02-25",
+      "feed_source": "martinfowler",
+      "url": "https://martinfowler.com/fragments/2026-02-25.html",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/martinfowler.com/fragment-2026-02-25/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/martinfowler.com/fragment-2026-02-25/expected.html"
+    },
+    {
+      "host": "martinfowler.com",
+      "case": "host-leadership",
+      "feed_source": "martinfowler",
+      "url": "https://martinfowler.com/bliki/HostLeadership.html",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/martinfowler.com/host-leadership/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/martinfowler.com/host-leadership/expected.html"
+    },
+    {
+      "host": "martinfowler.com",
+      "case": "humans-and-agents",
+      "feed_source": "martinfowler",
+      "url": "https://martinfowler.com/articles/exploring-gen-ai/humans-and-agents.html",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/martinfowler.com/humans-and-agents/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/martinfowler.com/humans-and-agents/expected.html"
+    },
+    {
+      "host": "simonwillison.net",
+      "case": "agentic-engineering-patterns-anti-patterns",
+      "feed_source": "simonwillison",
+      "url": "https://simonwillison.net/guides/agentic-engineering-patterns/anti-patterns/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/simonwillison.net/agentic-engineering-patterns-anti-patterns/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/simonwillison.net/agentic-engineering-patterns-anti-patterns/expected.html"
+    },
+    {
+      "host": "simonwillison.net",
+      "case": "donald-knuth",
+      "feed_source": "simonwillison",
+      "url": "https://simonwillison.net/2026/Mar/3/donald-knuth/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/simonwillison.net/donald-knuth/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/simonwillison.net/donald-knuth/expected.html"
+    },
+    {
+      "host": "simonwillison.net",
+      "case": "qwen",
+      "feed_source": "simonwillison",
+      "url": "https://simonwillison.net/2026/Mar/4/qwen/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/simonwillison.net/qwen/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/simonwillison.net/qwen/expected.html"
+    },
+    {
+      "host": "world.hey.com",
+      "case": "clankers-with-claws",
+      "feed_source": "worldhey_dhh",
+      "url": "https://world.hey.com/dhh/clankers-with-claws-9f86fa71",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/world.hey.com/clankers-with-claws/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/world.hey.com/clankers-with-claws/expected.html"
+    },
+    {
+      "host": "world.hey.com",
+      "case": "cloud-gaming-is-kinda-amazing",
+      "feed_source": "worldhey_dhh",
+      "url": "https://world.hey.com/dhh/cloud-gaming-is-kinda-amazing-b8a19c57",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/world.hey.com/cloud-gaming-is-kinda-amazing/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/world.hey.com/cloud-gaming-is-kinda-amazing/expected.html"
+    },
+    {
+      "host": "world.hey.com",
+      "case": "omacon-comes-to-new-york",
+      "feed_source": "worldhey_dhh",
+      "url": "https://world.hey.com/dhh/omacon-comes-to-new-york-e6ee93cb",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/world.hey.com/omacon-comes-to-new-york/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/world.hey.com/omacon-comes-to-new-york/expected.html"
+    },
+    {
+      "host": "www.experimental-history.com",
+      "case": "the-one-science-reform-we-can-all",
+      "feed_source": "hnrss",
+      "url": "https://www.experimental-history.com/p/the-one-science-reform-we-can-all",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.experimental-history.com/the-one-science-reform-we-can-all/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.experimental-history.com/the-one-science-reform-we-can-all/expected.html"
+    },
+    {
+      "host": "www.infoworld.com",
+      "case": "an-ode-to-craftsmanship-in-software-development",
+      "feed_source": "infoworld",
+      "url": "https://www.infoworld.com/article/4140156/an-ode-to-craftsmanship-in-software-development.html",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.infoworld.com/an-ode-to-craftsmanship-in-software-development/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.infoworld.com/an-ode-to-craftsmanship-in-software-development/expected.html"
+    },
+    {
+      "host": "www.infoworld.com",
+      "case": "angular-releases-patches-for-ssr-security-issues",
+      "feed_source": "infoworld",
+      "url": "https://www.infoworld.com/article/4140166/angular-releases-patches-for-ssr-security-issues.html",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.infoworld.com/angular-releases-patches-for-ssr-security-issues/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.infoworld.com/angular-releases-patches-for-ssr-security-issues/expected.html"
+    },
+    {
+      "host": "www.infoworld.com",
+      "case": "the-right-way-to-architect-modern-web-applications",
+      "feed_source": "infoworld",
+      "url": "https://www.infoworld.com/article/4138765/the-right-way-to-architect-modern-web-applications.html",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.infoworld.com/the-right-way-to-architect-modern-web-applications/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.infoworld.com/the-right-way-to-architect-modern-web-applications/expected.html"
+    },
+    {
+      "host": "www.technologyreview.com",
+      "case": "bridging-the-operational-ai-gap",
+      "feed_source": "technologyreview",
+      "url": "https://www.technologyreview.com/2026/03/04/1133642/bridging-the-operational-ai-gap/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.technologyreview.com/bridging-the-operational-ai-gap/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.technologyreview.com/bridging-the-operational-ai-gap/expected.html"
+    },
+    {
+      "host": "www.technologyreview.com",
+      "case": "openais-compromise-with-the-pentagon",
+      "feed_source": "technologyreview",
+      "url": "https://www.technologyreview.com/2026/03/02/1133850/openais-compromise-with-the-pentagon-is-what-anthropic-feared/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.technologyreview.com/openais-compromise-with-the-pentagon/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.technologyreview.com/openais-compromise-with-the-pentagon/expected.html"
+    },
+    {
+      "host": "www.technologyreview.com",
+      "case": "the-download-lightning-openai-pentagon",
+      "feed_source": "technologyreview",
+      "url": "https://www.technologyreview.com/2026/03/03/1133900/the-download-the-startup-that-says-it-can-stop-lightning-and-inside-openais-pentagon-deal/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.technologyreview.com/the-download-lightning-openai-pentagon/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.technologyreview.com/the-download-lightning-openai-pentagon/expected.html"
+    },
+    {
+      "host": "www.thelocal.dk",
+      "case": "danish-pm-candidate-rejects-far-right-call-for-fewer-muslims",
+      "feed_source": "thelocal",
+      "url": "https://www.thelocal.dk/20260304/danish-pm-candidate-rejects-far-right-call-for-fewer-muslims",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.thelocal.dk/danish-pm-candidate-rejects-far-right-call-for-fewer-muslims/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.thelocal.dk/danish-pm-candidate-rejects-far-right-call-for-fewer-muslims/expected.html"
+    },
+    {
+      "host": "www.thelocal.dk",
+      "case": "food-delivery-service-just-eat-confirms-denmark-exit",
+      "feed_source": "thelocal",
+      "url": "https://www.thelocal.dk/20260304/food-delivery-service-just-eat-confirms-denmark-exit",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.thelocal.dk/food-delivery-service-just-eat-confirms-denmark-exit/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.thelocal.dk/food-delivery-service-just-eat-confirms-denmark-exit/expected.html"
+    },
+    {
+      "host": "www.thelocal.dk",
+      "case": "the-history-of-the-danish-letter-o",
+      "feed_source": "thelocal",
+      "url": "https://www.thelocal.dk/20260304/the-history-of-the-danish-letter-o",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.thelocal.dk/the-history-of-the-danish-letter-o/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.thelocal.dk/the-history-of-the-danish-letter-o/expected.html"
+    },
+    {
+      "host": "www.themarginalian.org",
+      "case": "annie-dillard-weasel",
+      "feed_source": "themarginalian",
+      "url": "https://www.themarginalian.org/2026/03/04/annie-dillard-weasel/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.themarginalian.org/annie-dillard-weasel/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.themarginalian.org/annie-dillard-weasel/expected.html"
+    },
+    {
+      "host": "www.themarginalian.org",
+      "case": "carl-jung-neurosis-creativity",
+      "feed_source": "themarginalian",
+      "url": "https://www.themarginalian.org/2026/03/04/carl-jung-neurosis-creativity/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.themarginalian.org/carl-jung-neurosis-creativity/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.themarginalian.org/carl-jung-neurosis-creativity/expected.html"
+    },
+    {
+      "host": "www.themarginalian.org",
+      "case": "neruda-time",
+      "feed_source": "themarginalian",
+      "url": "https://www.themarginalian.org/2026/03/03/neruda-time/",
+      "status_code": 200,
+      "raw_html": "tests/fixtures/fullpage_to_article_html/www.themarginalian.org/neruda-time/raw.html",
+      "expected_html": "tests/fixtures/fullpage_to_article_html/www.themarginalian.org/neruda-time/expected.html"
+    }
+  ]
+}

@@ -1,0 +1,614 @@
+<html>
+  <head></head>
+  <body>
+    <article
+      id="post-4140166"
+      class="post-4140166 post type-post status-publish format-standard has-post-thumbnail category-application-security category-development-approaches category-javascript category-programming-languages category-security category-application-development category-typescript category-web-development languages-en publication-infoworld publication-us-default story_types-news origin-wp"
+    >
+      <section class="article">
+        <div class="container grid entry-content">
+          <div class="col-12 col-10@md col-8@lg">
+            <div class="core">
+              <div class="article__main">
+                <div
+                  class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                >
+                  <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                    <div class="article-column__content">
+                      <div class="core">
+                        <h2 class="content-subheadline">
+                          Server-side rendering vulnerabilities could allow
+                          attackers to steal authorization headers or perpetrate
+                          phishing and SEO hacking.
+                        </h2>
+                        <p></p>
+                      </div>
+                      <div class="media-with-label">
+                        <figure>
+                          <div class="image">
+                            <img
+                              width="1024"
+                              height="683"
+                              src="https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?quality=50&amp;strip=all&amp;w=1024"
+                              class="attachment-post-thumbnail size-post-thumbnail wp-post-image"
+                              alt="shutterstock 2416896949 The Black Sheep In The Herd Of White Sheep insider threat security cybersecurity vulnerability"
+                              data-hero
+                              loading="eager"
+                              decoding="async"
+                              fetchpriority="high"
+                              srcset="
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?quality=50&amp;strip=all                        2688w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=300%2C200&amp;quality=50&amp;strip=all    300w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=768%2C512&amp;quality=50&amp;strip=all    768w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=1024%2C683&amp;quality=50&amp;strip=all  1024w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=1536%2C1024&amp;quality=50&amp;strip=all 1536w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=2048%2C1365&amp;quality=50&amp;strip=all 2048w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=1240%2C826&amp;quality=50&amp;strip=all  1240w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=150%2C100&amp;quality=50&amp;strip=all    150w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=1046%2C697&amp;quality=50&amp;strip=all  1046w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=252%2C168&amp;quality=50&amp;strip=all    252w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=126%2C84&amp;quality=50&amp;strip=all     126w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=720%2C480&amp;quality=50&amp;strip=all    720w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=540%2C360&amp;quality=50&amp;strip=all    540w,
+                                https://www.infoworld.com/wp-content/uploads/2026/03/4140166-0-99091300-1772584038-shutterstock_2416896949.jpg?resize=375%2C250&amp;quality=50&amp;strip=all    375w
+                              "
+                              sizes="(max-width: 1024px) 100vw, 1024px"
+                            />
+                          </div>
+                          <div class="media-with-label__label">
+                            Credit: Bastian Herrmann / Shutterstock
+                          </div>
+                        </figure>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="remove_no_follow">
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <section class="wp-block-bigbite-multi-title">
+                          <div class="container"></div>
+                        </section>
+                        <p>
+                          The Angular team from Google has announced the release
+                          of two security updates to the Angular web framework,
+                          both pertaining to SSR (server-side rendering)
+                          vulnerabilities. Developers are advised to update SSR
+                          applications as soon as possible. Patching can help
+                          users avoid the theft of authorization headers as well
+                          as phishing scams.
+                        </p>
+                        <p>
+                          A bulletin on the issues was published
+                          <a
+                            href="https://blog.angular.dev/security-advisory-addressing-recent-vulnerabilities-in-angular-c2656249b799"
+                            >February 28</a
+                          >. One of the vulnerabilities, labeled as critical,
+                          pertains to SSRF (server-side request forgery) and
+                          header injection. The patched version can be found
+                          <a
+                            href="https://github.com/angular/angular-cli/security/advisories/GHSA-x288-3778-4hhx"
+                            >here</a
+                          >. The second vulnerability, labeled as moderate,
+                          pertains to an open redirect via the
+                          <code>X-Forwarded-Prefix</code> header. That patch can
+                          be found
+                          <a
+                            href="https://github.com/angular/angular-cli/security/advisories/GHSA-xh43-g2fq-wjrj"
+                            >here</a
+                          >.
+                        </p>
+                        <p>
+                          The SSRF vulnerability found in the Angular SSR
+                          request handling pipeline exists because Angular’s
+                          internal URL reconstruction logic directly trusts and
+                          consumes user-controlled HTTP headers, specifically
+                          the host and <code>X-Forwarded-*</code> family, to
+                          determine the application’s base origin without
+                          validation of the destination domain. This
+                          vulnerability manifests through implicit relative URL
+                          resolution, explicit manual construction, and
+                          confidentiality breach, the Angular team said. When
+                          exploited successfully, this SSRF vulnerability allows
+                          for arbitrary internal request steering. This can lead
+                          to the stealing sensitive
+                          <code>Authorization</code>headers or session cookies
+                          by redirecting them to an attacker’s server. Attackers
+                          also can access and transmit data from internal
+                          services, databases, or cloud metadata endpoints not
+                          exposed to the public internet. Also, attackers could
+                          access sensitive information processed within the
+                          application’s server-side context.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content">
+                        <p>
+                          The open redirect vulnerability, meanwhile, exists in
+                          the internal URL processing logic in Angular SSR. This
+                          vulnerability allows attackers to conduct large-scale
+                          phishing and SEO hijacking, the Angular team said.
+                        </p>
+                        <aside
+                          class="jwPlayer--floatingContainer"
+                          role="complementary"
+                          data-nosnippet
+                        >
+                          <div
+                            id="jwplayer--floatingVideo"
+                            class="jwplayer"
+                            data-media-id="wj1ht0vS"
+                          ></div>
+                        </aside>
+                        <p>
+                          The team recommends updating SSR applications to the
+                          latest patch version as soon as possible. If an app
+                          does not deploy SSR to production, there is no
+                          immediate need to update, they said. Developers on an
+                          unsupported version of Angular or unable to update
+                          quickly are advised to avoid using req.headers for URL
+                          construction. Instead, they should use trusted
+                          variables for base API paths. Another workaround is
+                          implementing a middleware in the server.ts to enforce
+                          numeric ports and validated hostnames.<br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br />@font-face&amp;amp;lt;br&gt;
+                          {font-family:"Cambria Math";&amp;amp;lt;br&gt;
+                          panose-1:2 4 5 3 5 4 6 3 2 4;&amp;amp;lt;br&gt;
+                          mso-font-charset:0;&amp;amp;lt;br&gt;
+                          mso-generic-font-family:roman;&amp;amp;lt;br&gt;
+                          mso-font-pitch:variable;&amp;amp;lt;br&gt;
+                          mso-font-signature:-536870145 1107305727 0 0 415
+                          0;}@font-face&amp;amp;lt;br&gt;
+                          {font-family:Aptos;&amp;amp;lt;br&gt; panose-1:2 11 0
+                          4 2 2 2 2 2 4;&amp;amp;lt;br&gt;
+                          mso-font-charset:0;&amp;amp;lt;br&gt;
+                          mso-generic-font-family:swiss;&amp;amp;lt;br&gt;
+                          mso-font-pitch:variable;&amp;amp;lt;br&gt;
+                          mso-font-signature:536871559 3 0 0 415 0;}p.MsoNormal,
+                          li.MsoNormal, div.MsoNormal&amp;amp;lt;br&gt;
+                          {mso-style-unhide:no;&amp;amp;lt;br&gt;
+                          mso-style-qformat:yes;&amp;amp;lt;br&gt;
+                          mso-style-parent:"";&amp;amp;lt;br&gt;
+                          margin-top:0in;&amp;amp;lt;br&gt;
+                          margin-right:0in;&amp;amp;lt;br&gt;
+                          margin-bottom:8.0pt;&amp;amp;lt;br&gt;
+                          margin-left:0in;&amp;amp;lt;br&gt;
+                          line-height:115%;&amp;amp;lt;br&gt;
+                          mso-pagination:widow-orphan;&amp;amp;lt;br&gt;
+                          font-size:12.0pt;&amp;amp;lt;br&gt;
+                          font-family:"Aptos",sans-serif;&amp;amp;lt;br&gt;
+                          mso-ascii-font-family:Aptos;&amp;amp;lt;br&gt;
+                          mso-ascii-theme-font:minor-latin;&amp;amp;lt;br&gt;
+                          mso-fareast-font-family:Aptos;&amp;amp;lt;br&gt;
+                          mso-fareast-theme-font:minor-latin;&amp;amp;lt;br&gt;
+                          mso-hansi-font-family:Aptos;&amp;amp;lt;br&gt;
+                          mso-hansi-theme-font:minor-latin;&amp;amp;lt;br&gt;
+                          mso-bidi-font-family:"Times New
+                          Roman";&amp;amp;lt;br&gt;
+                          mso-bidi-theme-font:minor-bidi;&amp;amp;lt;br&gt;
+                          mso-font-kerning:1.0pt;&amp;amp;lt;br&gt;
+                          mso-ligatures:standardcontextual;}a:link,
+                          span.MsoHyperlink&amp;amp;lt;br&gt;
+                          {mso-style-priority:99;&amp;amp;lt;br&gt;
+                          color:#467886;&amp;amp;lt;br&gt;
+                          mso-themecolor:hyperlink;&amp;amp;lt;br&gt;
+                          text-decoration:underline;&amp;amp;lt;br&gt;
+                          text-underline:single;}a:visited,
+                          span.MsoHyperlinkFollowed&amp;amp;lt;br&gt;
+                          {mso-style-noshow:yes;&amp;amp;lt;br&gt;
+                          mso-style-priority:99;&amp;amp;lt;br&gt;
+                          color:#96607D;&amp;amp;lt;br&gt;
+                          mso-themecolor:followedhyperlink;&amp;amp;lt;br&gt;
+                          text-decoration:underline;&amp;amp;lt;br&gt;
+                          text-underline:single;}p&amp;amp;lt;br&gt;
+                          {mso-style-priority:99;&amp;amp;lt;br&gt;
+                          mso-margin-top-alt:auto;&amp;amp;lt;br&gt;
+                          margin-right:0in;&amp;amp;lt;br&gt;
+                          mso-margin-bottom-alt:auto;&amp;amp;lt;br&gt;
+                          margin-left:0in;&amp;amp;lt;br&gt;
+                          mso-pagination:widow-orphan;&amp;amp;lt;br&gt;
+                          font-size:12.0pt;&amp;amp;lt;br&gt; font-family:"Times
+                          New Roman",serif;&amp;amp;lt;br&gt;
+                          mso-fareast-font-family:"Times New
+                          Roman";}code&amp;amp;lt;br&gt;
+                          {mso-style-noshow:yes;&amp;amp;lt;br&gt;
+                          mso-style-priority:99;&amp;amp;lt;br&gt;
+                          font-family:"Courier New";&amp;amp;lt;br&gt;
+                          mso-ascii-font-family:"Courier New";&amp;amp;lt;br&gt;
+                          mso-fareast-font-family:"Times New
+                          Roman";&amp;amp;lt;br&gt;
+                          mso-hansi-font-family:"Courier New";&amp;amp;lt;br&gt;
+                          mso-bidi-font-family:"Courier
+                          New";}.MsoChpDefault&amp;amp;lt;br&gt;
+                          {mso-style-type:export-only;&amp;amp;lt;br&gt;
+                          mso-default-props:yes;&amp;amp;lt;br&gt;
+                          font-family:"Aptos",sans-serif;&amp;amp;lt;br&gt;
+                          mso-ascii-font-family:Aptos;&amp;amp;lt;br&gt;
+                          mso-ascii-theme-font:minor-latin;&amp;amp;lt;br&gt;
+                          mso-fareast-font-family:Aptos;&amp;amp;lt;br&gt;
+                          mso-fareast-theme-font:minor-latin;&amp;amp;lt;br&gt;
+                          mso-hansi-font-family:Aptos;&amp;amp;lt;br&gt;
+                          mso-hansi-theme-font:minor-latin;&amp;amp;lt;br&gt;
+                          mso-bidi-font-family:"Times New
+                          Roman";&amp;amp;lt;br&gt;
+                          mso-bidi-theme-font:minor-bidi;}.MsoPapDefault&amp;amp;lt;br&gt;
+                          {mso-style-type:export-only;&amp;amp;lt;br&gt;
+                          margin-bottom:8.0pt;&amp;amp;lt;br&gt;
+                          line-height:115%;}div.WordSection1&amp;amp;lt;br&gt;
+                          {page:WordSection1;}<br /><br /><br /><br /><br /><br /><br /><br />
+                        </p>
+                        <p></p>
+                        <div class="hellobar" id="hello-bar-1"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="show@md">
+                    <div class="grid grid--cols-10@md grid--cols-8@lg">
+                      <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                        <div class="advert advert--bleed-right">
+                          <div class="advert__container">
+                            <div class="advert__content">
+                              <div
+                                class="ad page-ad has-ad-prefix ad-article"
+                                data-ad-template="article"
+                                data-ofp="false"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                  >
+                    <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                      <div class="article-column__content"></div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                >
+                  <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                    <div class="card__tags">
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/application-security/"
+                          class="tag"
+                          >Application Security</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/development-approaches/"
+                          class="tag"
+                          >Development Approaches</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/javascript/"
+                          class="tag"
+                          >JavaScript</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/programming-languages/"
+                          class="tag"
+                          >Programming Languages</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/security/"
+                          class="tag"
+                          >Security</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/software-development/"
+                          class="tag"
+                          >Software Development</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/typescript/"
+                          class="tag"
+                          >TypeScript</a
+                        ></span
+                      >
+                      <span class="card__tag"
+                        ><a
+                          href="https://www.infoworld.com/web-development/"
+                          class="tag"
+                          >Web Development</a
+                        ></span
+                      >
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="grid grid--cols-10@md grid--cols-8@lg article-column"
+                >
+                  <div class="col-12 col-10@md col-6@lg col-start-3@lg">
+                    <div class="article-column__content">
+                      <div class="hellobar" id="hello-bar-2"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--right side bar-->
+          <div
+            id="rightrail-wrapper"
+            class="col-12 col-10@md col-3@lg col-start-10@lg"
+          >
+            <div class="article__side">
+              <div class="show@lg rightTrailAd">
+                <div class="advert advert--bleed-left">
+                  <div class="advert__container">
+                    <div class="advert__content">
+                      <div
+                        class="ad page-ad has-ad-prefix ad-topimu"
+                        data-ad-template="topimu"
+                        data-ofp="false"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <aside class="related-content-small">
+                <h2 class="related-content-small__title">
+                  <span>Related content</span>
+                </h2>
+                <div class="related-content-small__cards">
+                  <div id="nativocardrightrail-1" class="nativo"></div>
+                  <article
+                    class="related-content-small__card"
+                    role="article"
+                    itemscope
+                    itemtype="https://schema.org/Article"
+                    aria-labelledby="related-content-4138765"
+                  >
+                    <a
+                      class="card"
+                      href="https://www.infoworld.com/article/4138765/the-right-way-to-architect-modern-web-applications.html"
+                      rel="noreferrer"
+                      aria-label="Read more: The right way to architect modern web applications"
+                    >
+                      <header class="card__header">
+                        <span class="card__content-type">feature</span>
+                      </header>
+                      <h3 class="card__title" id="related-content-4138765">
+                        The right way to architect modern web applications
+                      </h3>
+                      <div
+                        class="card__info"
+                        itemprop="author"
+                        itemscope
+                        itemtype="https://schema.org/Person"
+                      >
+                        <span itemprop="name">By Sonu Kapoor</span>
+                      </div>
+                      <div class="card__info card__info--light">
+                        <span
+                          itemprop="datePublished"
+                          content="2026-03-04T09:00:00+00:00"
+                          >Mar 4, 2026</span
+                        >
+                        <span class="card__read-time">9 mins</span>
+                      </div>
+                      <footer class="card__tags">
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Development Approaches</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Software Development</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Web Development</span
+                          ></span
+                        >
+                      </footer>
+                    </a>
+                  </article>
+                  <article
+                    class="related-content-small__card"
+                    role="article"
+                    itemscope
+                    itemtype="https://schema.org/Article"
+                    aria-labelledby="related-content-4133648"
+                  >
+                    <a
+                      class="card"
+                      href="https://www.infoworld.com/article/4133648/the-browser-is-your-database-local-first-comes-of-age.html"
+                      rel="noreferrer"
+                      aria-label="Read more: The browser is your database: Local-first comes of age"
+                    >
+                      <header class="card__header">
+                        <span class="card__content-type">feature</span>
+                      </header>
+                      <h3 class="card__title" id="related-content-4133648">
+                        The browser is your database: Local-first comes of age
+                      </h3>
+                      <div
+                        class="card__info"
+                        itemprop="author"
+                        itemscope
+                        itemtype="https://schema.org/Person"
+                      >
+                        <span itemprop="name">By Matthew Tyson</span>
+                      </div>
+                      <div class="card__info card__info--light">
+                        <span
+                          itemprop="datePublished"
+                          content="2026-02-26T09:00:00+00:00"
+                          >Feb 26, 2026</span
+                        >
+                        <span class="card__read-time">10 mins</span>
+                      </div>
+                      <footer class="card__tags">
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Databases</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >JavaScript</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Web Development</span
+                          ></span
+                        >
+                      </footer>
+                    </a>
+                  </article>
+                  <article
+                    class="related-content-small__card"
+                    role="article"
+                    itemscope
+                    itemtype="https://schema.org/Article"
+                    aria-labelledby="related-content-4125855"
+                  >
+                    <a
+                      class="card"
+                      href="https://www.infoworld.com/article/4125855/three-web-security-blind-spots-in-mobile-devsecops-pipelines.html"
+                      rel="noreferrer"
+                      aria-label="Read more: Three web security blind spots in mobile DevSecOps pipelines"
+                    >
+                      <header class="card__header">
+                        <span class="card__content-type">opinion</span>
+                      </header>
+                      <h3 class="card__title" id="related-content-4125855">
+                        Three web security blind spots in mobile DevSecOps
+                        pipelines
+                      </h3>
+                      <div
+                        class="card__info"
+                        itemprop="author"
+                        itemscope
+                        itemtype="https://schema.org/Person"
+                      >
+                        <span itemprop="name">By Ryan Lloyd</span>
+                      </div>
+                      <div class="card__info card__info--light">
+                        <span
+                          itemprop="datePublished"
+                          content="2026-02-26T09:00:00+00:00"
+                          >Feb 26, 2026</span
+                        >
+                        <span class="card__read-time">9 mins</span>
+                      </div>
+                      <footer class="card__tags">
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >DevSecOps</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Mobile Development</span
+                          ></span
+                        >
+                        <span class="card__tag"
+                          ><span class="tag" itemprop="keywords"
+                            >Web Development</span
+                          ></span
+                        >
+                      </footer>
+                    </a>
+                  </article>
+                </div>
+                <nav aria-labelledby="related-content-nav">
+                  <h2 id="related-content-nav" class="sr-only">
+                    Other Sections
+                  </h2>
+                  <ul class="related-content-small__link-items">
+                    <li class="related-content-small__link-item">
+                      <a
+                        class="related-content-small__link"
+                        href="https://us.resources.infoworld.com/"
+                        aria-label="Resources"
+                        >Resources</a
+                      >
+                    </li>
+                    <li class="related-content-small__link-item">
+                      <a
+                        class="related-content-small__link"
+                        href="https://www.infoworld.com/videos/"
+                        aria-label="Videos"
+                        >Videos</a
+                      >
+                    </li>
+                    <li
+                      class="related-content-small__link-item"
+                      data-topic-spotlight-sidebar
+                    >
+                      <a
+                        class="related-content-small__link"
+                        href="/cloud-computing/"
+                        aria-label="Spotlight: Data Center Modernization"
+                        >Spotlight: Data Center Modernization</a
+                      >
+                    </li>
+                  </ul>
+                </nav>
+              </aside>
+              <div class="show@lg rightTrailAd">
+                <div class="advert advert--bleed-left">
+                  <div class="advert__container">
+                    <div class="advert__content">
+                      <div
+                        class="ad page-ad has-ad-prefix ad-topimu"
+                        data-ad-template="topimu"
+                        data-ofp="false"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!--right side bar ends here-->
+        </div>
+      </section>
+    </article>
+  </body>
+</html>

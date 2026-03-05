@@ -1,0 +1,13 @@
+{
+  "url": "https://www.themarginalian.org/2026/03/03/neruda-time/",
+  "host": "www.themarginalian.org",
+  "feed_source": "themarginalian",
+  "status_code": 200,
+  "proxy": "http://10.20.30.1:18085",
+  "fetched_at_utc": "2026-03-04T23:16:32.943141Z",
+  "expected_strategy": "manually curated selector + node cleanup",
+  "extracted_title": "Pablo Neruda on How to Hold Time",
+  "extracted_word_count": 733,
+  "extracted_success": true,
+  "expected_selector": "div.entry_content"
+}

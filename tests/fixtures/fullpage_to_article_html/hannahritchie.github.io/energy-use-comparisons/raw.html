@@ -1,0 +1,5194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Does that use a lot of energy?</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          Cantarell, sans-serif;
+        background: #2d3436;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      /* Better padding on very large screens */
+      @media (min-width: 1400px) {
+        body {
+          padding: 40px 60px;
+        }
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        width: 100%;
+      }
+
+      .container + .container {
+        margin-top: 30px;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f1e30 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2em;
+        margin-bottom: 8px;
+      }
+
+      .header p {
+        font-size: 1em;
+        opacity: 0.9;
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 20px;
+        padding: 20px;
+        overflow-x: hidden;
+      }
+
+      .products-panel {
+        border-right: 2px solid #e5e7eb;
+        padding-right: 20px;
+        max-height: 625px;
+        overflow-y: auto;
+      }
+
+      .products-panel h2 {
+        color: #2e5f8a;
+        margin-bottom: 15px;
+        font-size: 1.3em;
+      }
+
+      .product-item {
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+
+      .product-item:hover {
+        background: #f3f4f6;
+        border-color: #4a90e2;
+      }
+
+      .product-item.selected {
+        background: #dbeafe;
+        border-color: #4a90e2;
+      }
+
+      .product-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+      }
+
+      .product-header input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+
+      .product-name {
+        font-weight: 600;
+        color: #1f2937;
+        flex: 1;
+        font-size: 13px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+      }
+
+      .custom-inputs {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #d1d5db;
+        display: none;
+      }
+
+      .product-item.selected .custom-inputs {
+        display: block;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .input-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .input-group input {
+        width: 55px;
+        padding: 5px;
+        border: 2px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .input-group input:focus {
+        outline: none;
+        border-color: #4a90e2;
+      }
+
+      .input-group label {
+        font-size: 12px;
+        color: #6b7280;
+      }
+
+      .fixed-value {
+        font-size: 12px;
+        color: #6b7280;
+        font-style: italic;
+      }
+
+      .chart-panel {
+        padding-left: 20px;
+      }
+
+      .chart-panel h2 {
+        color: #2e5f8a;
+        margin-bottom: 5px;
+        font-size: 1.5em;
+      }
+
+      .chart-subtitle {
+        color: #6b7280;
+        font-size: 1em;
+        margin-bottom: 15px;
+      }
+
+      .settings-panel {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+
+      .view-section {
+        margin-bottom: 15px;
+      }
+
+      .view-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .view-tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 1em;
+        font-weight: 500;
+        color: #6b7280;
+        transition: all 0.2s ease;
+        position: relative;
+        bottom: -2px;
+      }
+
+      .view-tab:hover {
+        color: #374151;
+        background: #f3f4f6;
+      }
+
+      .view-tab.active {
+        color: #2e5f8a;
+        border-bottom-color: #2e5f8a;
+        background: none;
+      }
+
+      .view-tab .tab-icon {
+        font-size: 1.2em;
+      }
+
+      .view-tab .tab-text {
+        font-weight: 600;
+      }
+
+      .country-selector {
+        margin-top: 12px;
+      }
+
+      .country-selector label {
+        display: block;
+        font-size: 0.85em;
+        color: #6b7280;
+        margin-bottom: 6px;
+        font-weight: 500;
+      }
+
+      .country-selector select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95em;
+        cursor: pointer;
+      }
+
+      .country-selector select:focus {
+        outline: none;
+        border-color: #2e5f8a;
+        box-shadow: 0 0 0 3px rgba(46, 95, 138, 0.1);
+      }
+
+      .chart-container {
+        position: relative;
+        height: 550px;
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 15px;
+      }
+
+      .footer-notes {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 0.85em;
+        color: #6b7280;
+        line-height: 1.6;
+      }
+
+      .footer-notes p {
+        margin: 0 0 10px 0;
+      }
+
+      .footer-notes p:last-child {
+        margin-bottom: 0;
+      }
+
+      .share-container {
+        position: relative;
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 6px;
+        z-index: 10;
+      }
+
+      .share-btn {
+        background: rgba(255, 255, 255, 0.9);
+        color: #6b7280;
+        border: 1px solid #d1d5db;
+        padding: 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+      }
+
+      .share-btn:hover {
+        background: white;
+        color: #374151;
+        border-color: #9ca3af;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .share-btn:disabled {
+        background: #f3f4f6;
+        color: #d1d5db;
+        cursor: not-allowed;
+      }
+
+      .share-btn svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .share-menu {
+        display: none;
+        position: absolute;
+        bottom: 42px;
+        right: 0;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        min-width: 160px;
+      }
+
+      .share-menu.show {
+        display: block;
+      }
+
+      .share-menu-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        transition: background 0.2s ease;
+      }
+
+      .share-menu-item:hover {
+        background: #f3f4f6;
+      }
+
+      .share-menu-item:first-child {
+        border-radius: 6px 6px 0 0;
+      }
+
+      .share-menu-item:last-child {
+        border-radius: 0 0 6px 6px;
+      }
+
+      .share-menu-item.success {
+        color: #10b981;
+      }
+
+      .no-data {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        font-size: 1.2em;
+        text-align: center;
+      }
+
+      .clear-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        margin-top: 15px;
+        width: 100%;
+        transition: background 0.3s ease;
+      }
+
+      .clear-btn:hover {
+        background: #dc2626;
+      }
+
+      .clear-btn-subtle {
+        background: transparent;
+        color: #6b7280;
+        border: 1px solid #d1d5db;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 400;
+        margin-bottom: 15px;
+        transition: all 0.2s ease;
+      }
+
+      .clear-btn-subtle:hover {
+        background: #f3f4f6;
+        color: #374151;
+        border-color: #9ca3af;
+      }
+
+      .search-box {
+        margin-bottom: 20px;
+      }
+
+      .search-box input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: border-color 0.3s ease;
+      }
+
+      .search-box input:focus {
+        outline: none;
+        border-color: #4a90e2;
+      }
+
+      .search-box input::placeholder {
+        color: #9ca3af;
+      }
+
+      .unit-selector {
+        margin: 8px 0 12px 0;
+        padding: 10px 12px;
+        background: #f9fafb;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        font-size: 13px;
+      }
+
+      .unit-selector label {
+        font-size: 13px;
+        color: #374151;
+        font-weight: 500;
+      }
+
+      .unit-selector .radio-label {
+        margin-left: 10px;
+        font-weight: normal;
+        cursor: pointer;
+      }
+
+      .unit-selector input[type="radio"] {
+        margin-right: 5px;
+        cursor: pointer;
+      }
+
+      .category-header {
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #2e5f8a;
+        padding: 15px 0 10px 0;
+        margin-top: 15px;
+        border-bottom: 2px solid #4a90e2;
+      }
+
+      .category-header:first-child {
+        margin-top: 0;
+      }
+
+      .info-section {
+        padding: 20px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 10px;
+        border-bottom: 2px solid #e5e7eb;
+        margin-bottom: 20px;
+      }
+
+      .tab-button {
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+        position: relative;
+        bottom: -2px;
+      }
+
+      .tab-button:hover {
+        color: #4a90e2;
+      }
+
+      .tab-button.active {
+        color: #2e5f8a;
+        border-bottom-color: #4a90e2;
+      }
+
+      .tab-content {
+        display: none;
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      .tab-content h1,
+      .tab-content h2 {
+        color: #2e5f8a;
+        margin-bottom: 12px;
+        margin-top: 20px;
+      }
+
+      .tab-content h2:first-child {
+        margin-top: 0;
+      }
+
+      .tab-content h3 {
+        color: #2e5f8a;
+        margin-bottom: 10px;
+        margin-top: 18px;
+        font-size: 16px;
+      }
+
+      .tab-content h4 {
+        color: #4a90e2;
+        margin-bottom: 8px;
+        margin-top: 14px;
+        font-size: 14px;
+      }
+
+      .tab-content p {
+        margin-bottom: 12px;
+        color: #1f2937;
+      }
+
+      .tab-content ul {
+        margin-left: 20px;
+        margin-bottom: 12px;
+      }
+
+      .tab-content li {
+        margin-bottom: 6px;
+        color: #1f2937;
+      }
+
+      .tab-content a {
+        color: #2563eb;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+
+      .tab-content a:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+      }
+
+      .tab-content a:visited {
+        color: #7c3aed;
+      }
+
+      @media (max-width: 1024px) {
+        .content {
+          grid-template-columns: 1fr;
+        }
+
+        .products-panel {
+          border-right: none;
+          border-bottom: 2px solid #e5e7eb;
+          padding-right: 0;
+          padding-bottom: 20px;
+          max-height: none;
+          grid-row: 2;
+        }
+
+        .chart-panel {
+          padding-left: 0;
+          grid-row: 1;
+          border-bottom: 2px solid #e5e7eb;
+          padding-bottom: 20px;
+          margin-bottom: 20px;
+        }
+      }
+
+      /* Mobile-specific improvements */
+      @media (max-width: 768px) {
+        body {
+          padding: 10px;
+          overflow-x: hidden;
+        }
+
+        .container {
+          max-width: 100vw;
+          overflow-x: hidden;
+        }
+
+        .header h1 {
+          font-size: 1.5em;
+        }
+
+        .header p {
+          font-size: 0.9em;
+        }
+
+        .content {
+          padding: 15px;
+          overflow-x: hidden;
+        }
+
+        .products-panel {
+          width: 100%;
+          padding-right: 0;
+          border-right: none;
+          border-bottom: 2px solid #e5e7eb;
+          padding-bottom: 20px;
+          overflow-x: hidden;
+        }
+
+        .product-header {
+          gap: 12px;
+          padding: 4px 0;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        /* Larger checkbox for easier tapping on mobile */
+        .product-header input[type="checkbox"] {
+          width: 24px;
+          height: 24px;
+          flex-shrink: 0;
+        }
+
+        .product-name {
+          font-size: 14px;
+          line-height: 1.5;
+          flex: 1;
+          min-width: 0;
+          max-width: 100%;
+          white-space: normal;
+        }
+
+        .product-item {
+          padding: 14px;
+          margin-bottom: 12px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+
+        /* Larger touch targets for inputs */
+        .input-group input {
+          width: 60px;
+          padding: 8px;
+          font-size: 14px;
+          min-height: 44px;
+        }
+
+        .input-group label {
+          font-size: 13px;
+        }
+
+        /* Ensure search box is easy to use */
+        #searchInput {
+          font-size: 16px;
+          padding: 12px;
+          min-height: 44px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .clear-btn {
+          padding: 12px;
+          font-size: 14px;
+          min-height: 44px;
+          width: 100%;
+        }
+
+        .tab-button {
+          padding: 12px 16px;
+          font-size: 14px;
+          min-height: 44px;
+        }
+
+        /* Make chart much smaller on mobile */
+        .chart-panel {
+          padding-left: 0;
+          width: 100%;
+          overflow-x: hidden;
+        }
+
+        .chart-container {
+          height: 500px;
+          width: 100%;
+          max-width: 100%;
+          overflow: visible;
+          padding-left: 10px;
+          margin-left: -5px;
+        }
+
+        .chart-panel h2 {
+          font-size: 1.2em;
+        }
+
+        .chart-subtitle {
+          font-size: 0.9em;
+        }
+
+        canvas {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+      }
+
+      /* Extra small mobile devices */
+      @media (max-width: 480px) {
+        body {
+          padding: 5px;
+          overflow-x: hidden;
+        }
+
+        .container {
+          border-radius: 15px;
+          max-width: 100vw;
+        }
+
+        .header h1 {
+          font-size: 1.3em;
+        }
+
+        .content {
+          padding: 12px;
+          width: 100%;
+        }
+
+        .products-panel {
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .products-panel h2 {
+          font-size: 1.1em;
+        }
+
+        .product-item {
+          padding: 12px;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .product-name {
+          font-size: 13px;
+        }
+
+        .input-row {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        /* Even smaller chart on very small screens */
+        .chart-container {
+          height: 400px;
+          width: 100%;
+          max-width: 100%;
+          overflow: visible;
+          padding-left: 10px;
+          margin-left: -5px;
+        }
+
+        .chart-panel {
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .chart-panel h2 {
+          font-size: 1.1em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Does that use a lot of energy?</h1>
+        <p>
+          Compare the daily energy consumption of different products and
+          activities
+        </p>
+      </div>
+
+      <div class="content">
+        <div class="products-panel">
+          <div class="settings-panel">
+            <div class="view-section">
+              <div class="view-tabs">
+                <button
+                  class="view-tab active"
+                  data-view="energy"
+                  onclick="switchViewMode('energy')"
+                >
+                  <span class="tab-icon">⚡</span>
+                  <span class="tab-text">Energy</span>
+                </button>
+                <button
+                  class="view-tab"
+                  data-view="cost"
+                  onclick="switchViewMode('cost')"
+                >
+                  <span class="tab-icon">💷</span>
+                  <span class="tab-text">Cost</span>
+                </button>
+              </div>
+            </div>
+            <div
+              class="country-selector"
+              id="countrySelector"
+              style="display: none"
+            >
+              <label for="countrySelect">Country:</label>
+              <select id="countrySelect" onchange="handleCountryChange()">
+                <option value="UK">United Kingdom</option>
+                <option value="USA">United States</option>
+                <option value="Germany">Germany</option>
+                <option value="France">France</option>
+                <option value="Sweden">Sweden</option>
+                <option value="Spain">Spain</option>
+                <option value="Norway">Norway</option>
+                <option value="Netherlands">Netherlands</option>
+                <option value="Turkey">Türkiye</option>
+              </select>
+            </div>
+          </div>
+          <div class="search-box">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Search products..."
+              oninput="filterProducts()"
+            />
+          </div>
+          <button class="clear-btn-subtle" onclick="clearAll()">
+            Clear all selections
+          </button>
+          <div id="productsList">
+            <div class="category-header" id="product-0">Lighting</div>
+
+            <div class="product-item" id="product-1">
+              <div class="product-header" onclick="toggleProduct(1)">
+                <input
+                  type="checkbox"
+                  id="check-1"
+                  onchange="handleCheckboxChange(1)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Lightbulb (incandescent)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-1"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-1"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-2">
+              <div class="product-header" onclick="toggleProduct(2)">
+                <input
+                  type="checkbox"
+                  id="check-2"
+                  onchange="handleCheckboxChange(2)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Lightbulb (LED)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-2"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-2"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="category-header" id="product-3">
+              Digital technologies
+            </div>
+
+            <div class="product-item" id="product-4">
+              <div class="product-header" onclick="toggleProduct(4)">
+                <input
+                  type="checkbox"
+                  id="check-4"
+                  onchange="handleCheckboxChange(4)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Charging a mobile phone</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="fixed-value">20.0 Wh per day</div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-5">
+              <div class="product-header" onclick="toggleProduct(5)">
+                <input
+                  type="checkbox"
+                  id="check-5"
+                  onchange="handleCheckboxChange(5)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Watching TV (medium efficient)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-5"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-5"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-6">
+              <div class="product-header" onclick="toggleProduct(6)">
+                <input
+                  type="checkbox"
+                  id="check-6"
+                  onchange="handleCheckboxChange(6)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Watching TV (large modern)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-6"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-6"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-7">
+              <div class="product-header" onclick="toggleProduct(7)">
+                <input
+                  type="checkbox"
+                  id="check-7"
+                  onchange="handleCheckboxChange(7)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">MacBook</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-7"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-7"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-8">
+              <div class="product-header" onclick="toggleProduct(8)">
+                <input
+                  type="checkbox"
+                  id="check-8"
+                  onchange="handleCheckboxChange(8)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Desktop computer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-8"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-8"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-9">
+              <div class="product-header" onclick="toggleProduct(9)">
+                <input
+                  type="checkbox"
+                  id="check-9"
+                  onchange="handleCheckboxChange(9)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gaming console (Xbox Series S)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-9"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-9"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-10">
+              <div class="product-header" onclick="toggleProduct(10)">
+                <input
+                  type="checkbox"
+                  id="check-10"
+                  onchange="handleCheckboxChange(10)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gaming console (Xbox Series X)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-10"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-10"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-11">
+              <div class="product-header" onclick="toggleProduct(11)">
+                <input
+                  type="checkbox"
+                  id="check-11"
+                  onchange="handleCheckboxChange(11)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Streaming Netflix</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-11"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-11"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-12">
+              <div class="product-header" onclick="toggleProduct(12)">
+                <input
+                  type="checkbox"
+                  id="check-12"
+                  onchange="handleCheckboxChange(12)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Streaming YouTube</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-12"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-12"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-13">
+              <div class="product-header" onclick="toggleProduct(13)">
+                <input
+                  type="checkbox"
+                  id="check-13"
+                  onchange="handleCheckboxChange(13)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Home internet (WiFi)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-13"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-13"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-14">
+              <div class="product-header" onclick="toggleProduct(14)">
+                <input
+                  type="checkbox"
+                  id="check-14"
+                  onchange="handleCheckboxChange(14)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">ChatGPT median query</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-14"
+                      min="1"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>queries</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-15">
+              <div class="product-header" onclick="toggleProduct(15)">
+                <input
+                  type="checkbox"
+                  id="check-15"
+                  onchange="handleCheckboxChange(15)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Reading on a Kindle</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-15"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-15"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="category-header" id="product-16">
+              Kitchen appliances
+            </div>
+
+            <div class="product-item selected" id="product-17">
+              <div class="product-header" onclick="toggleProduct(17)">
+                <input
+                  type="checkbox"
+                  id="check-17"
+                  onchange="handleCheckboxChange(17)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Boiling a kettle</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-17"
+                      min="1"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>full boils</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-18">
+              <div class="product-header" onclick="toggleProduct(18)">
+                <input
+                  type="checkbox"
+                  id="check-18"
+                  onchange="handleCheckboxChange(18)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Microwave</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-18"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-18"
+                      min="0"
+                      max="59"
+                      value="5"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-19">
+              <div class="product-header" onclick="toggleProduct(19)">
+                <input
+                  type="checkbox"
+                  id="check-19"
+                  onchange="handleCheckboxChange(19)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Electric oven</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-19"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-19"
+                      min="0"
+                      max="59"
+                      value="30"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-20">
+              <div class="product-header" onclick="toggleProduct(20)">
+                <input
+                  type="checkbox"
+                  id="check-20"
+                  onchange="handleCheckboxChange(20)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gas oven</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-20"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-20"
+                      min="0"
+                      max="59"
+                      value="30"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-21">
+              <div class="product-header" onclick="toggleProduct(21)">
+                <input
+                  type="checkbox"
+                  id="check-21"
+                  onchange="handleCheckboxChange(21)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Air fryer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-21"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-21"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-22">
+              <div class="product-header" onclick="toggleProduct(22)">
+                <input
+                  type="checkbox"
+                  id="check-22"
+                  onchange="handleCheckboxChange(22)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name"
+                  >Electric induction hob (one ring)</span
+                >
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-22"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-22"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-23">
+              <div class="product-header" onclick="toggleProduct(23)">
+                <input
+                  type="checkbox"
+                  id="check-23"
+                  onchange="handleCheckboxChange(23)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gas hob (one ring)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-23"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-23"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-24">
+              <div class="product-header" onclick="toggleProduct(24)">
+                <input
+                  type="checkbox"
+                  id="check-24"
+                  onchange="handleCheckboxChange(24)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Fridge (small)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="fixed-value">275.0 Wh per day</div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-25">
+              <div class="product-header" onclick="toggleProduct(25)">
+                <input
+                  type="checkbox"
+                  id="check-25"
+                  onchange="handleCheckboxChange(25)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Fridge-freezer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="fixed-value">821.9 Wh per day</div>
+              </div>
+            </div>
+
+            <div class="category-header" id="product-26">
+              Washing and drying
+            </div>
+
+            <div class="product-item" id="product-27">
+              <div class="product-header" onclick="toggleProduct(27)">
+                <input
+                  type="checkbox"
+                  id="check-27"
+                  onchange="handleCheckboxChange(27)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Vacuum cleaner (hoover)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-27"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-27"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-28">
+              <div class="product-header" onclick="toggleProduct(28)">
+                <input
+                  type="checkbox"
+                  id="check-28"
+                  onchange="handleCheckboxChange(28)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Washing machine</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-28"
+                      min="1"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>cycles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-29">
+              <div class="product-header" onclick="toggleProduct(29)">
+                <input
+                  type="checkbox"
+                  id="check-29"
+                  onchange="handleCheckboxChange(29)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name"
+                  >Tumble dryer (vented or condenser)</span
+                >
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-29"
+                      min="1"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>cycles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-30">
+              <div class="product-header" onclick="toggleProduct(30)">
+                <input
+                  type="checkbox"
+                  id="check-30"
+                  onchange="handleCheckboxChange(30)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Tumble dryer (heat pump)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-30"
+                      min="1"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>cycles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-31">
+              <div class="product-header" onclick="toggleProduct(31)">
+                <input
+                  type="checkbox"
+                  id="check-31"
+                  onchange="handleCheckboxChange(31)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Dehumidifier (medium)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-31"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-31"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-32">
+              <div class="product-header" onclick="toggleProduct(32)">
+                <input
+                  type="checkbox"
+                  id="check-32"
+                  onchange="handleCheckboxChange(32)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Dehumidifier (large)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-32"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-32"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-33">
+              <div class="product-header" onclick="toggleProduct(33)">
+                <input
+                  type="checkbox"
+                  id="check-33"
+                  onchange="handleCheckboxChange(33)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Dishwasher</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-33"
+                      min="1"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>cycles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-34">
+              <div class="product-header" onclick="toggleProduct(34)">
+                <input
+                  type="checkbox"
+                  id="check-34"
+                  onchange="handleCheckboxChange(34)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Clothes iron</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-34"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-34"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="category-header" id="product-35">
+              Heating and cooling
+            </div>
+
+            <div class="product-item" id="product-36">
+              <div class="product-header" onclick="toggleProduct(36)">
+                <input
+                  type="checkbox"
+                  id="check-36"
+                  onchange="handleCheckboxChange(36)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Hairdryer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-36"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-36"
+                      min="0"
+                      max="59"
+                      value="5"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-37">
+              <div class="product-header" onclick="toggleProduct(37)">
+                <input
+                  type="checkbox"
+                  id="check-37"
+                  onchange="handleCheckboxChange(37)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Electric shower</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-37"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-37"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-38">
+              <div class="product-header" onclick="toggleProduct(38)">
+                <input
+                  type="checkbox"
+                  id="check-38"
+                  onchange="handleCheckboxChange(38)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Electric shower (heat pump)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-38"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-38"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-39">
+              <div class="product-header" onclick="toggleProduct(39)">
+                <input
+                  type="checkbox"
+                  id="check-39"
+                  onchange="handleCheckboxChange(39)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gas-powered shower</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-39"
+                      min="0"
+                      max="24"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-39"
+                      min="0"
+                      max="59"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-40">
+              <div class="product-header" onclick="toggleProduct(40)">
+                <input
+                  type="checkbox"
+                  id="check-40"
+                  onchange="handleCheckboxChange(40)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Electric fan</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-40"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-40"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-41">
+              <div class="product-header" onclick="toggleProduct(41)">
+                <input
+                  type="checkbox"
+                  id="check-41"
+                  onchange="handleCheckboxChange(41)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Small desk heater</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-41"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-41"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-42">
+              <div class="product-header" onclick="toggleProduct(42)">
+                <input
+                  type="checkbox"
+                  id="check-42"
+                  onchange="handleCheckboxChange(42)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Space heater</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-42"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-42"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-43">
+              <div class="product-header" onclick="toggleProduct(43)">
+                <input
+                  type="checkbox"
+                  id="check-43"
+                  onchange="handleCheckboxChange(43)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name"
+                  >Electric heat pump (Single room)</span
+                >
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-43"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-43"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-44">
+              <div class="product-header" onclick="toggleProduct(44)">
+                <input
+                  type="checkbox"
+                  id="check-44"
+                  onchange="handleCheckboxChange(44)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name"
+                  >Electric heat pump (3-bed house)</span
+                >
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-44"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-44"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-45">
+              <div class="product-header" onclick="toggleProduct(45)">
+                <input
+                  type="checkbox"
+                  id="check-45"
+                  onchange="handleCheckboxChange(45)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gas heating (Single room)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-45"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-45"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-46">
+              <div class="product-header" onclick="toggleProduct(46)">
+                <input
+                  type="checkbox"
+                  id="check-46"
+                  onchange="handleCheckboxChange(46)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gas heating (3-bed house)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-46"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-46"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-47">
+              <div class="product-header" onclick="toggleProduct(47)">
+                <input
+                  type="checkbox"
+                  id="check-47"
+                  onchange="handleCheckboxChange(47)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Air conditioning (Single room)</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-47"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-47"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="category-header" id="product-48">Driving</div>
+
+            <div class="unit-selector">
+              <label>Distance unit:</label>
+              <label class="radio-label">
+                <input
+                  type="radio"
+                  name="distanceUnit"
+                  value="miles"
+                  checked=""
+                  onchange="handleUnitChange()"
+                />
+                Miles
+              </label>
+              <label class="radio-label">
+                <input
+                  type="radio"
+                  name="distanceUnit"
+                  value="km"
+                  onchange="handleUnitChange()"
+                />
+                Kilometres
+              </label>
+            </div>
+
+            <div class="product-item" id="product-49">
+              <div class="product-header" onclick="toggleProduct(49)">
+                <input
+                  type="checkbox"
+                  id="check-49"
+                  onchange="handleCheckboxChange(49)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Using an e-bike</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-49"
+                      min="1"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>miles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-50">
+              <div class="product-header" onclick="toggleProduct(50)">
+                <input
+                  type="checkbox"
+                  id="check-50"
+                  onchange="handleCheckboxChange(50)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Using an e-scooter</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-50"
+                      min="1"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>miles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-51">
+              <div class="product-header" onclick="toggleProduct(51)">
+                <input
+                  type="checkbox"
+                  id="check-51"
+                  onchange="handleCheckboxChange(51)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Driving an electric motorbike</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-51"
+                      min="1"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>miles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-52">
+              <div class="product-header" onclick="toggleProduct(52)">
+                <input
+                  type="checkbox"
+                  id="check-52"
+                  onchange="handleCheckboxChange(52)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Driving a petrol motorbike</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-52"
+                      min="1"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>miles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-53">
+              <div class="product-header" onclick="toggleProduct(53)">
+                <input
+                  type="checkbox"
+                  id="check-53"
+                  onchange="handleCheckboxChange(53)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Driving an electric car</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-53"
+                      min="1"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>miles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item selected" id="product-54">
+              <div class="product-header" onclick="toggleProduct(54)">
+                <input
+                  type="checkbox"
+                  id="check-54"
+                  onchange="handleCheckboxChange(54)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Driving a petrol car</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-54"
+                      min="1"
+                      value="10"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>miles</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="category-header" id="product-55">Gardening</div>
+
+            <div class="product-item" id="product-56">
+              <div class="product-header" onclick="toggleProduct(56)">
+                <input
+                  type="checkbox"
+                  id="check-56"
+                  onchange="handleCheckboxChange(56)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Electric lawnmower</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-56"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-56"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-57">
+              <div class="product-header" onclick="toggleProduct(57)">
+                <input
+                  type="checkbox"
+                  id="check-57"
+                  onchange="handleCheckboxChange(57)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Petrol lawnmower</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-57"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-57"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-58">
+              <div class="product-header" onclick="toggleProduct(58)">
+                <input
+                  type="checkbox"
+                  id="check-58"
+                  onchange="handleCheckboxChange(58)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Electric strimmer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-58"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-58"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-59">
+              <div class="product-header" onclick="toggleProduct(59)">
+                <input
+                  type="checkbox"
+                  id="check-59"
+                  onchange="handleCheckboxChange(59)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Gas strimmer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-59"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-59"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="product-item" id="product-60">
+              <div class="product-header" onclick="toggleProduct(60)">
+                <input
+                  type="checkbox"
+                  id="check-60"
+                  onchange="handleCheckboxChange(60)"
+                  onclick="event.stopPropagation()"
+                />
+                <span class="product-name">Pressure washer</span>
+              </div>
+              <div class="custom-inputs">
+                <div class="input-row">
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input1-60"
+                      min="0"
+                      max="24"
+                      value="1"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>hours</label>
+                  </div>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="input2-60"
+                      min="0"
+                      max="59"
+                      value="0"
+                      onchange="
+                        updateChart();
+                        updateURL();
+                      "
+                    />
+                    <label>minutes</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="clear-btn" onclick="clearAll()">
+            Clear All Selections
+          </button>
+        </div>
+
+        <div class="chart-panel">
+          <h2 id="chartTitle">Energy consumption</h2>
+          <p class="chart-subtitle" id="chartSubtitle">
+            Estimates measured in watt-hours (Wh).
+          </p>
+          <div class="chart-container" style="height: 550px">
+            <canvas
+              id="energyChart"
+              width="740"
+              height="520"
+              style="
+                display: block;
+                box-sizing: border-box;
+                height: 520px;
+                width: 740px;
+              "
+            ></canvas>
+            <div class="no-data" id="noData" style="display: none">
+              Select products to compare energy use through the day
+            </div>
+          </div>
+          <div class="share-container">
+            <button
+              class="share-btn"
+              onclick="toggleShareMenu()"
+              id="shareBtn"
+              aria-label="Share"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                ></path>
+              </svg>
+            </button>
+            <div class="share-menu" id="shareMenu">
+              <button class="share-menu-item" onclick="copyURL()">
+                Copy URL
+              </button>
+              <button class="share-menu-item" onclick="downloadChart()">
+                Download PNG
+              </button>
+            </div>
+          </div>
+          <div
+            id="footerNotes"
+            class="footer-notes"
+            style="display: none"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="info-section">
+        <div class="tabs">
+          <button class="tab-button active" onclick="switchTab('description')">
+            Description
+          </button>
+          <button class="tab-button" onclick="switchTab('methodology')">
+            Methodology
+          </button>
+          <button class="tab-button" onclick="switchTab('changelog')">
+            Change log
+          </button>
+        </div>
+
+        <div id="description" class="tab-content active">
+          <h3>Disclaimer</h3>
+          <p>
+            This tool was designed to get a sense of the differences in energy
+            consumption between different products. It's often difficult to
+            understand whether activities matter a lot or very little for our
+            overall energy consumption.
+          </p>
+          <p>
+            These numbers represent typical products and usage (specifically for
+            the UK, although it will often generalise elsewhere), and might not
+            reflect your own personal circumstances. If you want to get precise
+            measurements, you will need to use dedicated energy monitoring
+            equipment.
+          </p>
+          <p>
+            Actual energy consumption will vary a lot depending on factors such
+            as the age and efficiency of the product, how you're using it (for
+            example, how warm your showers are, or how fast you drive), weather
+            and climate conditions (which is particularly important for the
+            energy usage of heaters and air conditioners).
+          </p>
+
+          <h3>How to use</h3>
+          <p>
+            Add and remove products or activities in the sidebar to compare them
+            on the chart. Most have the option of adjusting the number of hours
+            used, miles driven, or other units of usage.
+          </p>
+
+          <h3>Author</h3>
+          <p>
+            This tool was built by
+            <a href="https://sustainabilitybynumbers.com/" target="_blank"
+              >Hannah Ritchie</a
+            >, with the help of Claude Code.
+          </p>
+        </div>
+
+        <div id="methodology" class="tab-content">
+          <h2>Methodology and Sources for Energy Consumption Estimates</h2>
+
+          <h3>1. General Methodology</h3>
+          <p>
+            All energy consumption values in this tool are measured in
+            watt-hours (Wh), which is the amount of energy consumed over time.
+            The basic formula for calculating energy consumption is:
+          </p>
+          <p><strong>Energy (Wh) = Power (Watts) × Time (Hours)</strong></p>
+          <p>
+            For example, a 100-watt light bulb used for 2 hours would consume
+            200 watt-hours of energy.
+          </p>
+          <p>
+            Most products on this list are electrical, but energy use for
+            non-electric products (such as petrol car or gas heating) are
+            converted into watt-hour equivalents.
+          </p>
+          <p>
+            Energy costs are available for a small selection of countries based
+            on their national energy prices (electricity, gas and petrol). This
+            price data is sourced from Eurostat, Ofgem, and the US EIA (based on
+            prices for 2025 or early 2026, depending on availability). Costs
+            reflect average household prices, and don't reflect dynamic,
+            off-peak or smart tariffs.
+          </p>
+          <p>
+            Below, I list the assumptions and sources for each product or
+            activity. Again, the actual level of energy consumption will depend
+            on factors such as the specific efficiency of the product, user
+            settings, and climate so these should be interpreted as
+            approximations to give a sense of magnitude.
+          </p>
+
+          <h3>2. Lighting</h3>
+          <h4>Incandescent lightbulb</h4>
+          <p>
+            Traditional incandescent bulbs typically range from 25 to 100 watts,
+            with
+            <a
+              href="https://www.energysage.com/electricity/house-watts/how-many-watts-does-a-light-bulb-use/"
+              target="_blank"
+              >60 watts</a
+            >
+            being relatively standard for a household bulb. One hour of use
+            would consume 60 Watt-hours (Wh).
+          </p>
+
+          <h4>LED lightbulb</h4>
+          <p>
+            LED bulbs use
+            <a
+              href="https://www.energy.gov/energysaver/led-lighting"
+              target="_blank"
+              >around 80% less</a
+            >
+            energy than incandescent bulbs for the same amount of light output.
+            A standard LED bulb has an energy rating of around 10 W. Using it
+            for one hour would consume 10 Wh.
+          </p>
+
+          <h3>3. Digital Technologies</h3>
+          <h4>Charging a mobile phone</h4>
+          <p>
+            Modern smartphones have
+            <a
+              href="https://www.macworld.com/article/678413/iphone-battery-capacities-compared-all-iphones-battery-life-in-mah-and-wh.html"
+              target="_blank"
+              >battery capacities of 3,000-5,000 mAh</a
+            >
+            at approximately 3.7-4.2V, resulting in batteries around 15-20
+            watt-hours. If we assume there is around 10% to 20% loss due to
+            charging efficiencies, a full charge likely requires around 20 Wh.
+          </p>
+
+          <h4>Watching TV – Medium, efficient</h4>
+          <p>
+            Medium-efficiency TVs (for example, 40-50 inch LED TVs) consume
+            <a
+              href="https://solartechonline.com/blog/tv-electricity-usage-guide"
+              target="_blank"
+              >approximately 60 watts</a
+            >
+            during active viewing.
+          </p>
+
+          <h4>Watching TV – Large, modern</h4>
+          <p>
+            Larger modern TVs (55-60 inches with 4K capability)
+            <a
+              href="https://solartechonline.com/blog/tv-electricity-usage-guide"
+              target="_blank"
+              >typically consume</a
+            >
+            80-100 watts. I've gone with 90 watts as a reasonable average.
+          </p>
+
+          <h4>MacBook laptop</h4>
+          <p>
+            The power consumption of Apple MacBooks vary depending on the model
+            and what applications users are running.
+          </p>
+          <p>
+            When doing everyday tasks such as writing emails, word documents, or
+            browsing the internet, they consume around 5 to 15 watts. Streaming
+            video is more like 15 to 20 watts. When doing intensive tasks such
+            as editing photos or video, or gaming a MacBook Pro can reach 80 to
+            100 watts.
+          </p>
+          <p>Here I have assumed an average of 20 watts.</p>
+
+          <h4>Desktop computer</h4>
+          <p>
+            Desktop computers vary widely, but more efficient models consume
+            approximately 50 watts. When doing light tasks, this can be a bit
+            lower. Gaming computers can use far more, especially during peak
+            usage (often several hundred watts).
+          </p>
+
+          <h4>Gaming console (Xbox)</h4>
+          <p>
+            The power consumption of game consoles can vary a lot, depending on
+            the model. The Xbox Series S
+            <a
+              href="https://learn.microsoft.com/en-us/gaming/sustainability/lab-platform-baselines"
+              target="_blank"
+              >typically consumes</a
+            >
+            around 70 watts during active gameplay. The Xbox Series X consumes
+            around twice as much: 150 watts.
+          </p>
+          <p>
+            Game consoles use much less when streaming TV or film, or when in
+            menu mode.
+          </p>
+
+          <h4>Streaming Netflix (streaming only)</h4>
+          <p>
+            The marginal increase in energy consumption for one hour of
+            streaming is around 0.2 Wh. This comprises of just 0.028 Wh from
+            Netflix's servers themselves, and another 0.18 Wh from transmission
+            and distribution.
+          </p>
+          <p>
+            To stream video, you need an internet connection, hence a bar for
+            the electricity consumption for Home WiFi is also shown. Note that,
+            for most people, this isn't actually the marginal increase in energy
+            use for streaming. Most people have their internet running 24/7
+            regardless; the increase in energy use for streaming is very small
+            by comparison. However, it is shown for completeness.
+          </p>
+          <p>
+            This does not include the electricity usage of the device (the
+            laptop or TV itself). To get the total for that hour of viewing,
+            combine it with the power usage of whatever device you're watching
+            it on.
+          </p>
+          <p>
+            h/t to Chris Preist (University of Bristol) for guidance on this.
+          </p>
+
+          <h4>Streaming YouTube (streaming only)</h4>
+          <p>
+            YouTube figures are likely similar to Netflix (see above), although
+            they may be slightly higher due to typical streaming patterns and ad
+            delivery. Again, you need to add the power consumption of the device
+            you're watching on, separately.
+          </p>
+
+          <h4>Home internet (WiFi)</h4>
+          <p>
+            WiFi routers typically consume between 10 and 20 watts continuously.
+            Here I've assumed 15 watts as a reasonable average.
+          </p>
+
+          <h4>ChatGPT (median query)</h4>
+          <p>
+            Recent research estimates that the median ChatGPT query using GPT-4o
+            <a
+              href="https://hannahritchie.substack.com/p/ai-footprint-august-2025"
+              target="_blank"
+              >consumes approximately</a
+            >
+            0.3 watt-hours of electricity.
+          </p>
+          <p>
+            Actual electricity consumption varies a lot depending on the length
+            of query and response. More detailed queries — such as Deep Research
+            — will consume more (but there is insufficient public data to
+            confirm how much).
+          </p>
+          <p>
+            If improved data becomes available on more complex queries, image
+            generation and video, I would like to add them.
+          </p>
+
+          <h4>Reading on a Kindle</h4>
+          <p>
+            E-readers like the Kindle use e-ink displays that consume power
+            primarily when refreshing the page. A typical Kindle device
+            <a
+              href="https://www.devicespecifications.com/en/model-battery/92752e19"
+              target="_blank"
+              >has a battery</a
+            >
+            of around 1000–1700 mAh at ~3.7 V, which is 3.7 to 6 Wh. People
+            report it
+            <a
+              href="https://thebatterytips.com/battery-specifications/how-long-is-the-battery-life-on-a-kindle"
+              target="_blank"
+              >lasting weeks</a
+            >
+            on a full charge with moderate (30 minute per day) reading
+            frequency.
+          </p>
+          <p>
+            That works out to less than 1 Wh per hour. Here I've been
+            conservative and have rounded it up to 1 Wh.
+          </p>
+
+          <h3>4. Kitchen Appliances</h3>
+          <h4>Boiling a kettle</h4>
+          <p>
+            Electric kettles typically have power rating between 1500 and 2000
+            watts. Boiling a full kettle (1.5-1.7 litres) takes around 3 to 4
+            minutes.
+          </p>
+          <p>
+            A 2000-watt kettle that takes 3 minutes to boil will consume around
+            100 watt-hours.
+          </p>
+
+          <h4>Microwave</h4>
+          <p>
+            Microwaves typically
+            <a
+              href="https://www.kitchenaid.com/pinch-of-help/major-appliances/microwave-wattage-guide.html"
+              target="_blank"
+              >have a power rating</a
+            >
+            between 800 and 1,200 watts. If we assume 1000 watts, five minutes
+            of use would consume 83 Wh (1000 * 0.08).
+          </p>
+
+          <h4>Electric oven</h4>
+          <p>
+            Electric ovens can
+            <a
+              href="https://www.energysage.com/electricity/house-watts/how-many-watts-does-an-electric-oven-and-stove-use/"
+              target="_blank"
+              >have a power rating</a
+            >
+            ranging from 2,000 to 5,000 watts. A typical one is around 2500
+            watts.
+          </p>
+          <p>
+            Once an oven is on and has reached the desired temperature, it
+            typically cycles and runs at around 50% to 60% capacity. I've
+            therefore calculated energy consumption as [2,500W × time × 0.55].
+          </p>
+
+          <h4>Gas oven</h4>
+          <p>
+            Gas ovens consume natural gas for heating but also use electricity
+            for ignition and controls (approximately 300-400 watts). When
+            converting the thermal energy from gas combustion to electrical
+            equivalents for comparison purposes, gas ovens typically use
+            slightly more total energy than electric ovens due to combustion
+            inefficiency.
+          </p>
+          <p>
+            Similar to electric ovens, I have assumed that gas ovens cycle on
+            and off once they've reached the desired temperature.
+          </p>
+
+          <h4>Air fryer</h4>
+          <p>
+            Small air fryers
+            <a
+              href="https://www.uswitch.com/gas-electricity/guides/how-much-does-it-cost-to-run-an-air-fryer/"
+              target="_blank"
+              >typically operate</a
+            >
+            at 800W to 1500W. Larger models (especially with two trays) can be
+            as much as 2500W. I've assumed 1500 watts in these calculations.
+            Once an air fryer is on, it typically cycles and only runs at around
+            50% to 60% of capacity. Averaged over a cycle, 1000W is likely more
+            realistic.
+          </p>
+          <p>
+            Ten minutes of use would consume 167 Wh (1000W * 0.17 hours = 167
+            Wh).
+          </p>
+
+          <h4>Electric induction hob (one ring)</h4>
+          <p>
+            Induction hobs are efficient, and tend to have a power rating of
+            <a
+              href="https://business.currys.co.uk/catalogue/domestic-appliances/cooking/induction-hobs/neff-n30-t36fbe1l0-60-cm-electric-induction-hob-black/B748076B"
+              target="_blank"
+              >1,000W to 2,000W per ring</a
+            >. I've assumed 1,500 watts in these calculations. Like air fryers,
+            they're often not operating at maximum power draw for the full
+            cooking session. 50% is more typical. That means the average power
+            usage is closer to 750W.
+          </p>
+          <p>
+            Most cooking activities take less time; typically 5 to 10 minutes,
+            which reduces electricity consumption.
+          </p>
+
+          <h4>Gas hob (one ring)</h4>
+          <p>
+            Gas hobs convert natural gas to heat. They tend to consume 2 to
+            2.5-times as much energy as induction hobs to achieve the same heat
+            output. This is because they typically operate at around 40%
+            efficiency, compared to 85% for an electric hob.
+          </p>
+          <p>
+            If an induction hob has an average rating of 750W over a cooking
+            cycle, the useful heat delivered is 638W (750W * 85% efficiency). To
+            get that useful heat from a gas hob with 40% efficiency would need
+            1595W (638W / 0.4). Here I've assumed an equivalent power input of
+            1600W.
+          </p>
+
+          <h4>Small fridge</h4>
+          <p>
+            A small-to-medium refrigerator (<a
+              href="https://www.currys.co.uk/products/logik-lul55b23-undercounter-fridge-black-10248942.html"
+              target="_blank"
+              >around 130 litres</a
+            >) typically consumes around 100 kWh per year, which equals
+            approximately 275 Wh per day on average.
+          </p>
+
+          <h4>Fridge-freezer</h4>
+          <p>
+            Standard refrigerator-freezer combinations consume anywhere between
+            200 and 500 kWh per year. Some very efficient models can achieve
+            less than 200 kWh. Here, I have assumed one consumes 300 kWh per
+            year. That is approximately 822 Wh per day.
+          </p>
+
+          <h3>5. Washing and Drying</h3>
+          <h4>Vacuum cleaner (hoover)</h4>
+          <p>
+            Vacuum cleaners typically use 500W to over 1,500W. Popular models in
+            the UK use
+            <a
+              href="https://www.screwfix.com/p/numatic-nsr240-11-620w-9ltr-dry-vacuum-cleaner-230v/284PV"
+              target="_blank"
+              >around 620W</a
+            >
+            or
+            <a
+              href="https://sharkclean.co.uk/product/shark-classic-upright-vacuum-nv602uk-zidNV602UK"
+              target="_blank"
+              >750W</a
+            >. Here, I have assumed a power rating of 750W. Ten minutes of usage
+            would consume 125 Wh.
+          </p>
+
+          <h4>Washing machine</h4>
+          <p>
+            Washing machine energy usage varies a lot depending on load size,
+            cycle type and water temperature. An average load in an efficient,
+            modern machine
+            <a
+              href="https://ohmaticelectrical.co.uk/blog/how-much-electricity-does-a-washing-machine-use/"
+              target="_blank"
+              >might use</a
+            >
+            600 Wh to 1,000 Wh per cycle. A large load could be use than 1,500
+            Wh. Here I have assumed 800 Wh, which is typical for a medium load.
+          </p>
+
+          <h4>Tumble dryer</h4>
+          <p>
+            Electric tumble dryers are among the highest energy consumers in the
+            home. Heat pump models are much more efficient than condenser or
+            vented models. A condenser or vented model
+            <a
+              href="https://www.currys.co.uk/run-tumble-dryer-cost.html"
+              target="_blank"
+              >might consume</a
+            >
+            between 4000 and 5000 Wh per cycle. A heat pump model, around half
+            as much.
+          </p>
+          <p>
+            Here, I have assumed 4500 Wh for condenser or vented cycles, and
+            2000 Wh for a heat pump cycle. Actual energy consumption will depend
+            on factors such as load size and user settings.
+          </p>
+
+          <h4>Dishwasher</h4>
+          <p>
+            Most energy in a dishwasher is used for heating the water. They
+            <a
+              href="https://www.domesticandgeneral.com/blog/dishwasher-tips/how-much-does-it-cost-to-run-a-dishwasher"
+              target="_blank"
+              >typically use</a
+            >
+            between 1,000 and 1,500 Wh per cycle. Very efficient models can use
+            closer to 500 Wh per cycle. Operating on eco modes will also consume
+            less than 1,000 Wh.
+          </p>
+          <p>
+            Here, I have assumed 1,250 Wh per cycle, which is fairly average for
+            most users.
+          </p>
+
+          <h4>Clothes iron</h4>
+          <p>
+            Clothes irons typically have an energy rating between 1500W and
+            3000W. Steam irons are towards the higher end of the range. Here, I
+            have assumed 2500W, which is fairly standard for a steam iron.
+          </p>
+          <p>Using one for 10 minutes would consume 417 Wh of power.</p>
+
+          <h4>Dehumidifier</h4>
+          <p>
+            Dehumidifiers can range from as small as a few 100 watts, up to
+            several thousand for large whole-house units.
+          </p>
+          <p>
+            Here I've assumed a medium, portable one with an energy rating of
+            500W. And a large unit of 1000W.
+          </p>
+          <p>
+            In humid conditions, or if they're being used to dry clothes, they
+            will be running at or close to maximum power draw for a long period
+            of time. In fairly low-humidity conditions, they might cycle on and
+            off after a few hours, meaning their energy use drops to 50% to 70%
+            of the maximum.
+          </p>
+
+          <h3>6. Heating and Cooling</h3>
+          <h4>Hairdryer</h4>
+          <p>
+            Hairdryers typically range from 1,000 to 2,000 watts. I have assumed
+            a power rating of 1,750W. Five minutes of use would consume 146 Wh.
+          </p>
+
+          <h4>Electric shower</h4>
+          <p>
+            Electric showers are high-power appliances, rated between 7,500W to
+            11,500W. Specific models of 7.2 kW, 7.5 kW, 8.5 kW, 9.5 kW, 10.5 kW,
+            and 11.5 kW are typical.
+          </p>
+          <p>
+            I have assumed a 9,500W model here. A 10-minute shower at 9,500
+            watts would consume 1,583 Wh.
+          </p>
+
+          <h4>Electric shower (with a heat pump)</h4>
+          <p>
+            An electric shower with hot water sourced from a heat pump will use
+            less electricity.
+          </p>
+          <p>
+            If we assume a heat pump with a Coefficient of Performance (COP) of
+            3, producing the same heat output would use around 3,000 Wh per
+            hour. Some very efficient models can achieve less than this; often
+            closer to 2,000 Wh.
+          </p>
+
+          <h4>Gas-powered shower</h4>
+          <p>
+            If we take the gas equivalent of an electric shower (rated at 9500W)
+            and assume a boiler efficiency of 90%, we get around 10,500W in
+            energy input equivalents. A 10-minute shower would consume 1,759 Wh.
+          </p>
+
+          <h4>Electric fan</h4>
+          <p>
+            Standard fans
+            <a
+              href="https://www.wayfair.co.uk/home-improvement/sb1/box-fans-portable-fans-c1854776-a3764~477320.html"
+              target="_blank"
+              >typically use</a
+            >
+            30-75 watts, with 50 watts being a reasonable average.
+          </p>
+
+          <h4>Small desk heater</h4>
+          <p>
+            Small portable electric heaters typically range from 400 to 1,000
+            watts. Here I've assumed a wattage of 750W. Using this for one hour
+            would consume 750 Wh.
+          </p>
+
+          <h4>Space heater</h4>
+          <p>
+            A medium space heater typically operates at around 1,500 watts
+            (ranging from 1,000 to as much as 3,000 for large ones). That means
+            using one for an hour would consume 1,500 Wh.
+          </p>
+
+          <h4>Electric heat pump (single room)</h4>
+          <p>
+            Modern air-source heat pumps for single rooms (mini-splits)
+            typically consume 600 to 1000 watts of electricity per hour of
+            heating. This would be converted into around 1,800 to 3,000 Wh of
+            heat.
+          </p>
+          <p>
+            Here we are assuming a Coefficient of Performance (CoP) value of
+            around 3, which means 3 units of heat are generated per unit of
+            electricity input.
+          </p>
+          <p>
+            These calculations are very sensitive to weather conditions,
+            temperature settings, and the insulation of the house. These values
+            might be typical for a moderate climate (such as the UK) in winter.
+            In slightly warmer conditions, energy usage will be lower. In colder
+            conditions, it would be higher.
+          </p>
+          <p>
+            The power draw can also be a bit lower than this once the heat pump
+            is running.
+          </p>
+          <p>
+            Here, I've assumed they consume 800Wh of electricity per hour. That
+            would supply 2,400Wh of heat.
+          </p>
+
+          <h4>Gas heating</h4>
+          <p>
+            We will assume our gas heating needs to supply the same amount of
+            heat as our heat pump: 2,400 Wh.
+          </p>
+          <p>
+            A gas boiler is around 90% efficient, so the energy input needed
+            would be 2,700 Wh (2,400 * 90%).
+          </p>
+          <p>
+            Again, this is very sensitive to the specific boiler system, climate
+            and heating requirements.
+          </p>
+
+          <h4>Electric heat pump (3-bedroom house)</h4>
+          <p>
+            We can't get a whole house figure by simply multiplying by the
+            number of rooms. Energy consumption will depend a lot on the heat
+            loss and fabric of the house.
+          </p>
+          <p>
+            In the UK, a 3-bedroom house has an area of around 90m². A building
+            of this size might have a heat loss of around 50 to 100 W/m². We'll
+            say 75 W/m². That would mean 6,750W of heat is required (90m² * 75
+            W/m²).
+          </p>
+          <p>
+            Getting this from a heat pump with a CoP of 3 would consume 2,250Wh
+            of electricity per hour (6750 / 3). This is what I've assumed in our
+            calculations. In reality, the consumption is probably lower as
+            energy draw reduces once the heat pump is up and running.
+          </p>
+
+          <h4>Gas heating (3-bedroom house)</h4>
+          <p>
+            We'll use the same assumptions as above for a heat pump. We need to
+            supply 6,750W of heat for the house.
+          </p>
+          <p>
+            Getting this from a 90% efficient boiler would consume 7,500Wh of
+            gas per hour.
+          </p>
+          <p>
+            The average household in the UK uses around 31,000Wh of gas per day.
+            That's equivalent to 4–5 hours of heating (a bit less if their daily
+            total includes a gas shower etc.). In winter, these heating hours
+            will likely be higher, and during the summer, close to zero.
+          </p>
+          <p>
+            I think 7,500Wh of gas per hour therefore seems reasonable (but very
+            sensitive to a specific household's circumstances).
+          </p>
+
+          <h4>Air conditioning</h4>
+          <p>
+            Air conditioning units for single rooms typically use 800 to 1,500
+            watts. I've assumed 1,000W in these calculations.
+          </p>
+          <p>
+            The actual energy usage will be very sensitive to climate
+            conditions. Warmer, and especially humid climates make AC units much
+            less efficient. Running one in a moderate, drier climate would use
+            much less.
+          </p>
+          <p>
+            They can also consume less energy once they're up-and-running, so
+            they're not always going at maximum power draw.
+          </p>
+
+          <h3>7. Driving</h3>
+          <h4>Using an e-bike</h4>
+          <p>
+            Electric bicycles typically consume between 10 to 30 watt-hours per
+            mile depending on speed, the cycling conditions, and how high the
+            level of electric assist is. For light assist on flat terrain, it's
+            around 8 to 12 Wh; for moderate, around 12 to 18 Wh; and for heavy
+            assist on hilly terrain it can reach 30 Wh per mile.
+          </p>
+          <p>I've assumed a value of 15 Wh per mile.</p>
+
+          <h4>Using an e-scooter</h4>
+          <p>
+            Electric scooters
+            <a
+              href="https://gyroorboard.com/es/blogs/learn-with-gyroor/how-much-power-does-electric-scooter-use-a-complete-energy-guide"
+              target="_blank"
+              >typically consume</a
+            >
+            15-30 watt-hours per mile depending on the model and conditions.
+            Here, I've assumed a usage of 25 Wh per mile.
+          </p>
+
+          <h4>Driving an electric motorbike</h4>
+          <p>
+            Electric motorbikes typically consume 100 to 250 watt-hours per mile
+            depending on the model, driver weight and conditions.
+            <a href="https://www.mdpi.com/1996-1073/16/17/6369" target="_blank"
+              >Real-world tests</a
+            >
+            of motorbike efficiency find efficiencies of around 100 Wh per mile
+            for moderate urban driving. People
+            <a
+              href="https://www.electricmotorcycleforum.com/boards/index.php?topic=6460.0"
+              target="_blank"
+              >report higher usage</a
+            >
+            when driving at higher speeds or motorway driving.
+          </p>
+          <p>Here I've assumed around 150 Wh per mile.</p>
+
+          <h4>Driving a petrol motorbike</h4>
+          <p>
+            Petrol motorbikes can
+            <a
+              href="https://www.nimblefins.co.uk/average-mpg-motorcycles-uk"
+              target="_blank"
+              >consume between</a
+            >
+            50 and 100 miles per gallon. Let's take an average of 75mpg. A
+            gallon is around 4.5 litres, so 75mpg is equivalent to 0.06 litres
+            per mile.
+          </p>
+          <p>
+            The energy content of petrol
+            <a
+              href="https://www.engineeringtoolbox.com/fuels-higher-calorific-values-d_169.html"
+              target="_blank"
+              >is around</a
+            >
+            32 MJ per litre (or 8.9 kWh per litre). That equates to 0.53 kWh per
+            mile (8.9kWh per litre * 0.06 litres per mile). Driving one mile
+            uses around 530 Wh per mile.
+          </p>
+          <p>
+            In terms of energy inputs, this means an electric motorbike is 3 to
+            4 times as efficient as a petrol one.
+          </p>
+
+          <h4>Driving an electric car</h4>
+          <p>
+            Electric vehicles
+            <a
+              href="https://ev-database.org/cheatsheet/energy-consumption-electric-car"
+              target="_blank"
+              >average approximately</a
+            >
+            0.3 kWh (300 Wh) per mile. However, this can range from 200 to 400
+            Wh per mile depending on the type of vehicle, driving conditions and
+            speed.
+          </p>
+
+          <h4>Driving a petrol car</h4>
+          <p>
+            Petrol cars average around 40 miles per gallon (ranging from around
+            25 to 50).
+          </p>
+          <p>
+            Taking an energy density of ~40 kWh per UK gallon for petrol, there
+            are around 40.5 kWh in a UK gallon (there are 4.546 litres in a
+            gallon * 8.9kWh per litre).
+          </p>
+          <p>
+            This means a petrol car uses around 1kWh (1,000 Wh) per mile. This
+            means an electric car is around 3 to 4 times more efficient, since
+            it has far less energy losses from the engine, heat production, and
+            braking.
+          </p>
+
+          <h3>9. Gardening</h3>
+          <h4>Electric lawnmower</h4>
+          <p>
+            Most corded electric lawnmowers have
+            <a
+              href="https://www.argos.co.uk/browse/garden-and-diy/lawnmowers-and-garden-power-tools/lawnmowers/c:29517/power-type:electric"
+              target="_blank"
+              >an energy rating</a
+            >
+            between 1000W and 2000W. Here I have assumed 1500W.
+          </p>
+
+          <h4>Petrol lawnmower</h4>
+          <p>
+            Petrol lawnmowers are much less efficient than their electric
+            equivalents, as much less input energy is converted into turning the
+            blades.
+          </p>
+          <p>
+            A standard petrol lawnmower uses around 1 litre of petrol an hour
+            (slightly less in more efficient models). Since the energy content
+            of petrol is 8.9kWh per litre, they therefore use 8,000 to 10,000 Wh
+            per hour. Here I have assumed 9,000 Wh.
+          </p>
+
+          <h4>Electric strimmer</h4>
+          <p>
+            Standard power strimmers range from around 250 watts to 700 watts.
+            Smaller models will only be suitable for short grass.
+          </p>
+          <p>Here I've assumed 500 watts.</p>
+
+          <h4>Gas strimmer</h4>
+          <p>Gas power strimmers are less efficient than electric models.</p>
+          <p>
+            Data on this was hard to find, but a standard one probably consumes
+            around 0.4 litres of petrol per hour. Since the energy content of
+            petrol is 8.9kWh per litre, they therefore use around 3,500 Wh per
+            hour in energy equivalents.
+          </p>
+
+          <h4>Pressure washer</h4>
+          <p>
+            Pressure washers typically have a power rating between 1,500 and
+            3,000 watts. For this tool, I've assumed 2,000 watts as standard.
+          </p>
+          <p>
+            Per hour, they will use 2,000 Wh when used continuously. Most people
+            will take breaks and pauses during this time, so you should take
+            that into account. If you break half the time, and use one for an
+            hour, then the energy use is equivalent to half an hour (1,000 Wh).
+          </p>
+        </div>
+
+        <div id="changelog" class="tab-content">
+          <h2>Change log</h2>
+          <p>
+            I appreciate all of the feedback and comments from users. I continue
+            to implement fixes and updates based on these suggestions.
+          </p>
+          <p>Here is a log of changes and improvements.</p>
+
+          <h3>03/03/2026</h3>
+          <ul>
+            <li>
+              Fixed a bug that showed incorrect cost calculations for gas
+              products (e.g. gas oven and shower) for some country selections.
+            </li>
+          </ul>
+
+          <h3>27/02/2026</h3>
+          <ul>
+            <li>
+              Added default pre-selections when the tool initially opens, to
+              give people a sense of differences across products. This means
+              they're not facing a completely blank slate.
+            </li>
+            <li>
+              Improved the visual design of the main chart to make it clearer
+              and less cluttered.
+            </li>
+          </ul>
+
+          <h3>24/02/2026</h3>
+          <ul>
+            <li>
+              For users with slower connections, the product list would load
+              slowly and if they searched for products earlier, no options would
+              appear. This has been fixed.
+            </li>
+          </ul>
+
+          <h3>22/02/2026</h3>
+          <ul>
+            <li>
+              Added Dehumidifer, Power Strimmers, Power Washer, and Electric
+              shower (with heat pump) as new selection options.
+            </li>
+            <li>
+              Updated figures for Streaming Netflix and YouTube. The previous
+              figure of 18 – 20 Wh per hour did not accurately reflect the
+              marginal increase in electricity use for streaming. This figure is
+              significantly lower.
+            </li>
+          </ul>
+
+          <h3>19/02/2026</h3>
+          <ul>
+            <li>
+              Updated figures for "MacBook Pro". Previous figures assumed a
+              power draw of 70 watts, which is how much is used during intensive
+              tasks such as photo or video editing, or gaming. For everyday
+              tasks such as email, browsing and watching video, it's closer to
+              20 watts.
+            </li>
+            <li>
+              Updated figures for "Using an e-bike". Previous figures assumed a
+              usage of 25 watt-hours per mile. This is more reflective of heavy
+              assistance on fairly hilly terrain. Moderate assist is closer to
+              15 watt-hours (which is the figure I now use).
+            </li>
+          </ul>
+
+          <h3>17/02/2026</h3>
+          <ul>
+            <li>
+              Added clearer units for mobile phone charging and fridge-freezers
+              (per day)
+            </li>
+            <li>
+              Updated figures for "Electric oven" and "Gas oven". Previous
+              figures assumed a maximum power draw when it's on. Ovens tend to
+              cycle on and off once they're at the desired temperature. I have
+              therefore applied a 0.55 factor (50-60%) to account for this
+            </li>
+            <li>
+              Added notes to emphasise that the appropriate time period for
+              comparison is one day
+            </li>
+            <li>
+              Added the option to switch between kilometres and miles for
+              cycling and driving
+            </li>
+          </ul>
+
+          <h3>16/02/2026</h3>
+          <ul>
+            <li>
+              Fixed checkbox selection; this was not working on some
+              browsers/devices
+            </li>
+            <li>Improved dimensions and labelling on mobile devices</li>
+            <li>
+              Limited selection to 12 products at a time (more than this becomes
+              unfeasible for visualisation)
+            </li>
+            <li>Added "Clear all selections" button at the top</li>
+            <li>
+              On mobile, the chart now appears at the top (above the checklist)
+              for easier access
+            </li>
+            <li>
+              The URL of the chart now updates based on the user selection. This
+              means a specific configuration can be shared with others. Copy the
+              URL from the browser bar, or use the "Share" button in the
+              bottom-right
+            </li>
+            <li>
+              An image of the chart can now be downloaded. Use the "Share"
+              button in the bottom-right
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      Chart.defaults.font.family =
+        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+      let products = [];
+      let chart = null;
+
+      async function loadProducts() {
+        const response = await fetch("products_data.json");
+        products = await response.json();
+        renderProductsList();
+        loadFromURL();
+        // Re-apply any search term typed before products finished loading
+        if (document.getElementById("searchInput").value) filterProducts();
+      }
+
+      function makeSlug(name) {
+        return name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function updateURL() {
+        const selectedConfigs = [];
+        products.forEach((product, index) => {
+          if (!isCategory(product)) {
+            const checkbox = document.getElementById(`check-${index}`);
+            if (checkbox && checkbox.checked) {
+              // Use URL-friendly slug of product name
+              let config = makeSlug(product.name);
+
+              // Add input values based on input type
+              if (product.input_type === "hours") {
+                const input1 = document.getElementById(`input1-${index}`);
+                const input2 = document.getElementById(`input2-${index}`);
+                const hours = input1 ? input1.value : 0;
+                const minutes = input2 ? input2.value : 0;
+                config += `:${hours}:${minutes}`;
+              } else if (product.input_type && product.input_type !== "fixed") {
+                // For cycles, boils, queries, miles, etc.
+                const input1 = document.getElementById(`input1-${index}`);
+                const value = input1
+                  ? input1.value
+                  : product.default_value || 1;
+                config += `:${value}`;
+              }
+
+              selectedConfigs.push(config);
+            }
+          }
+        });
+
+        const url = new URL(window.location);
+        if (selectedConfigs.length > 0) {
+          url.searchParams.set("c", selectedConfigs.join(","));
+        } else {
+          url.searchParams.delete("c");
+        }
+
+        // Save distance unit preference
+        const distanceUnit = getDistanceUnit();
+        if (distanceUnit === "km") {
+          url.searchParams.set("unit", "km");
+        } else {
+          url.searchParams.delete("unit");
+        }
+
+        window.history.replaceState({}, "", url);
+      }
+
+      const DEFAULT_CONFIG =
+        "lightbulb-led:1:0,boiling-a-kettle:1,washing-machine:1,air-conditioning-single-room:1:0,gas-oven:0:30,electric-shower:0:10,gas-heating-single-room:1:0,driving-an-electric-car:10,driving-a-petrol-car:10";
+
+      function loadFromURL() {
+        const url = new URL(window.location);
+        const configParam = url.searchParams.get("c") || DEFAULT_CONFIG;
+        const unitParam = url.searchParams.get("unit");
+
+        // Restore distance unit preference
+        if (unitParam === "km") {
+          const kmRadio = document.querySelector(
+            'input[name="distanceUnit"][value="km"]',
+          );
+          if (kmRadio) kmRadio.checked = true;
+        }
+
+        if (configParam) {
+          const configs = configParam.split(",");
+
+          configs.forEach((configStr) => {
+            const parts = configStr.split(":");
+            const slug = parts[0];
+
+            // Find product by matching slug
+            products.forEach((product, index) => {
+              if (!isCategory(product) && makeSlug(product.name) === slug) {
+                const checkbox = document.getElementById(`check-${index}`);
+                const productDiv = document.getElementById(`product-${index}`);
+
+                if (checkbox && productDiv) {
+                  checkbox.checked = true;
+                  productDiv.classList.add("selected");
+
+                  // Restore input values
+                  if (parts.length > 1) {
+                    if (product.input_type === "hours" && parts.length >= 3) {
+                      const input1 = document.getElementById(`input1-${index}`);
+                      const input2 = document.getElementById(`input2-${index}`);
+                      if (input1) input1.value = parts[1];
+                      if (input2) input2.value = parts[2];
+                    } else if (
+                      product.input_type &&
+                      product.input_type !== "fixed"
+                    ) {
+                      const input1 = document.getElementById(`input1-${index}`);
+                      if (input1) input1.value = parts[1];
+                    }
+                  }
+                }
+              }
+            });
+          });
+
+          // After loading all products, handle streaming dependencies
+          products.forEach((product, index) => {
+            if (
+              product.name === "Streaming Netflix" ||
+              product.name === "Streaming YouTube"
+            ) {
+              const checkbox = document.getElementById(`check-${index}`);
+              if (checkbox && checkbox.checked) {
+                handleStreamingDependencies(index, true);
+              }
+            }
+          });
+
+          updateChart();
+        }
+      }
+
+      function isCategory(product) {
+        return product.wattage === null && product.fixed_wh === null;
+      }
+
+      function getDistanceUnit() {
+        const radios = document.getElementsByName("distanceUnit");
+        for (const radio of radios) {
+          if (radio.checked) {
+            return radio.value;
+          }
+        }
+        return "miles"; // default
+      }
+
+      function handleUnitChange() {
+        // Re-render the products list to update labels
+        renderProductsList();
+        // Update chart and URL
+        updateChart();
+        updateURL();
+      }
+
+      function renderProductsList() {
+        const container = document.getElementById("productsList");
+
+        // Save current checked states and input values before re-rendering
+        const savedStates = {};
+        products.forEach((product, index) => {
+          if (!isCategory(product)) {
+            const checkbox = document.getElementById(`check-${index}`);
+            const input1 = document.getElementById(`input1-${index}`);
+            const input2 = document.getElementById(`input2-${index}`);
+            savedStates[index] = {
+              checked: checkbox ? checkbox.checked : false,
+              selected: checkbox
+                ? document
+                    .getElementById(`product-${index}`)
+                    ?.classList.contains("selected")
+                : false,
+              input1Value: input1 ? input1.value : null,
+              input2Value: input2 ? input2.value : null,
+            };
+          }
+        });
+
+        container.innerHTML = products
+          .map((product, index) => {
+            // Check if this is a category header
+            if (isCategory(product)) {
+              let categoryHTML = `
+                        <div class="category-header" id="product-${index}">
+                            ${product.name}
+                        </div>
+                    `;
+
+              // Add unit selector after "Driving" category
+              if (product.name === "Driving") {
+                const currentUnit = getDistanceUnit();
+                categoryHTML += `
+                            <div class="unit-selector">
+                                <label>Distance unit:</label>
+                                <label class="radio-label">
+                                    <input type="radio" name="distanceUnit" value="miles" ${currentUnit === "miles" ? "checked" : ""} onchange="handleUnitChange()">
+                                    Miles
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="distanceUnit" value="km" ${currentUnit === "km" ? "checked" : ""} onchange="handleUnitChange()">
+                                    Kilometres
+                                </label>
+                            </div>
+                        `;
+              }
+
+              return categoryHTML;
+            }
+
+            // Regular product item
+            return `
+                    <div class="product-item ${savedStates[index]?.selected ? "selected" : ""}" id="product-${index}">
+                        <div class="product-header" onclick="toggleProduct(${index})">
+                            <input type="checkbox" id="check-${index}" ${savedStates[index]?.checked ? "checked" : ""} onchange="handleCheckboxChange(${index})" onclick="event.stopPropagation()">
+                            <span class="product-name">${product.name}</span>
+                        </div>
+                        <div class="custom-inputs">
+                            ${renderInputs(product, index)}
+                        </div>
+                    </div>
+                `;
+          })
+          .join("");
+
+        // Restore input values after re-rendering
+        products.forEach((product, index) => {
+          if (!isCategory(product) && savedStates[index]) {
+            const input1 = document.getElementById(`input1-${index}`);
+            const input2 = document.getElementById(`input2-${index}`);
+            if (input1 && savedStates[index].input1Value !== null) {
+              input1.value = savedStates[index].input1Value;
+            }
+            if (input2 && savedStates[index].input2Value !== null) {
+              input2.value = savedStates[index].input2Value;
+            }
+          }
+        });
+      }
+
+      let filterTimeout;
+      function filterProducts() {
+        // Debounce to prevent excessive filtering on every keystroke
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+          const searchTerm = document
+            .getElementById("searchInput")
+            .value.toLowerCase();
+          let lastCategoryIndex = -1;
+          let categoryHasVisibleItems = false;
+
+          products.forEach((product, index) => {
+            const productDiv = document.getElementById(`product-${index}`);
+            if (!productDiv) return; // Safety check
+
+            if (isCategory(product)) {
+              // Hide previous category if it had no visible items
+              if (lastCategoryIndex >= 0 && !categoryHasVisibleItems) {
+                const lastCategoryDiv = document.getElementById(
+                  `product-${lastCategoryIndex}`,
+                );
+                if (lastCategoryDiv) lastCategoryDiv.style.display = "none";
+              }
+
+              // Start tracking new category
+              lastCategoryIndex = index;
+              categoryHasVisibleItems = false;
+              productDiv.style.display = "block"; // Will hide later if no items match
+            } else {
+              // Regular product
+              if (product.name.toLowerCase().includes(searchTerm)) {
+                productDiv.style.display = "block";
+                categoryHasVisibleItems = true;
+              } else {
+                productDiv.style.display = "none";
+              }
+            }
+          });
+
+          // Handle the last category
+          if (lastCategoryIndex >= 0 && !categoryHasVisibleItems) {
+            const lastCategoryDiv = document.getElementById(
+              `product-${lastCategoryIndex}`,
+            );
+            if (lastCategoryDiv) lastCategoryDiv.style.display = "none";
+          }
+        }, 150); // 150ms delay to reduce excessive calls
+      }
+
+      function renderInputs(product, index) {
+        switch (product.input_type) {
+          case "hours":
+            const defaultHours = Math.floor(product.default_value);
+            const defaultMinutes = Math.round((product.default_value % 1) * 60);
+            return `
+                        <div class="input-row">
+                            <div class="input-group">
+                                <input type="number" id="input1-${index}" min="0" max="24" value="${defaultHours}" onchange="updateChart(); updateURL()">
+                                <label>hours</label>
+                            </div>
+                            <div class="input-group">
+                                <input type="number" id="input2-${index}" min="0" max="59" value="${defaultMinutes}" onchange="updateChart(); updateURL()">
+                                <label>minutes</label>
+                            </div>
+                        </div>
+                    `;
+
+          case "cycles":
+            return `
+                        <div class="input-row">
+                            <div class="input-group">
+                                <input type="number" id="input1-${index}" min="1" value="1" onchange="updateChart(); updateURL()">
+                                <label>cycles</label>
+                            </div>
+                        </div>
+                    `;
+
+          case "boils":
+            return `
+                        <div class="input-row">
+                            <div class="input-group">
+                                <input type="number" id="input1-${index}" min="1" value="1" onchange="updateChart(); updateURL()">
+                                <label>full boils</label>
+                            </div>
+                        </div>
+                    `;
+
+          case "queries":
+            return `
+                        <div class="input-row">
+                            <div class="input-group">
+                                <input type="number" id="input1-${index}" min="1" value="1" onchange="updateChart(); updateURL()">
+                                <label>queries</label>
+                            </div>
+                        </div>
+                    `;
+
+          case "miles":
+            const distanceUnit = getDistanceUnit();
+            const unitLabel = distanceUnit === "km" ? "km" : "miles";
+            return `
+                        <div class="input-row">
+                            <div class="input-group">
+                                <input type="number" id="input1-${index}" min="1" value="10" onchange="updateChart(); updateURL()">
+                                <label>${unitLabel}</label>
+                            </div>
+                        </div>
+                    `;
+
+          case "fixed":
+            const label = product.label ? ` ${product.label}` : "";
+            return `<div class="fixed-value">${product.fixed_wh.toFixed(1)} Wh${label}</div>`;
+
+          default:
+            return "";
+        }
+      }
+
+      const MAX_SELECTIONS = 12;
+
+      function getSelectedCount() {
+        let count = 0;
+        products.forEach((product, index) => {
+          if (!isCategory(product)) {
+            const checkbox = document.getElementById(`check-${index}`);
+            if (checkbox && checkbox.checked) {
+              count++;
+            }
+          }
+        });
+        return count;
+      }
+
+      function handleStreamingDependencies(index, isChecked) {
+        // Auto-select WiFi when streaming services are selected
+        const productName = products[index].name;
+        if (
+          (productName === "Streaming Netflix" ||
+            productName === "Streaming YouTube") &&
+          isChecked
+        ) {
+          const wifiIndex = products.findIndex(
+            (p) => p.name === "Home internet (WiFi)",
+          );
+          if (wifiIndex !== -1) {
+            const wifiCheckbox = document.getElementById(`check-${wifiIndex}`);
+            const wifiDiv = document.getElementById(`product-${wifiIndex}`);
+            if (wifiCheckbox && !wifiCheckbox.checked) {
+              wifiCheckbox.checked = true;
+              if (wifiDiv) {
+                wifiDiv.classList.add("selected");
+              }
+            }
+          }
+        }
+      }
+
+      function handleCheckboxChange(index) {
+        try {
+          // Handle direct checkbox clicks - checkbox state already changed by browser
+          const checkbox = document.getElementById(`check-${index}`);
+          const productDiv = document.getElementById(`product-${index}`);
+
+          if (!checkbox || !productDiv) {
+            console.error("Elements not found for index:", index);
+            return;
+          }
+
+          // Check if trying to select more than limit
+          if (checkbox.checked && getSelectedCount() > MAX_SELECTIONS) {
+            checkbox.checked = false;
+            alert(
+              `You can select a maximum of ${MAX_SELECTIONS} products to keep the chart readable.`,
+            );
+            return;
+          }
+
+          if (checkbox.checked) {
+            productDiv.classList.add("selected");
+          } else {
+            productDiv.classList.remove("selected");
+          }
+
+          // Handle streaming dependencies
+          handleStreamingDependencies(index, checkbox.checked);
+
+          updateChart();
+          updateURL();
+        } catch (error) {
+          console.error(
+            "Error in handleCheckboxChange:",
+            error,
+            "Index:",
+            index,
+          );
+        }
+      }
+
+      function toggleProduct(index) {
+        try {
+          // Skip if this is a category header
+          if (isCategory(products[index])) {
+            return;
+          }
+
+          const checkbox = document.getElementById(`check-${index}`);
+          const productDiv = document.getElementById(`product-${index}`);
+
+          if (!checkbox || !productDiv) {
+            console.error("Elements not found for index:", index);
+            return;
+          }
+
+          // Check if trying to select more than limit
+          if (!checkbox.checked && getSelectedCount() >= MAX_SELECTIONS) {
+            alert(
+              `You can select a maximum of ${MAX_SELECTIONS} products to keep the chart readable.`,
+            );
+            return;
+          }
+
+          checkbox.checked = !checkbox.checked;
+
+          if (checkbox.checked) {
+            productDiv.classList.add("selected");
+          } else {
+            productDiv.classList.remove("selected");
+          }
+
+          // Handle streaming dependencies
+          handleStreamingDependencies(index, checkbox.checked);
+
+          updateChart();
+        } catch (error) {
+          console.error("Error in toggleProduct:", error, "Index:", index);
+        }
+      }
+
+      function calculateEnergy(product, index) {
+        try {
+          switch (product.input_type) {
+            case "hours":
+              const input1 = document.getElementById(`input1-${index}`);
+              const input2 = document.getElementById(`input2-${index}`);
+              const hours = input1 ? parseFloat(input1.value) || 0 : 0;
+              const minutes = input2 ? parseFloat(input2.value) || 0 : 0;
+              const totalHours = hours + minutes / 60;
+              // Use fixed_wh/default_value as effective wattage to preserve cycling factors
+              if (product.fixed_wh != null && product.default_value) {
+                return (product.fixed_wh / product.default_value) * totalHours;
+              }
+              return product.wattage * totalHours;
+
+            case "cycles":
+              const cyclesInput = document.getElementById(`input1-${index}`);
+              const cycles = cyclesInput
+                ? parseFloat(cyclesInput.value) || 1
+                : 1;
+              return product.fixed_wh * cycles;
+
+            case "boils":
+              const boilsInput = document.getElementById(`input1-${index}`);
+              const boils = boilsInput ? parseFloat(boilsInput.value) || 1 : 1;
+              return product.fixed_wh * boils;
+
+            case "queries":
+              const queriesInput = document.getElementById(`input1-${index}`);
+              const queries = queriesInput
+                ? parseFloat(queriesInput.value) || 1
+                : 1;
+              return product.fixed_wh * queries;
+
+            case "miles":
+              const distanceInput = document.getElementById(`input1-${index}`);
+              const distance = distanceInput
+                ? parseFloat(distanceInput.value) || 10
+                : 10;
+              const distanceUnit = getDistanceUnit();
+              // If km is selected, convert: 1 mile = 1.60934 km
+              // So Wh per km = Wh per mile / 1.60934
+              const whPerUnit =
+                distanceUnit === "km"
+                  ? product.wattage / 1.60934
+                  : product.wattage;
+              return whPerUnit * distance;
+
+            case "fixed":
+              return product.fixed_wh;
+
+            default:
+              return 0;
+          }
+        } catch (error) {
+          console.error(
+            "Error in calculateEnergy:",
+            error,
+            "Product:",
+            product.name,
+            "Index:",
+            index,
+          );
+          return 0;
+        }
+      }
+
+      function getInputDescription(product, index) {
+        switch (product.input_type) {
+          case "hours":
+            const hours =
+              parseFloat(document.getElementById(`input1-${index}`).value) || 0;
+            const minutes =
+              parseFloat(document.getElementById(`input2-${index}`).value) || 0;
+            if (minutes === 0) {
+              return `${hours} hour${hours !== 1 ? "s" : ""} of use`;
+            } else if (hours === 0) {
+              return `${minutes} minute${minutes !== 1 ? "s" : ""} of use`;
+            } else {
+              return `${hours}h ${minutes}m of use`;
+            }
+
+          case "cycles":
+            const cycles =
+              parseFloat(document.getElementById(`input1-${index}`).value) || 1;
+            return `${cycles} cycle${cycles !== 1 ? "s" : ""}`;
+
+          case "boils":
+            const boils =
+              parseFloat(document.getElementById(`input1-${index}`).value) || 1;
+            return `${boils} boil${boils !== 1 ? "s" : ""}`;
+
+          case "queries":
+            const queries =
+              parseFloat(document.getElementById(`input1-${index}`).value) || 1;
+            return `${queries} ${queries !== 1 ? "queries" : "query"}`;
+
+          case "miles":
+            const distance =
+              parseFloat(document.getElementById(`input1-${index}`).value) ||
+              10;
+            const unit = getDistanceUnit();
+            if (unit === "km") {
+              return `${distance} km`;
+            } else {
+              return `${distance} mile${distance !== 1 ? "s" : ""}`;
+            }
+
+          case "fixed":
+            return "Per day";
+
+          default:
+            return "";
+        }
+      }
+
+      function formatWh(value) {
+        if (value < 1) {
+          return value.toFixed(1);
+        } else {
+          return Math.round(value).toLocaleString();
+        }
+      }
+
+      // Energy prices by country (household/domestic prices per kWh)
+      // Source: "Prices" sheet in Energy use of products.xlsx
+      // Petrol converted from per-litre using 8.9 kWh/litre (LHV, consistent with energy figures)
+      // Note: UK gas entered as 5.93p/kWh, converted to £0.0593/kWh
+      const countryPrices = {
+        UK: {
+          electricity: 0.2769,
+          gas: 0.0593, // 5.93p/kWh ÷ 100
+          petrol: 0.1506, // £1.34/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.34,
+          currency: "£",
+          name: "United Kingdom",
+        },
+        USA: {
+          electricity: 0.17,
+          gas: 0.047,
+          petrol: 0.0966, // $0.86/L ÷ 8.9 kWh/L
+          petrolPerLitre: 0.86,
+          currency: "$",
+          name: "United States",
+        },
+        Germany: {
+          electricity: 0.3835,
+          gas: 0.1216,
+          petrol: 0.1966, // €1.75/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.75,
+          currency: "€",
+          name: "Germany",
+        },
+        France: {
+          electricity: 0.2664,
+          gas: 0.1298,
+          petrol: 0.1902, // €1.693/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.69,
+          currency: "€",
+          name: "France",
+        },
+        Sweden: {
+          electricity: 0.2654,
+          gas: 0.2128,
+          petrol: 0.1638, // €1.458/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.46,
+          currency: "€",
+          name: "Sweden",
+        },
+        Spain: {
+          electricity: 0.2608,
+          gas: 0.0859,
+          petrol: 0.1643, // €1.462/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.46,
+          currency: "€",
+          name: "Spain",
+        },
+        Norway: {
+          electricity: 0.1986,
+          gas: 0.012,
+          petrol: 0.2131, // €1.897/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.9,
+          currency: "€",
+          name: "Norway",
+        },
+        Netherlands: {
+          electricity: 0.2342,
+          gas: 0.1617,
+          petrol: 0.2276, // €2.026/L ÷ 8.9 kWh/L
+          petrolPerLitre: 2.03,
+          currency: "€",
+          name: "Netherlands",
+        },
+        Turkey: {
+          electricity: 0.0617,
+          gas: 0.0209,
+          petrol: 0.1238, // €1.102/L ÷ 8.9 kWh/L
+          petrolPerLitre: 1.1,
+          currency: "€",
+          name: "Türkiye",
+        },
+      };
+
+      function getViewMode() {
+        const activeTab = document.querySelector(".view-tab.active");
+        return activeTab ? activeTab.dataset.view : "energy";
+      }
+
+      function switchViewMode(mode) {
+        document.querySelectorAll(".view-tab").forEach((tab) => {
+          tab.classList.toggle("active", tab.dataset.view === mode);
+        });
+        const countrySelector = document.getElementById("countrySelector");
+        if (countrySelector) {
+          countrySelector.style.display = mode === "cost" ? "block" : "none";
+        }
+        const titleEl = document.getElementById("chartTitle");
+        const subtitleEl = document.getElementById("chartSubtitle");
+        if (mode === "cost") {
+          const countryName = countryPrices[getSelectedCountry()].name;
+          titleEl.textContent = `Estimated energy cost in ${countryName}`;
+          subtitleEl.textContent = "";
+        } else {
+          titleEl.textContent = "Energy consumption";
+          subtitleEl.textContent = "Estimates measured in watt-hours (Wh).";
+        }
+        updateChart();
+        updateURL();
+      }
+
+      function getSelectedCountry() {
+        const selector = document.getElementById("countrySelect");
+        return selector ? selector.value : "UK";
+      }
+
+      function getCountryPrices() {
+        return countryPrices[getSelectedCountry()] || countryPrices["UK"];
+      }
+
+      function handleCountryChange() {
+        const titleEl = document.getElementById("chartTitle");
+        const countryName = countryPrices[getSelectedCountry()].name;
+        titleEl.textContent = `Estimated energy cost in ${countryName}`;
+        updateChart();
+        updateFooterNotes();
+        updateURL();
+      }
+
+      function convertWhToCost(wh, fuel) {
+        const prices = getCountryPrices();
+        let pricePerKwh;
+        if (fuel === "Gas") {
+          pricePerKwh = prices.gas;
+        } else if (fuel === "Petrol") {
+          pricePerKwh = prices.petrol;
+        } else {
+          pricePerKwh = prices.electricity;
+        }
+        return wh * (pricePerKwh / 1000);
+      }
+
+      function updateChart() {
+        const selectedData = [];
+
+        products.forEach((product, index) => {
+          // Skip category headers
+          if (isCategory(product)) {
+            return;
+          }
+
+          const checkbox = document.getElementById(`check-${index}`);
+          if (checkbox && checkbox.checked) {
+            const energy = calculateEnergy(product, index);
+            const description = getInputDescription(product, index);
+            selectedData.push({
+              name: product.name,
+              energy: energy,
+              description: description,
+              fuel: product.fuel || "Electricity",
+            });
+          }
+        });
+
+        const viewMode = getViewMode();
+        const currency = getCountryPrices().currency;
+
+        // Compute display values (cost or energy) then sort by them highest to lowest
+        selectedData.forEach((d) => {
+          d.displayValue =
+            viewMode === "cost" ? convertWhToCost(d.energy, d.fuel) : d.energy;
+        });
+        selectedData.sort((a, b) => b.displayValue - a.displayValue);
+
+        // Extract sorted arrays
+        const selectedProducts = selectedData.map((d) => d.name);
+        const energyValues = selectedData.map((d) => d.energy);
+        const fuelTypes = selectedData.map((d) => d.fuel);
+        const displayValues = selectedData.map((d) => d.displayValue);
+        const barColor =
+          viewMode === "cost"
+            ? "rgba(100, 143, 188, 0.85)"
+            : "rgba(185, 72, 68, 0.82)";
+        const descriptions = selectedData.map((d) => d.description);
+
+        const noDataDiv = document.getElementById("noData");
+
+        if (selectedProducts.length === 0) {
+          noDataDiv.style.display = "flex";
+          if (chart) {
+            chart.destroy();
+            chart = null;
+          }
+          return;
+        }
+
+        noDataDiv.style.display = "none";
+
+        const ctx = document.getElementById("energyChart").getContext("2d");
+
+        if (chart) {
+          chart.destroy();
+        }
+
+        // Detect mobile for responsive padding
+        const isMobile = window.innerWidth <= 768;
+        const leftPadding = isMobile ? 5 : 20;
+        const rightPadding = isMobile ? 80 : 150;
+
+        // Scale chart height to number of items so bars always look proportional
+        const maxChartHeight = isMobile ? 500 : 550;
+        const dynamicHeight = Math.min(
+          maxChartHeight,
+          Math.max(220, selectedProducts.length * 65),
+        );
+        document.querySelector(".chart-container").style.height =
+          dynamicHeight + "px";
+
+        chart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: selectedProducts,
+            datasets: [
+              {
+                label:
+                  viewMode === "cost"
+                    ? `Cost (${currency})`
+                    : "Energy Use (Wh)",
+                data: displayValues,
+                backgroundColor: barColor,
+                borderWidth: 0,
+                borderRadius: 2,
+                barPercentage: 0.65,
+                categoryPercentage: 1.0,
+                maxBarThickness: 60,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+              padding: {
+                left: leftPadding,
+                right: rightPadding,
+              },
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const desc = descriptions[context.dataIndex];
+                    if (viewMode === "cost") {
+                      return `${currency}${context.parsed.x.toFixed(2)} (${desc})`;
+                    }
+                    return `${formatWh(context.parsed.x)} Wh (${desc})`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: { display: false },
+                ticks: { display: false },
+                grid: { display: false },
+              },
+              y: {
+                ticks: {
+                  autoSkip: false,
+                  font: {
+                    size: isMobile ? 9 : 12,
+                  },
+                  padding: isMobile ? 3 : 5,
+                  mirror: false,
+                  color: "rgba(0,0,0,0)",
+                },
+                grid: {
+                  display: false,
+                },
+                afterFit: function (scale) {
+                  // Increase y-axis width on mobile to prevent label cutoff
+                  if (isMobile) {
+                    scale.width = 180;
+                  }
+                },
+              },
+            },
+          },
+          plugins: [
+            {
+              id: "barLabels",
+              afterDatasetsDraw: function (chart) {
+                const ctx = chart.ctx;
+                const yScale = chart.scales.y;
+                const xScale = chart.scales.x;
+
+                chart.data.datasets.forEach((dataset, i) => {
+                  const meta = chart.getDatasetMeta(i);
+                  meta.data.forEach((bar, index) => {
+                    const data = dataset.data[index];
+                    const desc = descriptions[index];
+
+                    // Value at the end of the bar (right side)
+                    ctx.fillStyle = "#6b7280";
+                    ctx.font = isMobile
+                      ? "10px 'Inter', sans-serif"
+                      : "11px 'Inter', sans-serif";
+                    ctx.textAlign = "left";
+                    ctx.textBaseline = "middle";
+                    const xPosEnd = bar.x + 10;
+                    const yPos = bar.y;
+                    const label =
+                      viewMode === "cost"
+                        ? `${currency}${data.toFixed(2)}`
+                        : `${formatWh(data)} Wh`;
+                    ctx.fillText(label, xPosEnd, yPos);
+
+                    // Both product name and description drawn manually at same x — guarantees alignment
+                    const xLabel = xScale.left - 5;
+
+                    // Product name (above centre)
+                    ctx.fillStyle = "#374151";
+                    ctx.font = isMobile
+                      ? "9px 'Inter', sans-serif"
+                      : "500 12px 'Inter', sans-serif";
+                    ctx.textAlign = "right";
+                    ctx.textBaseline = "bottom";
+                    ctx.fillText(selectedProducts[index], xLabel, bar.y - 1);
+
+                    // Usage description (below centre)
+                    ctx.fillStyle = "#6b7280";
+                    ctx.font = isMobile
+                      ? "italic 8px 'Inter', sans-serif"
+                      : "italic 10px 'Inter', sans-serif";
+                    ctx.textAlign = "right";
+                    ctx.textBaseline = "top";
+                    ctx.fillText(desc, xLabel, bar.y + 3);
+                  });
+                });
+              },
+            },
+          ],
+        });
+
+        // Update footer notes
+        updateFooterNotes();
+      }
+
+      function updateFooterNotes() {
+        const footerNotesDiv = document.getElementById("footerNotes");
+        if (!footerNotesDiv) return;
+
+        const notes = [];
+
+        if (getViewMode() === "cost") {
+          const prices = getCountryPrices();
+          const c = prices.currency;
+          notes.push(
+            `Note: Assumes ${c}${prices.electricity.toFixed(2)} for electricity, ${c}${prices.gas.toFixed(2)} for gas, and ${c}${prices.petrolPerLitre.toFixed(2)} for petrol per litre.`,
+          );
+        }
+
+        products.forEach((product, index) => {
+          if (isCategory(product)) {
+            return;
+          }
+
+          const checkbox = document.getElementById(`check-${index}`);
+          if (checkbox && checkbox.checked && product.footer_note) {
+            notes.push(product.footer_note);
+          }
+        });
+
+        // Remove duplicates
+        const uniqueNotes = [...new Set(notes)];
+
+        if (uniqueNotes.length === 0) {
+          footerNotesDiv.innerHTML = "";
+          footerNotesDiv.style.display = "none";
+        } else {
+          footerNotesDiv.innerHTML = uniqueNotes
+            .map((note) => `<p>${note}</p>`)
+            .join("");
+          footerNotesDiv.style.display = "block";
+        }
+      }
+
+      function getColor(index) {
+        const colors = [
+          "rgba(31, 119, 180, 1)", // Royal blue
+          "rgba(255, 127, 14, 1)", // Orange
+          "rgba(44, 160, 44, 1)", // Green
+          "rgba(214, 39, 40, 1)", // Red
+          "rgba(148, 103, 189, 1)", // Purple
+          "rgba(140, 86, 75, 1)", // Brown
+          "rgba(227, 119, 194, 1)", // Pink
+          "rgba(127, 127, 127, 1)", // Gray
+          "rgba(188, 189, 34, 1)", // Yellow-green
+          "rgba(23, 190, 207, 1)", // Cyan
+        ];
+        return colors[index % colors.length];
+      }
+
+      function clearAll() {
+        products.forEach((product, index) => {
+          // Skip category headers
+          if (isCategory(product)) {
+            return;
+          }
+
+          const checkbox = document.getElementById(`check-${index}`);
+          const productDiv = document.getElementById(`product-${index}`);
+          if (checkbox) {
+            checkbox.checked = false;
+            productDiv.classList.remove("selected");
+          }
+        });
+        updateChart();
+        updateURL();
+      }
+
+      function downloadChart() {
+        if (!chart) return;
+
+        // Get the chart canvas
+        const chartCanvas = document.getElementById("energyChart");
+
+        // Use 2x scale for higher resolution
+        const scale = 2;
+
+        // Create download canvas with proper dimensions
+        const downloadCanvas = document.createElement("canvas");
+        const ctx = downloadCanvas.getContext("2d");
+
+        // Calculate dimensions based on chart size
+        const padding = 80;
+        const titleHeight = 120;
+        const chartHeight = chartCanvas.height;
+        const chartWidth = chartCanvas.width;
+
+        // Set canvas dimensions with scaling for higher resolution
+        downloadCanvas.width = (chartWidth + padding) * scale;
+        downloadCanvas.height = (chartHeight + titleHeight + padding) * scale;
+
+        // Scale the context for crisp rendering
+        ctx.scale(scale, scale);
+
+        // Enable image smoothing for better quality
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
+        // Fill white background
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, downloadCanvas.width, downloadCanvas.height);
+
+        // Draw title with larger font
+        ctx.fillStyle = "#2E5F8A";
+        ctx.font =
+          'bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText("Energy consumption", 40, 60);
+
+        // Draw subtitle with larger font
+        ctx.fillStyle = "#6b7280";
+        ctx.font =
+          '22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText("Estimates measured in watt-hours (Wh)", 40, 95);
+
+        // Draw the chart canvas
+        ctx.drawImage(chartCanvas, 40, titleHeight);
+
+        // Download the canvas as PNG with high quality
+        downloadCanvas.toBlob(
+          (blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.download = "energy-consumption-chart.png";
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            // Close the share menu
+            document.getElementById("shareMenu")?.classList.remove("show");
+          },
+          "image/png",
+          1.0,
+        );
+      }
+
+      function switchTab(tabName) {
+        // Hide all tab contents
+        const tabContents = document.querySelectorAll(".tab-content");
+        tabContents.forEach((content) => {
+          content.classList.remove("active");
+        });
+
+        // Remove active state from all buttons
+        const tabButtons = document.querySelectorAll(".tab-button");
+        tabButtons.forEach((button) => {
+          button.classList.remove("active");
+        });
+
+        // Show selected tab content
+        document.getElementById(tabName).classList.add("active");
+
+        // Add active state to clicked button
+        event.target.classList.add("active");
+      }
+
+      function toggleShareMenu() {
+        const menu = document.getElementById("shareMenu");
+        menu.classList.toggle("show");
+      }
+
+      function copyURL() {
+        const url = window.location.href;
+        const button = event.target;
+
+        navigator.clipboard
+          .writeText(url)
+          .then(() => {
+            // Show success state
+            const originalText = button.textContent;
+            button.textContent = "✓ Copied!";
+            button.classList.add("success");
+
+            // Close menu and reset after 1.5 seconds
+            setTimeout(() => {
+              button.textContent = originalText;
+              button.classList.remove("success");
+              document.getElementById("shareMenu").classList.remove("show");
+            }, 1500);
+          })
+          .catch((err) => {
+            console.error("Failed to copy URL:", err);
+            alert(
+              "Failed to copy URL. Please copy it manually from the address bar.",
+            );
+          });
+      }
+
+      // Close share menu when clicking outside
+      document.addEventListener("click", function (event) {
+        const shareContainer = document.querySelector(".share-container");
+        const shareMenu = document.getElementById("shareMenu");
+
+        if (shareContainer && !shareContainer.contains(event.target)) {
+          shareMenu?.classList.remove("show");
+        }
+      });
+
+      loadProducts();
+    </script>
+  </body>
+</html>

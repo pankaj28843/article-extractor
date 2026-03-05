@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>
+      Making Firefox's right-click not suck with about:config | Joshua Rogers'
+      Scribbles
+    </title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link
+      rel="preload"
+      href="/assets/fonts/va9c4lja2NVIDdIAAoMR5MfuElaRB0zJt08.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin=""
+    />
+    <link
+      rel="preload"
+      href="/assets/fonts/HI_diYsKILxRpg3hIP6sJ7fM7PqPMcMnZFqUwX28DMyQtMlrTA.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin=""
+    />
+
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin="" />
+    <link rel="stylesheet" href="/assets/css/google-fonts.css" />
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <link
+      rel="stylesheet"
+      href="/assets/css/syntax.css"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
+
+    <!-- Use Atom -->
+    <link
+      type="application/atom+xml"
+      rel="alternate"
+      href="https://joshua.hu/feed.xml"
+      title="Joshua Rogers' Scribbles"
+    />
+    <!-- Use RSS-2.0 -->
+
+    <link
+      href="/rss-feed.xml"
+      type="application/rss+xml"
+      rel="alternate"
+      title="Joshua Rogers' Scribbles | "
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
+    <noscript>
+      <link rel="stylesheet" href="/assets/css/syntax.css" />
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      />
+    </noscript>
+    <meta
+      property="og:image"
+      content="https://joshua.hu/web-app-manifest-192x192.png"
+    />
+    <meta property="og:image:width" content="192" />
+    <meta property="og:image:height" content="192" />
+
+    <meta
+      property="og:image:alt"
+      content="Making Firefox's right-click not suck with about:config | Joshua Rogers' Scribbles"
+    />
+
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
+    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/web-app-manifest-192x192.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="512x512"
+      href="/web-app-manifest-512x512.png"
+    />
+
+    <!--  <script type="text/javascript" async
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML">
+    MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']]
+        }
+      });
+  </script>
+-->
+    <!-- Google Analytics -->
+    <!-- <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+  ga('create', '', 'auto');
+  ga('send', 'pageview');
+</script>
+ -->
+    <!-- Use Jekyll SEO plugin -->
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+    <meta name="generator" content="Jekyll v3.10.0" />
+    <meta
+      property="og:title"
+      content="Making Firefox’s right-click not suck with about:config"
+    />
+    <meta name="author" content="Joshua Rogers" />
+    <meta property="og:locale" content="en_US" />
+    <meta
+      name="description"
+      content="A practical about:config checklist to declutter Firefox right-click menus on macOS, disabling AI/chatbot prompts, link previews, OCR, visual search, and other low-value context menu items."
+    />
+    <meta
+      property="og:description"
+      content="A practical about:config checklist to declutter Firefox right-click menus on macOS, disabling AI/chatbot prompts, link previews, OCR, visual search, and other low-value context menu items."
+    />
+    <link
+      rel="canonical"
+      href="https://joshua.hu/firefox-making-right-click-not-suck"
+    />
+    <meta
+      property="og:url"
+      content="https://joshua.hu/firefox-making-right-click-not-suck"
+    />
+    <meta property="og:site_name" content="Joshua Rogers’ Scribbles" />
+    <meta property="og:type" content="article" />
+    <meta
+      property="article:published_time"
+      content="2026-03-04T00:00:00+00:00"
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta
+      property="twitter:title"
+      content="Making Firefox’s right-click not suck with about:config"
+    />
+    <meta name="twitter:site" content="@MegaManSec" />
+    <meta name="twitter:creator" content="@MegaManSec" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "author": { "@type": "Person", "name": "Joshua Rogers" },
+        "dateModified": "2026-03-04T00:00:00+00:00",
+        "datePublished": "2026-03-04T00:00:00+00:00",
+        "description": "A practical about:config checklist to declutter Firefox right-click menus on macOS, disabling AI/chatbot prompts, link previews, OCR, visual search, and other low-value context menu items.",
+        "headline": "Making Firefox’s right-click not suck with about:config",
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://joshua.hu/firefox-making-right-click-not-suck"
+        },
+        "url": "https://joshua.hu/firefox-making-right-click-not-suck"
+      }
+    </script>
+    <!-- End Jekyll SEO tag -->
+  </head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+        <h3 class="header-title">
+          <a href="https://joshua.hu">Joshua Rogers' Scribbles</a>
+          <small class="header-subtitle"></small>
+        </h3>
+
+        <div class="menu">
+          <nav class="menu-content">
+            <a href="/about">About Me</a>
+
+            <a href="/services">Services</a>
+
+            <a href="/projects">Projects</a>
+
+            <a href="/ideas">Ideas</a>
+
+            <a href="/files/joshua-rogers-security-engineer.pdf"
+              >Curriculum Vitae</a
+            >
+
+            <a href="/contact">Contact</a>
+          </nav>
+          <nav class="social-icons">
+            <a
+              href="https://github.com/MegaManSec"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+            >
+              <i class="fa-brands fa-github" aria-hidden="true"></i>
+            </a>
+
+            <a
+              href="https://x.com/MegaManSec"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="X (Twitter)"
+            >
+              <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
+            </a>
+
+            <a
+              href="https://www.linkedin.com/in/joshua-alexander-rogers/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+            >
+              <i class="fa-brands fa-linkedin" aria-hidden="true"></i>
+            </a>
+
+            <a
+              href="https://news.ycombinator.com/user?id=mmsc"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Hacker News"
+            >
+              <i class="fa-brands fa-hackernews" aria-hidden="true"></i>
+            </a>
+
+            <a href="/feed.xml" aria-label="RSS Feed">
+              <i class="fa fa-rss-square" aria-hidden="true"></i>
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <div class="content-container">
+        <h1 class="post-title">
+          Making Firefox's right-click not suck with about:config
+        </h1>
+
+        <article>
+          <p>
+            On a fresh installation of Firefox on MacOS, right-clicking an image
+            while some text on the page is highlighted (to show as many buttons
+            as possible) looks like so:
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: center">
+                  <img
+                    src="/files/holyshit-firefox.png"
+                    alt="Firefox fresh-install right-click"
+                    width="400"
+                  />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center">
+                  <em>Freshly installed Firefox, right-clicking</em>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            To be blunt: holy fucking shit, what the fuck is all of this shit?
+            26 rows of which 2 are greyed-out (aka: fucking useless), 7
+            dividers, 2 submenus; because a single row for “Ask an AI Chatbot”
+            wasn’t enough, they just had to make another <em>submenu</em>.
+            Amazing.
+          </p>
+
+          <p>
+            The “Inspect Accessibility Properties” button was added because I
+            opened the DevTools (Inspector) once. It’s not obvious how to
+            actually disable it ever again. Why am I shown “Copy Clean Link” if
+            there is no clean link (or the link is already clean)? The same goes
+            for “Copy Clean Link to Highlight”. Why can’t I make it so it always
+            defaults to the “clean link” no matter what (and get rid of “Copy
+            Link” completely, instead)? “Ask an AI Chatbot”? No, fuck you.
+          </p>
+
+          <p>
+            The rest? Completely useless. Thanks for showing me every feature
+            you’ve ever shipped, with no authoritative selection of what users
+            actually care about – and making it completely non-obvious how to
+            disable the useless shit here.
+          </p>
+
+          <p>
+            Enough venting, let’s clean this all up. The following settings in
+            <code class="language-plaintext highlighter-rouge"
+              >about:config</code
+            >
+            can be used to disable a ton of these useless right-click menu
+            buttons. Note, some of them actually disable other functionality, so
+            choose wisely. We can set the following to
+            <code class="language-plaintext highlighter-rouge">false</code>:
+          </p>
+
+          <ul>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >browser.translations.select.enable</code
+              >
+              – Removes the “Translate Selection” button from the right-click
+              menu.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >screenshots.browser.component.enabled</code
+              >
+              – Disables the built-in Firefox screenshot functionality, which
+              also removes the “Take Screenshot” button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >dom.text_fragments.enabled</code
+              >
+              – Disables Text Fragments support, which also removes the “Copy
+              Link to Highlight” button (and disables the auto-focus on URLs
+              that include
+              <code class="language-plaintext highlighter-rouge"
+                >#:~:text=...</code
+              >).
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >privacy.query_stripping.strip_on_share.enabled</code
+              >
+              – Removes the “Copy Clean Link” / “Copy Link Without Site
+              Tracking” buttons.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >devtools.accessibility.enabled</code
+              >
+              – Disables the DevTools Accessibility Inspector and removes the
+              “Inspect Accessibility Properties” button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >browser.ml.chat.menu</code
+              >
+              – Removes the “Ask an AI Chatbot” button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >browser.ml.linkPreview.enabled</code
+              >
+              – Disables Link Previews (and the AI-generated key points inside
+              them), removing “Preview Link” button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >dom.text-recognition.enabled</code
+              >
+              – Disables OCR on images, removing the “Copy Text From Image”
+              button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >browser.search.visualSearch.featureGate</code
+              >
+              – Disables Visual Search (Google Lens integration) and removes
+              “Search Image with Google Lens” button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >extensions.formautofill.addresses.enabled</code
+              >
+              – Disables address autofill and the associated menu/button that
+              sometimes appears in forms.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >extensions.formautofill.creditCards.enabled</code
+              >
+              – Disables credit card/payment method autofill and removes the
+              associated menu/button that sometimes appears in forms.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >widget.macos.native-context-menus</code
+              >
+              – Turns off native macOS context menus so Firefox uses its own
+              menus. This removes the “Services” button.
+            </li>
+            <li>
+              <code class="language-plaintext highlighter-rouge"
+                >print.enabled</code
+              >
+              – Completely disables Firefox’ printing UI and capabilities, which
+              also removes the “Print” and “Print Selection…” buttons.
+            </li>
+          </ul>
+
+          <p>How do we look now?</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: center">
+                  <img
+                    src="/files/firefox-fail.png"
+                    alt="Firefox right-click after disabling the above options"
+                    width="400"
+                  />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center">
+                  <em
+                    >Firefox right-clicking, after disabling everything
+                    above</em
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            Great, much better, we’re down from 26 buttons to just 15. Here’s
+            what it looks like when you right-click on a page and when you
+            right-click a link:
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: center">
+                  <img
+                    src="/files/firefox-click-notext.png"
+                    alt="Right-clicking on a page"
+                    width="250"
+                  />
+                </th>
+                <th style="text-align: center">
+                  <img
+                    src="/files/firefox-click-link.png"
+                    alt="Right-clicking on a link"
+                    width="250"
+                  />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center">
+                  <em>Right-clicking on a page</em>
+                </td>
+                <td style="text-align: center">
+                  <em>Right-clicking on a link</em>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>We still have the following useless buttons though:</p>
+
+          <ul>
+            <li>“Bookmark Link…”</li>
+            <li>“Save Link As…”</li>
+            <li>“Email Image…”</li>
+            <li>“Set Image as Desktop Background…”</li>
+            <li>“Bookmark Page…”</li>
+          </ul>
+
+          <p>
+            Why do all of the above have
+            <code class="language-plaintext highlighter-rouge">...</code>?
+            <del>No clue</del> (edit: according to
+            <a href="https://news.ycombinator.com/item?id=47252016">this</a>,
+            “<em
+              >it means that more information is required to complete the task
+              (e.g. requesting the filename for saving a file)</em
+            >”. But the real bad news is that we can’t get rid of these things
+            by simply toggling some option in
+            <code class="language-plaintext highlighter-rouge"
+              >about:config</code
+            >.
+          </p>
+
+          <p>We also have these when we right-click in a form:</p>
+
+          <ul>
+            <li>“Check Spelling”</li>
+            <li>“Languages”</li>
+          </ul>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: center">
+                  <img
+                    src="/files/form-firefox-annoying.png"
+                    alt="Form right-click annoying buttons"
+                    width="300"
+                  />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center">
+                  <em>Right-clicking in a form</em>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            Despite the browser only being used in one language, there is no way
+            to get rid of the “Languages” menu there. It’s possible to get rid
+            of “Check Spelling” by completely disabling spellcheck, but that’s a
+            useful feature for me, so I don’t.
+          </p>
+
+          <p>
+            Those remaining useless buttons can only be removed by creating a
+            custom
+            <a href="https://www.userchrome.org/what-is-userchrome-css.html"
+              >userChrome.css</a
+            >. I’ll cover how to do that in my next post.
+          </p>
+          <hr />
+
+          <p>
+            For what it’s worth, it is nice that these buttons can be
+            enabled/disabled, and
+            <code class="language-plaintext highlighter-rouge"
+              >userChrome.css</code
+            >
+            is cool. But at the same time, imagine being a completely new
+            Firefox user, who has zero use for any of this? How are they
+            supposed to figure out how to do all of this? It took me a
+            significant amount of time to find those settings to disable (and
+            some of them are hacks, like disabling
+            <code class="language-plaintext highlighter-rouge"
+              >print.enabled</code
+            >). Maybe Firefox should implement something similar to their
+            “Customize Toolbar”, which makes it easy to plug &amp; play each of
+            the right-click buttons. “PRs welcome” as they say, I suppose.
+          </p>
+        </article>
+
+        <span class="post-date">
+          Published on
+          <time datetime="2026-03-04"> March 4th , 2026 </time>
+
+          by
+          <a href="/about"> Joshua Rogers </a>
+        </span>
+
+        <div class="post-date"></div>
+        <!-- <div class="sharing-icons">
+  <a href="https://twitter.com/intent/tweet?text=Making Firefox's right-click not suck with about:config&amp;url=https://joshua.hu/firefox-making-right-click-not-suck" target="_blank"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+  <a href="https://www.facebook.com/sharer/sharer.php?u=https://joshua.hu/firefox-making-right-click-not-suck&amp;title=Making Firefox's right-click not suck with about:config" target="_blank"><i class="fa-brands fa-facebook" aria-hidden="true"></i></a>
+</div> -->
+
+        <div class="related">
+          <h2 class="related-title">Related Posts</h2>
+          <ul class="related-posts" role="list">
+            <li class="related-post">
+              <div class="related-link">
+                <span class="related-post-title">
+                  <a href="/chatgpt-fail-loading-firefox"
+                    >wtf is NS_ERROR_INVALID_CONTENT_ENCODING? investigating
+                    shared dictionaries and ChatGPT breakage in Firefox</a
+                  >
+                </span>
+
+                <time
+                  class="related-post-date"
+                  datetime="2026-01-16T00:00:00+00:00"
+                >
+                  January 16, 2026
+                </time>
+              </div>
+            </li>
+
+            <li class="related-post">
+              <div class="related-link">
+                <span class="related-post-title">
+                  <a
+                    href="/mozilla-firefox-trusting-system-root-stores-qwacs-eu"
+                    >Firefox now automatically trusting the operating system's
+                    root store for TLS certificates - update: it does so only
+                    for user-added ones</a
+                  >
+                </span>
+
+                <time
+                  class="related-post-date"
+                  datetime="2024-01-09T00:00:00+00:00"
+                >
+                  January 9, 2024
+                </time>
+              </div>
+            </li>
+
+            <li class="related-post">
+              <div class="related-link">
+                <span class="related-post-title">
+                  <a href="/iranian-browser-extension-addon-censorship-bypasses"
+                    >On Iranian Censorship, Bypasses, Browser Extensions, and
+                    Proxies</a
+                  >
+                </span>
+
+                <time
+                  class="related-post-date"
+                  datetime="2025-06-18T00:00:00+00:00"
+                >
+                  June 18, 2025
+                </time>
+              </div>
+            </li>
+
+            <li class="related-post">
+              <div class="related-link">
+                <span class="related-post-title">
+                  <a href="/using-private-browsing-mode-only"
+                    >On using private browsing mode for half a year</a
+                  >
+                </span>
+
+                <time
+                  class="related-post-date"
+                  datetime="2024-06-18T00:00:00+00:00"
+                >
+                  June 18, 2024
+                </time>
+              </div>
+            </li>
+
+            <li class="related-post">
+              <div class="related-link">
+                <span class="related-post-title">
+                  <a href="/slack-is-broken-with-noscript"
+                    >Slack login is broken with noscript</a
+                  >
+                </span>
+
+                <time
+                  class="related-post-date"
+                  datetime="2023-08-20T00:00:00+00:00"
+                >
+                  August 20, 2023
+                </time>
+              </div>
+            </li>
+
+            <li class="related-post">
+              <div class="related-link">
+                <span class="related-post-title">
+                  <a
+                    href="/ccbot-chrome-checker-bot-googlechromereleases-chromium-updates"
+                    >CCBot: Chrome Checker Bot for Chrome Security Releases</a
+                  >
+                </span>
+
+                <time
+                  class="related-post-date"
+                  datetime="2025-10-03T00:00:00+00:00"
+                >
+                  October 3, 2025
+                </time>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <footer class="footer">
+        <a
+          href="https://github.com/MegaManSec"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub"
+        >
+          <i class="fa-brands fa-github" aria-hidden="true"></i>
+        </a>
+
+        <a
+          href="https://x.com/MegaManSec"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="X (Twitter)"
+        >
+          <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
+        </a>
+
+        <a
+          href="https://www.linkedin.com/in/joshua-alexander-rogers/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="LinkedIn"
+        >
+          <i class="fa-brands fa-linkedin" aria-hidden="true"></i>
+        </a>
+
+        <a
+          href="https://news.ycombinator.com/user?id=mmsc"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Hacker News"
+        >
+          <i class="fa-brands fa-hackernews" aria-hidden="true"></i>
+        </a>
+
+        <a href="/feed.xml" aria-label="RSS Feed">
+          <i class="fa fa-rss-square" aria-hidden="true"></i>
+        </a>
+
+        <div class="footer-description">
+          <a href="https://joshua.hu/"
+            >Joshua Rogers' Scribbles | by Joshua Rogers</a
+          >
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
