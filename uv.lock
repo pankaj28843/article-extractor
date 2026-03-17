@@ -407,11 +407,11 @@ wheels = [
 
 [[package]]
 name = "justhtml"
-version = "0.40.0"
+version = "1.10.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e3/56/e7d75649c10f8c3f29d9696f9d9f2527fe39fa93f8af88726f27d2c231ed/justhtml-0.40.0.tar.gz", hash = "sha256:4b4f535d105a41c1df9b0cb90e908b56f72351cbaad883efeea635ca8466144e", size = 324781, upload-time = "2026-01-19T22:27:59.692Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/bb/1e36f51aa2912d793c54a370f396ecb0dbb2c4179a4106e98f8295aa343e/justhtml-1.10.0.tar.gz", hash = "sha256:d355ed75f798a79e05e3879419a83108c28193d6350ad224e6c5168e5fdd3ec5", size = 374805, upload-time = "2026-03-15T14:59:55.044Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/4a/8dd189efcd136e340040773a2b9d4588707be6837eaaa1dbc01c9773ad1f/justhtml-0.40.0-py3-none-any.whl", hash = "sha256:eb6e4077d33c1e71c606d58367a940f255ed6131e99b5e8c268279fd5ebefced", size = 117724, upload-time = "2026-01-19T22:27:57.81Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/ae/8984d2759e1b730e44dc7ec2a07455df20a3847330b4bee5a8924dbb63c6/justhtml-1.10.0-py3-none-any.whl", hash = "sha256:96ec7f50a36abe72f28691d8af28b1550cd654277610a6c61d7cf29213b92c81", size = 133206, upload-time = "2026-03-15T14:59:53.447Z" },
 ]
 
 [[package]]
