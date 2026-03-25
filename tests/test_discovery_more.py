@@ -682,7 +682,10 @@ def test_rate_limit_state_get_delay(monkeypatch):
         def uniform(self, _low, _high):
             return 1.0
 
-    monkeypatch.setattr(secrets, "SystemRandom", lambda: _FixedRandom())
+    def _system_random() -> _FixedRandom:
+        return _FixedRandom()
+
+    monkeypatch.setattr(secrets, "SystemRandom", _system_random)
 
     assert state.get_delay() == 2.0
 
@@ -694,7 +697,10 @@ def test_adaptive_rate_limiter_get_delay(monkeypatch):
         def uniform(self, _low, _high):
             return 1.0
 
-    monkeypatch.setattr(secrets, "SystemRandom", lambda: _FixedRandom())
+    def _system_random() -> _FixedRandom:
+        return _FixedRandom()
+
+    monkeypatch.setattr(secrets, "SystemRandom", _system_random)
 
     assert limiter.get_delay("https://example.com") == 2.0
 
@@ -1116,7 +1122,10 @@ def test_save_cookies_handles_write_error(monkeypatch):
         def write_text(self, _value):
             raise OSError("boom")
 
-    monkeypatch.setattr(crawler, "_get_cookie_file_path", lambda: _BadPath())
+    def _get_cookie_file_path() -> _BadPath:
+        return _BadPath()
+
+    monkeypatch.setattr(crawler, "_get_cookie_file_path", _get_cookie_file_path)
 
     asyncio.run(crawler._save_cookies())
 

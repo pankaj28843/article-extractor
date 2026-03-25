@@ -57,7 +57,10 @@ def _install_dummy_playwright(monkeypatch):
         async def start(self):
             return DummyPlaywright()
 
-    dummy_module = SimpleNamespace(async_playwright=lambda: DummyAsyncPlaywright())
+    def _async_playwright() -> DummyAsyncPlaywright:
+        return DummyAsyncPlaywright()
+
+    dummy_module = SimpleNamespace(async_playwright=_async_playwright)
     monkeypatch.setitem(sys.modules, "playwright.async_api", dummy_module)
 
 

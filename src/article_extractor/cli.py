@@ -85,6 +85,11 @@ def _prompt_output_dir() -> Path:
     return Path(user_input).expanduser().resolve()
 
 
+def _resolve_output_dir(path: str) -> Path:
+    """Resolve a user-provided output directory path."""
+    return Path(path).expanduser().resolve()
+
+
 def _print_crawl_progress(progress) -> None:
     """Print crawl progress to stderr."""
     from .crawler import CrawlProgress
@@ -119,7 +124,7 @@ async def _run_crawl_command(
 
     # Get output directory (prompt if not provided)
     if args.output_dir:
-        output_dir = Path(args.output_dir).expanduser().resolve()
+        output_dir = _resolve_output_dir(args.output_dir)
     else:
         output_dir = _prompt_output_dir()
 

@@ -71,10 +71,15 @@ def _is_local_path(source: str) -> bool:
     return "/" in source or source.endswith(".xml") or Path(source).exists()
 
 
+def _read_local_sitemap(path: str) -> str:
+    """Read a local sitemap file from disk."""
+    return Path(path).read_text(encoding="utf-8")
+
+
 async def _load_local_sitemap(path: str) -> list[str]:
     """Read and parse a local sitemap file."""
     try:
-        content = Path(path).read_text(encoding="utf-8")
+        content = _read_local_sitemap(path)
     except OSError as exc:
         logger.warning("Failed to read local sitemap %s: %s", path, exc)
         return []

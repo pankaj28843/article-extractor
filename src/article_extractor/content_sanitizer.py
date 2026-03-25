@@ -146,7 +146,7 @@ def _is_valid_image_filename(filename: str) -> bool:
     """Check if a bare filename looks like a valid image file."""
     # Require a common image extension and a minimally descriptive basename to avoid
     # accepting tiny tracking pixels such as "t.gif" or "p.png"
-    filename = filename.split("/")[-1]
+    filename = filename.rsplit("/", maxsplit=1)[-1]
     name, dot, ext = filename.rpartition(".")
     if not dot:
         return False
