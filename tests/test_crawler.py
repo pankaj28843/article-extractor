@@ -30,6 +30,10 @@ from article_extractor.types import (
 )
 
 
+def _list_markdown_files(path: Path) -> list[Path]:
+    return list(path.glob("**/*.md"))
+
+
 @pytest.mark.asyncio
 async def test_crawler_enqueues_seed_urls_with_max_pages(tmp_path: Path) -> None:
     config = CrawlConfig(
@@ -1014,7 +1018,7 @@ async def test_run_crawl_writes_markdown_files(tmp_path: Path) -> None:
         manifest = await run_crawl(config)
 
     # Check that a markdown file was created
-    md_files = list(tmp_path.glob("**/*.md"))
+    md_files = _list_markdown_files(tmp_path)
     assert len(md_files) >= 1
 
     # Verify manifest has file_path set

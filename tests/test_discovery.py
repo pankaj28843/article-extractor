@@ -34,7 +34,10 @@ async def test_crawler_skips_recently_visited_urls(monkeypatch, tmp_path):
     )
     crawler = EfficientCrawler({skip_url, keep_url}, config)
 
-    monkeypatch.setattr(crawler, "_create_client", lambda: _FakeClient())
+    def _create_client() -> _FakeClient:
+        return _FakeClient()
+
+    monkeypatch.setattr(crawler, "_create_client", _create_client)
 
     async def _fake_process(url: str):
         crawler.collected.add(url)
