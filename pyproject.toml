@@ -1,6 +1,6 @@
 [project]
 name = "article-extractor"
-version = "0.5.7"
+version = "0.5.8"
 description = "Pure-Python article extraction library and HTTP service - Drop-in replacement for readability-js-server"
 readme = "README.md"
 license = { text = "MIT" }
@@ -19,47 +19,49 @@ classifiers = [
 ]
 
 dependencies = [
-    "justhtml>=1.13.0",
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.13.1",
-    "defusedxml>=0.7.1",
+    "justhtml==1.13.0",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.13.1",
+    "defusedxml==0.7.1",
 ]
 
 [project.optional-dependencies]
-playwright = ["playwright>=1.58.0"]
-httpx = ["httpx>=0.28.1"]
+playwright = ["playwright==1.58.0"]
+httpx = ["httpx==0.28.1"]
 server = [
-    "fastapi>=0.135.2",
-    "uvicorn[standard]>=0.42.0",
-    "httpx>=0.28.1",
-    "fake-useragent>=2.2.0",
+    "fastapi==0.135.2",
+    "uvicorn[standard]==0.42.0",
+    "httpx==0.28.1",
+    "fake-useragent==2.2.0",
 ]
-ua = ["fake-useragent>=2.2.0"]
-docs = ["mkdocs>=1.6.1"]
+ua = ["fake-useragent==2.2.0"]
+docs = ["mkdocs==1.6.1"]
 all = [
-    "playwright>=1.58.0",
-    "httpx>=0.28.1",
-    "fastapi>=0.135.2",
-    "uvicorn[standard]>=0.42.0",
-    "fake-useragent>=2.2.0",
+    "playwright==1.58.0",
+    "httpx==0.28.1",
+    "fastapi==0.135.2",
+    "uvicorn[standard]==0.42.0",
+    "fake-useragent==2.2.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
-    "pytest-cov>=7.1.0",
-    "ruff>=0.15.7",
-    "mkdocs>=1.6.1",
-    "httpx>=0.28.1",
-    "fastapi>=0.135.2",
-    "uvicorn[standard]>=0.42.0",
-    "fake-useragent>=2.2.0",
-    "playwright>=1.58.0",
+    "pytest==9.0.2",
+    "pytest-asyncio==1.3.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.15.7",
+    "mkdocs==1.6.1",
+    "httpx==0.28.1",
+    "fastapi==0.135.2",
+    "uvicorn[standard]==0.42.0",
+    "fake-useragent==2.2.0",
+    "playwright==1.58.0",
 ]
 
 [tool.uv]
 default-groups = ["dev"]
+exclude-newer = "7 days"
+exclude-newer-package = { justhtml = "2026-03-22", fastapi = "2026-03-24", pytest-cov = "2026-03-22", ruff = "2026-03-20" }
 
 [project.urls]
 Homepage = "https://github.com/pankaj28843/article-extractor"

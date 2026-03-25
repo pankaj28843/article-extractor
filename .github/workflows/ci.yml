@@ -8,6 +8,7 @@ on:
 
 env:
   UV_VERSION: "0.9.21"
+  UV_EXCLUDE_NEWER: "7 days"
 
 jobs:
   test:
@@ -114,6 +115,9 @@ jobs:
 
       - name: Build package
         run: uv build
+
+      - name: Verify built distributions
+        run: python scripts/verify_distribution.py dist/*.whl dist/*.tar.gz
 
       - name: Check built package
         run: |

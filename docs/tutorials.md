@@ -16,7 +16,7 @@ Each tutorial embeds the exact commands and trimmed output captured on 2026-01-0
 **Act**
 
 ```bash
-uv pip install article-extractor --upgrade
+uv pip install "article-extractor==0.5.8" --upgrade
 uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia --output markdown > ./tmp/article-extractor-cli.md
 head -n 12 ./tmp/article-extractor-cli.md
 ```
@@ -77,7 +77,7 @@ INFO:     Uvicorn running on http://0.0.0.0:3000 (Press CTRL+C to quit)
 **Act**
 
 ```bash
-uv pip install article-extractor --upgrade
+uv pip install "article-extractor==0.5.8" --upgrade
 uv run python - <<'PY'
 from article_extractor import extract_article
 sample_html = """
@@ -103,3 +103,19 @@ PY
 - Inline HTML example prints the provided title and a positive word count.
 - Async fetch prints `Remote success: True` and a word count around 33k, matching CLI/Docker runs.
 - Pass `NetworkOptions` or `FetchPreferences` arguments whenever you need proxies, user-agents, or headed Playwright (see [Networking Controls](operations.md#networking-controls)).
+
+## Supply Chain Safety
+
+**Arrange**
+- Automation that installs packages without a human in the loop.
+
+**Act**
+
+```bash
+export UV_EXCLUDE_NEWER="7 days"
+uv pip install "article-extractor==0.5.8"
+```
+
+**Assert**
+- The install is pinned to an exact package version instead of floating to the latest release.
+- The resolver rejects dependencies uploaded in the last 7 days, which gives malicious or compromised publishes time to be detected before your environment consumes them.

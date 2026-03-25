@@ -6,8 +6,8 @@ We release patches for security vulnerabilities in the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 0.5.x   | :white_check_mark: |
+| < 0.5   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -43,6 +43,7 @@ This project employs several security measures:
 - **CodeQL Analysis**: Automated security scanning on every push and PR
 - **Dependabot**: Automated dependency updates for security patches
 - **Ruff Security Rules**: flake8-bandit security linting rules enabled
+- **Distribution verification**: Built wheels and sdists are checked for `.pth` hooks, `sitecustomize.py`, and unexpected top-level payloads before release
 
 ### Runtime Security
 - **XSS-safe output**: HTML sanitization via JustHTML by default
@@ -67,6 +68,12 @@ We use GitHub's Dependabot to:
 - Automatically create PRs for security updates
 - Keep all dependencies up to date
 - Monitor for known vulnerabilities in the dependency tree
+
+We also harden dependency intake and publishing:
+- Direct package dependencies are exact-pinned in `pyproject.toml` instead of floating with open-ended `>=` ranges.
+- `uv` resolution is configured with a 7-day `exclude-newer` cooldown for local and CI automation.
+- Dependabot applies a 7-day cooldown before opening routine update PRs.
+- PyPI publishing uses GitHub OIDC trusted publishing and uploads distribution attestations through `pypa/gh-action-pypi-publish`.
 
 ## Security Updates
 

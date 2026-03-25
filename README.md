@@ -33,7 +33,7 @@ See the [Docs Home](https://pankaj28843.github.io/article-extractor/) for the co
 
 | Goal | Start Here | Time | Verified Commands |
 | --- | --- | --- | --- |
-| Run the CLI once | [CLI Fast Path](https://pankaj28843.github.io/article-extractor/tutorials/#cli-fast-path) | < 2 min | `uv pip install article-extractor`, `uv run article-extractor …`, `head ./tmp/article-extractor-cli.md` |
+| Run the CLI once | [CLI Fast Path](https://pankaj28843.github.io/article-extractor/tutorials/#cli-fast-path) | < 2 min | `uv pip install "article-extractor==0.5.8"`, `uv run article-extractor …`, `head ./tmp/article-extractor-cli.md` |
 | Ship the FastAPI server in Docker | [Docker Service](https://pankaj28843.github.io/article-extractor/tutorials/#docker-service) | ~5 min | `docker run ghcr.io/pankaj28843/article-extractor:latest`, `curl http://localhost:3000/health`, `curl -XPOST … | jq` |
 | Embed the library | [Python Embedding](https://pankaj28843.github.io/article-extractor/tutorials/#python-embedding) | ~5 min | `uv run python - <<'PY' …`, `asyncio.run(fetch_remote())` |
 | Tune caches, networking, diagnostics, releases | [Operations Runbook](https://pankaj28843.github.io/article-extractor/operations/) | task-specific | Env vars, Docker overrides, StatsD flags, `gh` CLI |
@@ -41,12 +41,23 @@ See the [Docs Home](https://pankaj28843.github.io/article-extractor/) for the co
 ## Install (Any Environment)
 
 ```bash
-pip install article-extractor           # CLI + library
-pip install article-extractor[server]   # FastAPI server extras
-pip install article-extractor[all]      # Playwright, httpx, FastAPI, fake-useragent
+pip install "article-extractor==0.5.8"           # CLI + library
+pip install "article-extractor[server]==0.5.8"   # FastAPI server extras
+pip install "article-extractor[all]==0.5.8"      # Playwright, httpx, FastAPI, fake-useragent
 ```
 
-Prefer uv? Run `uv pip install article-extractor` or add it to `pyproject.toml` via `uv add article-extractor[all]`.
+Prefer uv? Run `uv pip install "article-extractor==0.5.8"` or add it to `pyproject.toml` via `uv add "article-extractor[all]==0.5.8"`.
+
+### Safer Automated Installs
+
+For unattended installs, use an exact package version plus a cooldown window so your resolver does not pick versions uploaded minutes ago:
+
+```bash
+export UV_EXCLUDE_NEWER="7 days"
+uv pip install "article-extractor==0.5.8"
+```
+
+If you use pip-based automation instead of uv, prefer a locked requirements file with hashes and an upload cutoff timestamp rather than floating `latest`.
 
 ### Developer / Active Development Install
 

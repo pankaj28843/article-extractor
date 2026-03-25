@@ -125,6 +125,7 @@ uv run article-extractor https://en.wikipedia.org/wiki/Wikipedia --output text |
 **Act**
 
 ```bash
+export UV_EXCLUDE_NEWER="7 days"
 uv run ruff format .
 uv run ruff check --fix .
 PYTHONPATH=src uv run pytest tests/ --cov=src/article_extractor --cov-report=term-missing
@@ -140,6 +141,7 @@ Add `uv run scripts/debug_docker_deployment.py --skip-build --tail-lines 120` wh
 - Coverage stays ≥93%.
 - CLI help exits 0 and prints the latest options.
 - MkDocs builds succeed without nav/anchor warnings.
+- Dependency resolution honors a 7-day cooldown before accepting newly uploaded packages.
 
 ## Release Automation
 
@@ -150,12 +152,15 @@ Add `uv run scripts/debug_docker_deployment.py --skip-build --tail-lines 120` wh
 **Act**
 
 ```bash
+export UV_EXCLUDE_NEWER="7 days"
 uv run uvicorn article_extractor.server:app --host 0.0.0.0 --port 3000 &
 sleep 2
 curl -sf http://localhost:3000/health
 kill %1
 
 uv run scripts/debug_docker_deployment.py --skip-build --tail-lines 120
+uv build
+python scripts/verify_distribution.py dist/*.whl dist/*.tar.gz
 
 gh run list --workflow docs --limit 1 | head -n 10
 gh api repos/:owner/:repo/pages | head -n 20
@@ -166,5 +171,6 @@ uv run mkdocs gh-deploy --remote-branch gh-pages
 **Assert**
 - Local server health check succeeds before tagging.
 - Smoke harness logs `Docker validation harness completed successfully` and HTTP 200s.
+- Built wheels and sdists contain no `.pth` hooks, `sitecustomize.py`, or unexpected top-level payloads.
 - `gh run list` shows the latest docs workflow green; `gh api repos/:owner/:repo/pages` confirms Actions-based publishing.
 - `mkdocs gh-deploy` serves as the documented fallback. Record the fallback in the PR description so the workflow can resume control on the next push.
