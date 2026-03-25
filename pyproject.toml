@@ -19,28 +19,28 @@ classifiers = [
 ]
 
 dependencies = [
-    "justhtml>=0.40.0",
+    "justhtml>=1.13.0",
     "pydantic>=2.12.5",
-    "pydantic-settings>=2.12.0",
+    "pydantic-settings>=2.13.1",
     "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
-playwright = ["playwright>=1.57.0"]
+playwright = ["playwright>=1.58.0"]
 httpx = ["httpx>=0.28.1"]
 server = [
-    "fastapi>=0.128.0",
-    "uvicorn[standard]>=0.40.0",
+    "fastapi>=0.135.2",
+    "uvicorn[standard]>=0.42.0",
     "httpx>=0.28.1",
     "fake-useragent>=2.2.0",
 ]
 ua = ["fake-useragent>=2.2.0"]
 docs = ["mkdocs>=1.6.1"]
 all = [
-    "playwright>=1.57.0",
+    "playwright>=1.58.0",
     "httpx>=0.28.1",
-    "fastapi>=0.128.0",
-    "uvicorn[standard]>=0.40.0",
+    "fastapi>=0.135.2",
+    "uvicorn[standard]>=0.42.0",
     "fake-useragent>=2.2.0",
 ]
 
@@ -48,14 +48,14 @@ all = [
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
-    "pytest-cov>=7.0",
-    "ruff>=0.14.13",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.7",
     "mkdocs>=1.6.1",
     "httpx>=0.28.1",
-    "fastapi>=0.128.0",
-    "uvicorn[standard]>=0.40.0",
+    "fastapi>=0.135.2",
+    "uvicorn[standard]>=0.42.0",
     "fake-useragent>=2.2.0",
-    "playwright>=1.57.0",
+    "playwright>=1.58.0",
 ]
 
 [tool.uv]
