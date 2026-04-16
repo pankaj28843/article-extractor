@@ -761,11 +761,16 @@ class TestCrawlEndpoints:
         assert response.status_code == 400
         assert "seed URL or sitemap" in response.json()["detail"]
 
-    def test_submit_crawl_validates_output_dir(self, client):
+    def test_submit_crawl_validates_output_dir(self, client, tmp_path):
+        # Use an existing file as output_dir so validation fails regardless of
+        # process privileges (e.g. when tests run as root).
+        not_a_dir = tmp_path / "not_a_dir.txt"
+        not_a_dir.write_text("placeholder", encoding="utf-8")
+
         response = client.post(
             "/crawl",
             json={
-                "output_dir": "/nonexistent/path/that/cannot/be/created/deeply/nested",
+                "output_dir": str(not_a_dir),
                 "seeds": ["https://example.com"],
             },
         )

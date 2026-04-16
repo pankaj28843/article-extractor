@@ -1508,3 +1508,59 @@ class TestExtractorAsyncEdges:
             )
 
         assert result.success is True
+
+
+@pytest.mark.unit
+class TestHostSpecificAdjusters:
+    """Exercise the private per-host candidate adjusters."""
+
+    def _chain(self, ids: list[str]):
+        """Build a parent-linked chain of SimpleNamespace nodes from top to bottom."""
+        from types import SimpleNamespace
+
+        top = SimpleNamespace(attrs={"id": ids[0]}, parent=None)
+        current = top
+        for node_id in ids[1:]:
+            child = SimpleNamespace(attrs={"id": node_id}, parent=current)
+            current = child
+        return current  # bottom-most node
+
+    def test_find_ancestor_by_id_returns_none_when_missing(self):
+        from article_extractor.extractor import _find_ancestor_by_id
+
+        leaf = self._chain(["root", "section", "leaf"])
+        assert _find_ancestor_by_id(leaf, "does-not-exist") is None
+
+    def test_find_ancestor_by_id_finds_root(self):
+        from article_extractor.extractor import _find_ancestor_by_id
+
+        leaf = self._chain(["root", "section", "leaf"])
+        found = _find_ancestor_by_id(leaf, "root")
+        assert found is not None
+        assert found.attrs["id"] == "root"
+
+    def test_adjust_martinfowler_without_paperbody_returns_none(self):
+        from types import SimpleNamespace
+
+        from article_extractor.extractor import _adjust_martinfowler_candidate
+
+        node = SimpleNamespace(attrs={"class": "article"}, parent=None)
+        assert _adjust_martinfowler_candidate(node) is None
+
+    def test_adjust_martinfowler_with_list_class_returns_parent(self):
+        from types import SimpleNamespace
+
+        from article_extractor.extractor import _adjust_martinfowler_candidate
+
+        parent = SimpleNamespace(attrs={}, parent=None)
+        node = SimpleNamespace(attrs={"class": ["paperBody", "article"]}, parent=parent)
+        assert _adjust_martinfowler_candidate(node) is parent
+
+    def test_adjust_martinfowler_with_string_class_returns_parent(self):
+        from types import SimpleNamespace
+
+        from article_extractor.extractor import _adjust_martinfowler_candidate
+
+        parent = SimpleNamespace(attrs={}, parent=None)
+        node = SimpleNamespace(attrs={"class": "paperBody wrapper"}, parent=parent)
+        assert _adjust_martinfowler_candidate(node) is parent

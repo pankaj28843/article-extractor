@@ -846,18 +846,38 @@ class TestPlaywrightFetcherContextManager:
                 pass
 
     async def test_aenter_with_proxy(self, monkeypatch):
-        """__aenter__ should use HTTP proxy from environment."""
+        """__aenter__ should forward the configured proxy to browser launch."""
         from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
 
-        monkeypatch.setenv("HTTP_PROXY", "http://proxy:8080")
+        monkeypatch.setattr(fetcher_module, "_check_playwright", lambda: True)
+        _install_dummy_playwright(monkeypatch)
+
+        fetcher = PlaywrightFetcher(network=NetworkOptions(proxy="http://proxy:8080"))
+
+        await fetcher.__aenter__()
+        try:
+            assert fetcher._playwright.launch_kwargs["proxy"] == {
+                "server": "http://proxy:8080"
+            }
+        finally:
+            await fetcher.__aexit__(None, None, None)
+
+    async def test_aenter_without_proxy_omits_proxy(self, monkeypatch):
+        """__aenter__ should not add a proxy entry when none configured."""
+        from article_extractor import PlaywrightFetcher
+        from article_extractor import fetcher as fetcher_module
+
+        monkeypatch.setattr(fetcher_module, "_check_playwright", lambda: True)
+        _install_dummy_playwright(monkeypatch)
 
         fetcher = PlaywrightFetcher()
 
+        await fetcher.__aenter__()
         try:
-            async with fetcher:
-                pass
-        except ImportError:
-            pytest.skip("Playwright not installed")
+            assert "proxy" not in fetcher._playwright.launch_kwargs
+        finally:
+            await fetcher.__aexit__(None, None, None)
 
     async def test_aenter_initializes_browser_and_context(self, monkeypatch, tmp_path):
         """__aenter__ should launch browser, load storage, and create semaphore."""

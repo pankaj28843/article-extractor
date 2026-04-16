@@ -470,3 +470,59 @@ class TestNodeHasVisibleContent:
         doc = JustHTML("<p><img></p>", safe=False)
         node = doc.query("p")[0]
         assert _node_has_visible_content(node) is False
+
+
+@pytest.mark.unit
+class TestClassIdString:
+    """Exercise the private _class_id_string helper."""
+
+    def test_class_as_list_is_joined(self):
+        from types import SimpleNamespace
+
+        from article_extractor.content_sanitizer import _class_id_string
+
+        node = SimpleNamespace(attrs={"class": ["hero", "promo"], "id": "banner"})
+        assert _class_id_string(node) == "hero promo banner"
+
+    def test_class_as_string(self):
+        from types import SimpleNamespace
+
+        from article_extractor.content_sanitizer import _class_id_string
+
+        node = SimpleNamespace(attrs={"class": "main", "id": "article"})
+        assert _class_id_string(node) == "main article"
+
+    def test_missing_attrs(self):
+        from types import SimpleNamespace
+
+        from article_extractor.content_sanitizer import _class_id_string
+
+        node = SimpleNamespace(attrs=None)
+        assert _class_id_string(node) == ""
+
+
+@pytest.mark.unit
+class TestCalculateLinkDensity:
+    """Exercise the private _calculate_link_density helper."""
+
+    def test_empty_node_returns_zero(self):
+        from article_extractor.content_sanitizer import _calculate_link_density
+
+        doc = JustHTML("<div></div>", safe=False)
+        node = doc.query("div")[0]
+        assert _calculate_link_density(node) == 0.0
+
+    def test_all_text_is_link(self):
+        from article_extractor.content_sanitizer import _calculate_link_density
+
+        doc = JustHTML('<div><a href="/x">click me</a></div>', safe=False)
+        node = doc.query("div")[0]
+        assert _calculate_link_density(node) == pytest.approx(1.0)
+
+    def test_partial_link_density(self):
+        from article_extractor.content_sanitizer import _calculate_link_density
+
+        doc = JustHTML('<div>hello world <a href="/x">link</a></div>', safe=False)
+        node = doc.query("div")[0]
+        density = _calculate_link_density(node)
+        assert 0 < density < 1

@@ -1247,6 +1247,17 @@ def test_check_disk_space_handles_oserror(tmp_path: Path, monkeypatch) -> None:
     assert check_disk_space(tmp_path) is True
 
 
+def test_validate_output_dir_create_failure_raises(tmp_path: Path) -> None:
+    # A file as the parent makes mkdir fail with NotADirectoryError (a subclass
+    # of OSError) regardless of process privileges.
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x", encoding="utf-8")
+    target = blocker / "subdir"
+
+    with pytest.raises(ValueError, match="Cannot create output directory"):
+        validate_output_dir(target, create=True)
+
+
 @pytest.mark.asyncio
 async def test_load_local_sitemap_skips_remote_entries(tmp_path: Path) -> None:
     local_sitemap = tmp_path / "local.xml"

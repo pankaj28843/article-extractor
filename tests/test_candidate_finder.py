@@ -442,3 +442,15 @@ class TestFindTopCandidate:
         assert candidate is not None
         # Should find one of the fallback containers
         assert candidate.name in ("div", "body")
+
+
+class TestRefineCandidate:
+    """Exercise the private _refine_candidate helper."""
+
+    def test_empty_ranked_raises_value_error(self):
+        import pytest
+
+        from article_extractor.candidate_finder import _refine_candidate
+
+        with pytest.raises(ValueError, match="ranked candidates cannot be empty"):
+            _refine_candidate([])
