@@ -689,7 +689,13 @@ class EfficientCrawler:
                     )
                     await asyncio.sleep(delay)
                     continue
-                if status_code in (403, 404, 503):
+                if status_code in (404, 410):
+                    # Permanent: page doesn't exist. Don't retry, don't fall back to Playwright either.
+                    logger.debug(
+                        "httpx got %s for %s (permanent, no retry)", status_code, url
+                    )
+                    return None, rate_limited
+                if status_code in (403, 503):
                     wait_time = (attempt + 1) * 5.0
                     logger.warning(
                         "httpx got %s for %s, waiting %.1fs before retry %s",
