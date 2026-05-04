@@ -122,7 +122,7 @@ jobs:
 
       - name: Upload SARIF to GitHub
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.35.2
         with:
           sarif_file: ruff-security.sarif
           category: ruff-security
